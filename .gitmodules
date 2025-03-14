@@ -2,3 +2,6 @@
 	path = ragen
 	url = git@github.com:ZihanWang314/RAGEN.git
 	branch = main-new
+[submodule "verl"]
+	path = verl
+	url = git@github.com:volcengine/verl.git
