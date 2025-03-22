@@ -53,14 +53,11 @@ def compute_score(solution_str, ground_truth, format_score=0., score=1.):
     solution = extract_solution(solution_str)
     if solution is None:
         return 0
-    elif extract_action(solution) == 0:
-        return format_score
     else:
         action = extract_action(solution)
         if action == ground_truth:
             return score
-    
-    return 0
+        return format_score
 
 def main():
     solution_str = "Assistant: <action>up</action> <action>right</action> <action>down</action> <action>left</action>"
