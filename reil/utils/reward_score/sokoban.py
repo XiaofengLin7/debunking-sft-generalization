@@ -48,7 +48,7 @@ def extract_action(text):
     
     return 0
 
-def compute_score(solution_str, ground_truth, format_score=0., score=1.):
+def compute_score(solution_str, ground_truth, format_score=0.0, score=1.0, *args, **kwargs):
     """The scoring function for Sokoban."""
     solution = extract_solution(solution_str)
     if solution is None:

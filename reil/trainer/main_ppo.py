@@ -20,6 +20,7 @@ import os
 import ray
 import hydra
 
+from reil.utils.reward_score import sokoban
 
 def get_custom_reward_fn(config):
     import importlib.util, os

@@ -31,7 +31,7 @@ pip install -r requirements.txt
 ## Hardware Requirements
 
 Bfloat16 is only supported on GPUs with compute capability of at least 8.0.
-
+For 3B model, A100 is recommended.
 
 ## update submodules if necessary
 
