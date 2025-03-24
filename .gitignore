@@ -2,3 +2,6 @@
 .idea/
 /data/
 /models/
+/outputs/
+verl_demo.log
+__pycache__/

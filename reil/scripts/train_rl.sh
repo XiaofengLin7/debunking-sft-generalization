@@ -1,8 +1,10 @@
 set -x
 
 DATA_DIR="./data/sokoban"
-BASE_MODEL="Qwen/Qwen-2.5-3B-Instruct"
+BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-3B-Instruct/snapshots/aa8e72537993ba99e69dfaafa59ed015b17504d1"
 EXPERIMENT_NAME="sokoban-rl-exp"
+ROLLOUT_TP_SIZE=1
+N_GPUS=2
 
 python3 -m reil.trainer.main_ppo \
 data.train_files=$DATA_DIR/train.parquet \

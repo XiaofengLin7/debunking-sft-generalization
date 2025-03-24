@@ -19,19 +19,19 @@ conda create -n reil python=3.9
 conda activate reil
 git submodule init
 git submodule update
-cd thirdparty
-cd verl
-pip install -e . --no-dependencies
-cd ..
-cd ragen
-pip install -e . --no-dependencies
-cd ../..
+pip install -e thirdparty/verl --no-dependencies
+pip install -e thirdparty/ragen --no-dependencies
 conda install -c "nvidia/label/cuda-12.1.0" cuda-toolkit -y
 export CUDA_HOME=$CONDA_PREFIX
 pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cu121
 pip3 install flash-attn --no-build-isolation
 pip install -r requirements.txt
 ```
+
+## Hardware Requirements
+
+Bfloat16 is only supported on GPUs with compute capability of at least 8.0.
+
 
 ## update submodules if necessary
 
