@@ -50,6 +50,8 @@ def main():
     parser.add_argument("--search_depth", type=int, default=30, help="Maximum search depth for BFS (default: 30)")
     parser.add_argument("--prefix", type=str, default='qwen-instruct', choices=['qwen-instruct', 'base'], 
                        help="Template prefix to use (default: qwen-instruct)")
+    parser.add_argument("--train_size", type=int, default=1000, help="Number of train instances to generate (default: 1000)")
+    parser.add_argument("--test_size", type=int, default=50, help="Number of test instances to generate (default: 50)")
     parser.add_argument("--output", type=str, default='./data/sokoban', help="Output directory (default: ./data/sokoban)")
     args = parser.parse_args()
 
@@ -64,21 +66,38 @@ def main():
     instances = []
     env = SokobanEnv(dim_room=(dim_x, dim_y), num_boxes=num_boxes, max_steps=max_steps, search_depth=search_depth)
 
-    for seed in range(seed, seed + 10):
-        obs = env.reset(seed=seed)
+    # Create training instances
+    train_instances = []
+    for seed_train in range(seed, seed + args.train_size):
+        obs = env.reset(seed=seed_train)
         gt_action_sequence = get_shortest_action_path(env.room_fixed, env.room_state, MAX_DEPTH=search_depth)
         if gt_action_sequence is None:
-            print(f"No action sequence found for seed {seed}")
+            print(f"No action sequence found for seed {seed_train}")
             continue
         
         for action in gt_action_sequence:
-            instruction = templates[prefix].format(prompt= INSTRUCTION_TEMPLATE.format(observation=obs))
-
-            instances.append({
+            instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE.format(observation=obs))
+            train_instances.append({
                 'instruction': instruction,
                 'gt_action': action
             })
-            # print(instruction)
+            obs, reward, done, info = env.step(action)
+
+    # Create test instances 
+    test_instances = []
+    for seed_test in range(seed + args.train_size, seed + args.train_size + args.test_size):
+        obs = env.reset(seed=seed_test)
+        gt_action_sequence = get_shortest_action_path(env.room_fixed, env.room_state, MAX_DEPTH=search_depth)
+        if gt_action_sequence is None:
+            print(f"No action sequence found for seed {seed_test}")
+            continue
+
+        for action in gt_action_sequence:
+            instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE.format(observation=obs))
+            test_instances.append({
+                'instruction': instruction,
+                'gt_action': action
+            })
             obs, reward, done, info = env.step(action)
 
     def _create_instance(idx, instance):
@@ -93,7 +112,8 @@ def main():
             "extra_info": {"split": "train", "index": idx}
         }
 
-    train_dataset = Dataset.from_list([_create_instance(i, instances[i]) for i in range(len(instances))])
+    train_dataset = Dataset.from_list([_create_instance(i, train_instances[i]) for i in range(len(train_instances))])
+    test_dataset = Dataset.from_list([_create_instance(i, test_instances[i]) for i in range(len(test_instances))])
     
     def make_map_fn(split):
         def process_fn(example, idx):
@@ -111,9 +131,11 @@ def main():
     
     train_dataset = train_dataset.map(function=make_map_fn('train'), with_indices=True)
     train_dataset.to_parquet(os.path.join(args.output, 'train.parquet'))
+    test_dataset = test_dataset.map(function=make_map_fn('test'), with_indices=True)
+    test_dataset.to_parquet(os.path.join(args.output, 'test.parquet'))
     # push to hub
-    # train_dataset.push_to_hub("Xiaofeng77/reil_sokoban")
-
+    train_dataset.push_to_hub("Xiaofeng77/reil_sokoban", split="train")
+    test_dataset.push_to_hub("Xiaofeng77/reil_sokoban", split="test")
 
 if __name__ == "__main__":
     main()
