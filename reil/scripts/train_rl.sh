@@ -1,8 +1,9 @@
 set -x
 
 DATA_DIR="./data/sokoban"
-BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-3B-Instruct/snapshots/aa8e72537993ba99e69dfaafa59ed015b17504d1"
-EXPERIMENT_NAME="sokoban-rl-exp"
+# BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-3B-Instruct/snapshots/aa8e72537993ba99e69dfaafa59ed015b17504d1"
+BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
+EXPERIMENT_NAME="sokoban-rl-exp-0.5b"
 ROLLOUT_TP_SIZE=1
 N_GPUS=2
 
@@ -36,4 +37,6 @@ trainer.save_freq=100 \
 trainer.test_freq=100 \
 trainer.project_name=REIL \
 trainer.experiment_name=$EXPERIMENT_NAME \
-trainer.total_epochs=15 2>&1 | tee verl_demo.log
+trainer.total_epochs=15 \
+custom_reward_function.path=./reil/utils/reward_score/sokoban.py \
+custom_reward_function.name=compute_score 2>&1 | tee verl_demo.log

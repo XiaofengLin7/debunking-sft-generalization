@@ -5,3 +5,4 @@
 /outputs/
 verl_demo.log
 __pycache__/
+/wandb/
