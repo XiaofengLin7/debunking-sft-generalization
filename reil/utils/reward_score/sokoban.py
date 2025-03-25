@@ -11,11 +11,14 @@ def extract_solution(solution_str):
         return None
     solution_str = solution_str.split('\n')[-1]
 
-    action_pattern = r'<action>(.*?)</action>'
+    action_pattern = r'<answer>(.*?)</answer>|<action>(.*?)</action>'
     match = re.finditer(action_pattern, solution_str)
     matches = list(match)
     if matches:
-        final_answer = matches[-1].group(1).strip()
+        # Get the last match and check both answer and action groups
+        final_match = matches[-1]
+        final_answer = final_match.group(1) or final_match.group(2)
+        final_answer = final_answer.strip() if final_answer else None
     else:
         final_answer = None
     return final_answer
@@ -60,17 +63,22 @@ def compute_score(solution_str, ground_truth, format_score=0.0, score=1.0, *args
         return format_score
 
 def main():
-    solution_str = "Assistant: <action>up</action> <action>right</action> <action>down</action> <action>left</action>"
-    print(extract_solution(solution_str))
-    solution_str = "<|im_start|>assistant\n\n<|im_end|>\n\n<action>up</action> <action>right</action> <action>down</action> <action><action>left</action></action>"
-    print(extract_solution(solution_str))
-    solution_str = "<|im_start|>assistant\n\n<|im_end|>\n\n<action>up</action>"
-    extracted_solution = extract_solution(solution_str)
-    print(extract_action(extracted_solution))
-    print(compute_score(solution_str, 1))
-    print(compute_score(solution_str, 2))
-    print(compute_score(solution_str, 3))
-    print(compute_score(solution_str, 4))
-
+    # solution_str = "Assistant: <answer>up</answer> <answer>right</answer> <answer>down</answer> <answer>left</answer>"
+    # print(extract_solution(solution_str))
+    # solution_str = "<|im_start|>assistant\n\n<|im_end|>\n\n<answer>up</answer> <answer>right</answer> <answer>down</answer> <answer>left</answer>"
+    # print(extract_solution(solution_str))
+    # solution_str = "<|im_start|>assistant\n\n<|im_end|>\n\n<answer>up</answer>"
+    # extracted_solution = extract_solution(solution_str)
+    # print(extract_action(extracted_solution))
+    # print(compute_score(solution_str, 1))
+    # print(compute_score(solution_str, 2))
+    # print(compute_score(solution_str, 3))
+    # print(compute_score(solution_str, 4))
+    print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>Right</answer>", 4))
+    print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>right</answer>", 4))
+    print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>RIGHT</answer>", 4))
+    print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>4</answer>", 4))
+    print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>4(right)</answer>", 4))
+    print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<action>4(right)</action>", 4))
 if __name__ == "__main__":
     main()
