@@ -3,7 +3,7 @@ set -x
 DATA_DIR="./data/sokoban"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-3B-Instruct/snapshots/aa8e72537993ba99e69dfaafa59ed015b17504d1"
 BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
-EXPERIMENT_NAME="sokoban-rl-exp-0.5b"
+EXPERIMENT_NAME="sokoban-rl-exp-0.5b-format-reward"
 ROLLOUT_TP_SIZE=1
 N_GPUS=2
 
@@ -33,10 +33,10 @@ trainer.logger=['wandb'] \
 trainer.default_hdfs_dir=null \
 trainer.n_gpus_per_node=$N_GPUS \
 trainer.nnodes=1 \
-trainer.save_freq=100 \
+trainer.save_freq=500 \
 trainer.test_freq=100 \
 trainer.project_name=REIL \
-trainer.resume_mode=disabled \
+trainer.resume_mode=disable \
 trainer.experiment_name=$EXPERIMENT_NAME \
 trainer.total_epochs=500 \
 custom_reward_function.path=./reil/utils/reward_score/sokoban.py \

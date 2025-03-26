@@ -20,7 +20,6 @@ import os
 import ray
 import hydra
 
-from reil.utils.reward_score import sokoban
 
 def get_custom_reward_fn(config):
     import importlib.util, os
@@ -52,6 +51,10 @@ def get_custom_reward_fn(config):
 
 @hydra.main(config_path='config', config_name='ppo_trainer', version_base=None)
 def main(config):
+    run_ppo(config)
+
+
+def run_ppo(config) -> None:
     # TODO(linjunrong.ocss884): this ENV is left for resolving SGLang conflict with ray devices
     # isolation, will solve in the future
     os.environ["ENSURE_CUDA_VISIBLE_DEVICES"] = os.environ.get('CUDA_VISIBLE_DEVICES', '')

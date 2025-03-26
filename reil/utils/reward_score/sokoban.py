@@ -51,7 +51,7 @@ def extract_action(text):
     
     return 0
 
-def compute_score(solution_str, ground_truth, format_score=0.0, score=1.0, *args, **kwargs):
+def compute_score(solution_str, ground_truth, format_score=0.1, score=1.0, *args, **kwargs):
     """The scoring function for Sokoban."""
     solution = extract_solution(solution_str)
     if solution is None:
@@ -79,6 +79,7 @@ def main():
     print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>RIGHT</answer>", 4))
     print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>4</answer>", 4))
     print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>4(right)</answer>", 4))
+    print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>3</answer>", 4))
     print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<action>4(right)</action>", 4))
 if __name__ == "__main__":
     main()
