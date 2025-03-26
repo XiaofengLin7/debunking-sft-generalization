@@ -2,7 +2,8 @@
 Reasoning Enhanced Imitation Learning
 
 ## TODO
-- [create dataset]
+- [] scripts for scc
+- [] sft scripts
 
 ## Initial steps on scc
 configure user name and email
