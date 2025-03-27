@@ -1,8 +1,14 @@
+#!/bin/bash
+
+eval "$(conda shell.bash hook)"
+conda activate reil || exit 1
+
 set -x
 
 DATA_DIR="./data/sokoban"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-3B-Instruct/snapshots/aa8e72537993ba99e69dfaafa59ed015b17504d1"
 BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
+# BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B-Instruct/snapshots/989aa7980e4cf806f80c7fef2b1adb7bc71aa306"
 EXPERIMENT_NAME="sokoban-rl-exp-0.5b-format-reward"
 ROLLOUT_TP_SIZE=1
 N_GPUS=2
@@ -20,14 +26,15 @@ actor_rollout_ref.actor.use_dynamic_bsz=True \
 actor_rollout_ref.actor.optim.lr=1e-6 \
 actor_rollout_ref.actor.ppo_mini_batch_size=64 \
 actor_rollout_ref.actor.ppo_micro_batch_size=8 \
+actor_rollout_ref.actor.entropy_coeff=0.001 \
 actor_rollout_ref.rollout.log_prob_micro_batch_size=8 \
 actor_rollout_ref.rollout.tensor_model_parallel_size=$ROLLOUT_TP_SIZE \
-actor_rollout_ref.rollout.gpu_memory_utilization=0.4 \
+actor_rollout_ref.rollout.gpu_memory_utilization=0.5 \
 actor_rollout_ref.ref.log_prob_micro_batch_size=4 \
 critic.optim.lr=1e-5 \
 critic.model.path=$BASE_MODEL \
 critic.ppo_micro_batch_size=8 \
-algorithm.kl_ctrl.kl_coef=0.001 \
+algorithm.kl_ctrl.kl_coef=0 \
 trainer.logger=['wandb'] \
 +trainer.val_before_train=False \
 trainer.default_hdfs_dir=null \

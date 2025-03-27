@@ -3,16 +3,18 @@ import re
 def extract_solution(solution_str):
     """Extract the action sequence from the solution string."""
     # Remove everything before the first "Assistant:"
-    if "Assistant:" in solution_str:
-        solution_str = solution_str.split("Assistant:", 1)[1]
-    elif "<|im_start|>assistant" in solution_str:
-        solution_str = solution_str.split("<|im_start|>assistant", 1)[1]
-    else:
-        return None
-    solution_str = solution_str.split('\n')[-1]
-
+    # if "Assistant:" in solution_str:
+    #     processed_str = solution_str.split("Assistant:", 1)[1]
+    # elif "<|im_start|>assistant" in solution_str:
+    #     processed_str = solution_str.split("<|im_start|>assistant", 1)[1]
+    # else:
+    #     print("[Error] Failed to locate model response header")
+    #     return None, solution_str
+    # print(f"\n[Model Response]\n{solution_str}")
+    processed_str = solution_str.split('\n')[-1]
+    
     action_pattern = r'<answer>(.*?)</answer>|<action>(.*?)</action>'
-    match = re.finditer(action_pattern, solution_str)
+    match = re.finditer(action_pattern, processed_str)
     matches = list(match)
     if matches:
         # Get the last match and check both answer and action groups
@@ -21,7 +23,7 @@ def extract_solution(solution_str):
         final_answer = final_answer.strip() if final_answer else None
     else:
         final_answer = None
-    return final_answer
+    return final_answer, processed_str
 
 def extract_action(text):
     """
@@ -51,13 +53,14 @@ def extract_action(text):
     
     return 0
 
-def compute_score(solution_str, ground_truth, format_score=0.1, score=1.0, *args, **kwargs):
+def compute_score(solution_str, ground_truth, format_score=0.0, score=1.0, *args, **kwargs):
     """The scoring function for Sokoban."""
-    solution = extract_solution(solution_str)
-    if solution is None:
+    final_answer, processed_str = extract_solution(solution_str)
+
+    if final_answer is None:
         return 0
     else:
-        action = extract_action(solution)
+        action = extract_action(final_answer)
         if action == ground_truth:
             return score
         return format_score
