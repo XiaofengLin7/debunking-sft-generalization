@@ -84,5 +84,6 @@ def main():
     print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>4(right)</answer>", 4))
     print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>3</answer>", 4))
     print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<action>4(right)</action>", 4))
+    print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<action>up</action> <answer>left</answer>", 4))
 if __name__ == "__main__":
     main()
