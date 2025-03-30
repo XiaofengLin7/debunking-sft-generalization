@@ -8,3 +8,6 @@ __pycache__/
 /wandb/
 /checkpoints/
 /reil/scripts/scc/
+/sokoban-rl-exp*
+/verl_demo*
+

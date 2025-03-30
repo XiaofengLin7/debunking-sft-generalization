@@ -4,4 +4,4 @@
 	branch = main-new
 [submodule "verl"]
 	path = thirdparty/verl
-	url = git@github.com:volcengine/verl.git
+	url = git@github.com:XiaofengLin7/verl.git

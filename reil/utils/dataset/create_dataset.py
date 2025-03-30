@@ -101,7 +101,7 @@ def main():
             obs, reward, done, info = env.step(action)
 
     def _create_instance(idx, instance):
-        prompt_formatted = templates[prefix].format(prompt=instance['instruction'])
+        prompt_formatted = instance['instruction']
         gt_action = instance['gt_action']
 
         return {

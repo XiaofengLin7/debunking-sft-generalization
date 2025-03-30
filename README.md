@@ -2,8 +2,10 @@
 Reasoning Enhanced Imitation Learning
 
 ## TODO
-- [] scripts for scc
+- [] validate scripts in pure RL envs
+- [] dataset qwen problems: with extra '<im_start> assistant <im_end> ' in the end of each prompt
 - [] sft scripts
+
 
 ## Initial steps on scc
 configure user name and email
@@ -31,7 +33,7 @@ pip install -r requirements.txt
 
 ## Hardware Requirements
 
-Bfloat16 is only supported on GPUs with compute capability of at least 8.0.
+Bfloat16 is only supported on GPUs with compute capability of at least 8.6.
 For 3B model, A100 is recommended.
 
 ## update submodules if necessary

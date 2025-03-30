@@ -64,6 +64,18 @@ def compute_score(solution_str, ground_truth, format_score=0.0, score=1.0, *args
         if action == ground_truth:
             return score
         return format_score
+    
+def compute_score_with_format(solution_str, ground_truth, format_score=0.1, score=1.0, *args, **kwargs):
+    """The scoring function for Sokoban."""
+    final_answer, processed_str = extract_solution(solution_str)
+
+    if final_answer is None:
+        return 0
+    else:
+        action = extract_action(final_answer)
+        if action == ground_truth:
+            return score
+        return format_score
 
 def main():
     # solution_str = "Assistant: <answer>up</answer> <answer>right</answer> <answer>down</answer> <answer>left</answer>"
