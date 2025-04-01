@@ -3,6 +3,7 @@ from verl.utils import hf_tokenizer, hf_processor
 from verl.utils.dataset.rl_dataset import RLHFDataset, collate_fn
 from torchdata.stateful_dataloader import StatefulDataLoader
 from verl import DataProto
+from reil.workers.reward_manager import CompleteRewardManager
 
 def test_dataset():
     local_path = "./models/rlft/models--Qwen--Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
@@ -19,8 +20,7 @@ def test_dataset():
                                 filter_prompts=True,
                                 return_raw_chat=True,
                                 truncation='error',
-                                filter_overlong_prompts=False,
-                                add_generation_prompt=False)
+                                filter_overlong_prompts=False)
     
     val_dataloader = StatefulDataLoader(
         dataset=val_dataset,

@@ -148,6 +148,9 @@ class TaskRunner:
         elif reward_manager_name == 'prime':
             from verl.workers.reward_manager import PrimeRewardManager
             reward_manager_cls = PrimeRewardManager
+        elif reward_manager_name == 'complete':
+            from reil.workers.reward_manager import CompleteRewardManager
+            reward_manager_cls = CompleteRewardManager
         else:
             raise NotImplementedError
 

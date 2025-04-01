@@ -10,4 +10,4 @@ __pycache__/
 /reil/scripts/scc/
 /sokoban-rl-exp*
 /verl_demo*
-
+/*.log

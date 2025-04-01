@@ -53,9 +53,46 @@ def extract_action(text):
     
     return 0
 
+def validate_response_structure(processed_str: str) -> bool:
+    """Adapted from https://github.com/Unakar/Logic-RL/blob/main/verl/utils/reward_score/kk.py"""
+    """Performs comprehensive validation of response structure.
+    
+    Args:
+        processed_str: Processed response string from the model
+        
+    Returns:
+        Boolean indicating whether all formatting requirements are met
+    """
+    validation_passed = True
+
+    # Check required tags
+    tags = {
+        'think_start': ('<think>', 1),
+        'think_end': ('</think>', 1),
+        'answer_start': ('<answer>', 1),
+        'answer_end': ('</answer>', 1)
+    }
+
+    positions = {}
+    for tag_name, (tag_str, expected_count) in tags.items():
+        count = processed_str.count(tag_str)
+        positions[tag_name] = pos = processed_str.find(tag_str)
+        
+        
+        if count != expected_count:
+            validation_passed = False
+
+    # Verify tag order
+    if (positions['think_start'] > positions['think_end'] or
+        positions['think_end'] > positions['answer_start'] or
+        positions['answer_start'] > positions['answer_end']):
+        validation_passed = False
+
+    return validation_passed
+
 def compute_score(solution_str, ground_truth, format_score=0.0, score=1.0, *args, **kwargs):
     """The scoring function for Sokoban."""
-    final_answer, processed_str = extract_solution(solution_str)
+    final_answer, _ = extract_solution(solution_str)
 
     if final_answer is None:
         return 0
@@ -67,7 +104,7 @@ def compute_score(solution_str, ground_truth, format_score=0.0, score=1.0, *args
     
 def compute_score_with_format(solution_str, ground_truth, format_score=0.1, score=1.0, *args, **kwargs):
     """The scoring function for Sokoban."""
-    final_answer, processed_str = extract_solution(solution_str)
+    final_answer, _ = extract_solution(solution_str)
 
     if final_answer is None:
         return 0
@@ -77,6 +114,27 @@ def compute_score_with_format(solution_str, ground_truth, format_score=0.1, scor
             return score
         return format_score
 
+def compute_score_with_logic(solution_str, ground_truth, format_score=0.1, score=1.0, *args, **kwargs):
+    # Split response to isolate assistant output
+    if "Assistant:" in solution_str:
+        processed_str = solution_str.split("Assistant:", 1)[1]
+    elif "<|im_start|>assistant" in solution_str:
+        processed_str = solution_str.split("<|im_start|>assistant", 1)[1]
+    else:
+        return 0
+    
+    format_correct = validate_response_structure(processed_str)
+    if not format_correct:
+        return 0
+    else:
+        final_answer, _ = extract_solution(processed_str)
+        if final_answer is None:
+            return 0
+        else:
+            action = extract_action(final_answer)
+            if action == ground_truth:
+                return score
+    return format_score
 def main():
     # solution_str = "Assistant: <answer>up</answer> <answer>right</answer> <answer>down</answer> <answer>left</answer>"
     # print(extract_solution(solution_str))
@@ -97,5 +155,6 @@ def main():
     print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>3</answer>", 4))
     print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<action>4(right)</action>", 4))
     print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<action>up</action> <answer>left</answer>", 4))
+    print(compute_score_with_logic("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>up</answer>", 1))
 if __name__ == "__main__":
     main()
