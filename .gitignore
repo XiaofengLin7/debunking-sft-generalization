@@ -9,5 +9,4 @@ __pycache__/
 /checkpoints/
 /reil/scripts/scc/
 /sokoban-rl-exp*
-/verl_demo*
 /*.log

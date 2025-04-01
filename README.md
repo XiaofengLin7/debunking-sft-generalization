@@ -3,7 +3,6 @@ Reasoning Enhanced Imitation Learning
 
 ## TODO
 - [] validate scripts in pure RL envs
-- [] dataset qwen problems: with extra '<im_start> assistant <im_end> ' in the end of each prompt
 - [] sft scripts
 
 
@@ -35,6 +34,7 @@ pip install -r requirements.txt
 
 Bfloat16 is only supported on GPUs with compute capability of at least 8.6.
 For 3B model, A100 is recommended.
+For 1.5B/0.5B model, scripts can be run on L40s.
 
 ## update submodules if necessary
 
