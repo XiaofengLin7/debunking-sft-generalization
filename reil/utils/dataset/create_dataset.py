@@ -52,6 +52,7 @@ def main():
                        help="Template prefix to use (default: qwen-instruct)")
     parser.add_argument("--train_size", type=int, default=1000, help="Number of train instances to generate (default: 1000)")
     parser.add_argument("--test_size", type=int, default=50, help="Number of test instances to generate (default: 50)")
+    parser.add_argument("--num_test_envs", type=int, default=20, help="Number of test environments(default: 20)")
     parser.add_argument("--output", type=str, default='./data/sokoban', help="Output directory (default: ./data/sokoban)")
     args = parser.parse_args()
 
@@ -99,6 +100,13 @@ def main():
                 'gt_action': action
             })
             obs, reward, done, info = env.step(action)
+    
+    # Create test instances for each test environment
+    test_env_instances = []
+    for seed_test_env in range(seed+args.train_size+args.test_size, seed+args.train_size+args.test_size+args.num_test_envs):
+        obs = env.reset(seed=seed_test_env)
+        instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE.format(observation=obs))
+        test_env_instances.append(instruction)
 
     def _create_instance(idx, instance):
         prompt_formatted = instance['instruction']
@@ -111,9 +119,21 @@ def main():
             "reward_model": {"style": "rule", "ground_truth": gt_action},
             "extra_info": {"split": "train", "index": idx}
         }
+    
+    def _create_test_env_instance(idx, instance):
+        prompt_formatted = instance
+
+        return {
+            "data_source": "sokoban",
+            "prompt": [{"role": "user", "content": prompt_formatted}],
+            "ability": "bfs",
+            "reward_model": {"style": "rule", "ground_truth": -1},
+            "extra_info": {"split": "test", "index": idx}
+        }
 
     train_dataset = Dataset.from_list([_create_instance(i, train_instances[i]) for i in range(len(train_instances))])
     test_dataset = Dataset.from_list([_create_instance(i, test_instances[i]) for i in range(len(test_instances))])
+    test_env_dataset = Dataset.from_list([_create_test_env_instance(args.seed + i, test_env_instances[i-args.train_size-args.test_size]) for i in range(args.train_size+args.test_size, args.train_size+args.test_size+args.num_test_envs)])
     
     def make_map_fn(split):
         def process_fn(example, idx):
@@ -122,9 +142,12 @@ def main():
             if split == 'train':
                 # Apply training-specific transformations
                 example['id'] = f"train_{idx}"
-            else:  # test
+            elif split == 'test':
                 # Apply test-specific transformations
                 example['id'] = f"test_{idx}"
+            elif split == 'test_env':
+                # Apply test-specific transformations
+                example['id'] = f"test_env_{idx}"
                 
             return example
         return process_fn
@@ -133,9 +156,12 @@ def main():
     train_dataset.to_parquet(os.path.join(args.output, 'train.parquet'))
     test_dataset = test_dataset.map(function=make_map_fn('test'), with_indices=True)
     test_dataset.to_parquet(os.path.join(args.output, 'test.parquet'))
+    test_env_dataset = test_env_dataset.map(function=make_map_fn('test_env'), with_indices=True)
+    test_env_dataset.to_parquet(os.path.join(args.output, 'test_env.parquet'))
     # push to hub
     train_dataset.push_to_hub("Xiaofeng77/reil_sokoban", split="train")
     test_dataset.push_to_hub("Xiaofeng77/reil_sokoban", split="test")
+    test_env_dataset.push_to_hub("Xiaofeng77/reil_sokoban", split="test_env")
 
 if __name__ == "__main__":
     main()
