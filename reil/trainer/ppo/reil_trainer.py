@@ -49,6 +49,7 @@ from verl.trainer.ppo.ray_trainer import AdvantageEstimator
 from verl.trainer.ppo.ray_trainer import ResourcePoolManager
 from verl.trainer.ppo.ray_trainer import apply_kl_penalty
 from verl.trainer.ppo.ray_trainer import compute_advantage
+from verl.trainer.ppo.ray_trainer import compute_response_mask
 import torch
 from verl.utils.torch_functional import masked_mean
 from collections import defaultdict
@@ -88,8 +89,97 @@ class ReilPPOTrainer(RayPPOTrainer):
 
         self.val_env = val_env
         self.env_class = env_class
+    def _create_dataloader(self):
+        # TODO: we have to make sure the batch size is divisible by the dp size
+        self.train_dataset = RLHFDataset(parquet_files=self.config.data.train_files,
+                                         tokenizer=self.tokenizer,
+                                         processor=self.processor,
+                                         prompt_key=self.config.data.prompt_key,
+                                         image_key=self.config.data.get('image_key', 'images'),
+                                         max_prompt_length=self.config.data.max_prompt_length,
+                                         filter_prompts=True,
+                                         return_raw_chat=self.config.data.get('return_raw_chat', False),
+                                         truncation=self.config.data.get('truncation', 'error'),
+                                         filter_overlong_prompts=self.config.data.filter_overlong_prompts)
+        assert self.train_dataset.truncation == self.config.data.get(
+            'truncation', 'error'
+        ), f'dataset truncation {self.train_dataset.truncation} must be the same as config {self.config.data.get("truncation", "error")}'
+        # use sampler for better ckpt resume
+        if self.config.data.shuffle:
+            train_dataloader_generator = torch.Generator()
+            train_dataloader_generator.manual_seed(self.config.data.get('seed', 1))
+            sampler = RandomSampler(data_source=self.train_dataset, generator=train_dataloader_generator)
+        else:
+            sampler = SequentialSampler(data_source=self.train_dataset)
 
-    def _validate_on_env(self):
+        self.train_dataloader = StatefulDataLoader(dataset=self.train_dataset,
+                                                   batch_size=self.config.data.train_batch_size,
+                                                   num_workers=8,
+                                                   drop_last=True,
+                                                   collate_fn=collate_fn,
+                                                   sampler=sampler)
+
+        self.val_dataset = RLHFDataset(parquet_files=self.config.data.val_files,
+                                       tokenizer=self.tokenizer,
+                                       processor=self.processor,
+                                       prompt_key=self.config.data.prompt_key,
+                                       image_key=self.config.data.get('image_key', 'images'),
+                                       max_prompt_length=self.config.data.max_prompt_length,
+                                       filter_prompts=True,
+                                       return_raw_chat=self.config.data.get('return_raw_chat', False),
+                                       truncation=self.config.data.get('truncation', 'error'),
+                                       filter_overlong_prompts=self.config.data.filter_overlong_prompts)
+        assert self.val_dataset.truncation == self.config.data.get(
+            'truncation', 'error'
+        ), f'dataset truncation {self.val_dataset.truncation} must be the same as config {self.config.data.get("truncation", "error")}'
+        self.val_dataloader = StatefulDataLoader(
+            dataset=self.val_dataset,
+            # Validation datasets are sent to inference engines as a whole batch,
+            # which will schedule the memory themselves.
+            batch_size=len(self.val_dataset),
+            num_workers=8,
+            shuffle=True,
+            drop_last=False,
+            collate_fn=collate_fn)
+        
+        self.val_env_dataset = RLHFDataset(parquet_files=self.config.data.val_env_files,
+                                       tokenizer=self.tokenizer,
+                                       prompt_key=self.config.data.prompt_key,
+                                       max_prompt_length=self.config.data.max_prompt_length,
+                                       filter_prompts=True,
+                                       return_raw_chat=self.config.data.get('return_raw_chat', False),
+                                       truncation='error')
+        
+        self.val_env_dataloader = StatefulDataLoader(dataset=self.val_env_dataset,
+                                             batch_size=self.config.data.val_env_batch_size,
+                                             num_workers=8,
+                                             shuffle=True,
+                                             drop_last=False,
+                                             collate_fn=collate_fn)
+
+        assert len(self.train_dataloader) >= 1
+        assert len(
+            self.val_dataloader
+        ) == 1, "Validation dataloader must have a single batch, which inference engines will schedule the memory themselves."
+
+        print(f'Size of train dataloader: {len(self.train_dataloader)}')
+
+        # inject total_training_steps to actor/critic optim_config. This is hacky.
+        total_training_steps = len(self.train_dataloader) * self.config.trainer.total_epochs
+
+        if self.config.trainer.total_training_steps is not None:
+            total_training_steps = self.config.trainer.total_training_steps
+
+        self.total_training_steps = total_training_steps
+        print(f'Total training steps: {self.total_training_steps}')
+
+        OmegaConf.set_struct(self.config, True)
+        with open_dict(self.config):
+            self.config.actor_rollout_ref.actor.optim.total_training_steps = total_training_steps
+            self.config.critic.optim.total_training_steps = total_training_steps
+
+            
+    def _validate_on_env(self, logger):
         """
         The training loop of PPO with global metric computation.
         Accumulates metrics across all batches before computing final statistics.
@@ -99,7 +189,7 @@ class ReilPPOTrainer(RayPPOTrainer):
         global_token_scores = []
         global_metrics = {}
         metrics = defaultdict(list)
-
+        breakpoint()
         self.val_num += 1
 
         gen_config = GenerationConfig(
@@ -122,15 +212,15 @@ class ReilPPOTrainer(RayPPOTrainer):
             actor_rollout_wg=self.actor_rollout_wg,
             env_class=self.env_class,
             config=gen_config,
-            logger = self.logger,
+            logger = logger,
             is_validation = True,
         )
 
-        envs = [self.val_env.copy() for _ in range(self.config.data.val_batch_size)] # do not repeat
+        envs = [self.val_env.copy() for _ in range(self.config.data.val_env_batch_size)] # do not repeat
         # envs = [self.val_env.copy() for _ in range(self.config.data.val_batch_size * self.config.actor_rollout_ref.rollout.n_agent)]
         val_global_steps = 1
 
-        for batch_dict in self.val_dataloader:
+        for batch_dict in self.val_env_dataloader:
             timing_raw = {}
             test_batch: DataProto = DataProto.from_single_dict(batch_dict)
             # test_batch = test_batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n_agent, interleave=True)
@@ -170,14 +260,6 @@ class ReilPPOTrainer(RayPPOTrainer):
                 test_batch.non_tensor_batch['reward'] = np.array([0 for _ in range(len(envs))], dtype=object)
                 for idx, env in enumerate(envs):
                     test_batch.non_tensor_batch['reward'][idx] = env.reward
-
-                if test_batch.non_tensor_batch['data_source'][0] == 'two_armed_bandit':
-                    # metric for two-armed bandit
-                    # NOTE here we assume invalid action is 0, low arm is 1, high arm is 2
-                    test_batch.non_tensor_batch['bandit_metrics'] = np.array([0 for _ in range(len(envs))], dtype=object)
-                    for idx, env in enumerate(envs):
-                        test_batch.non_tensor_batch['bandit_metrics'][idx] = env.get_last_action()
-                    metrics['bandit_metrics'].append(test_batch.non_tensor_batch['bandit_metrics'])
                 
                 test_batch.non_tensor_batch['total_env'] = np.array([1 for _ in range(len(envs))], dtype=object)
                 test_batch.non_tensor_batch['finished_env'] = np.array([0 for _ in range(len(envs))], dtype=object)
@@ -222,11 +304,205 @@ class ReilPPOTrainer(RayPPOTrainer):
             'validate_metric/effective_action': float(np.array(metrics['effective_action'], dtype=np.int16).mean()),
             'validate_metric/effective_action_ratio': float(np.array(metrics['effective_action_ratio'], dtype=np.float32).mean()),
         }
-        if 'bandit_metrics' in metrics: # NOTE hard code for two-armed bandit
-            batch_action = np.array(metrics['bandit_metrics'], dtype=np.int16)
-            global_metrics['validate_metric/n_low_arm'] = int(np.sum(batch_action == 1))
-            global_metrics['validate_metric/n_high_arm'] = int(np.sum(batch_action == 2))
-            global_metrics['validate_metric/n_invalid'] = int(np.sum(batch_action == 0))
         print("global_metrics", global_metrics)
-        self.logger.log(data=global_metrics, step=self.val_num)
+        logger.log(data=global_metrics, step=self.val_num)
         return global_metrics
+    
+    def fit(self):
+        """
+        The training loop of PPO.
+        The driver process only need to call the compute functions of the worker group through RPC to construct the PPO dataflow.
+        The light-weight advantage computation is done on the driver process.
+        """
+        from verl.utils.tracking import Tracking
+        from omegaconf import OmegaConf
+
+        logger = Tracking(project_name=self.config.trainer.project_name,
+                          experiment_name=self.config.trainer.experiment_name,
+                          default_backend=self.config.trainer.logger,
+                          config=OmegaConf.to_container(self.config, resolve=True))
+
+        self.global_steps = 0
+
+        # load checkpoint before doing anything
+        self._load_checkpoint()
+
+        # perform validation before training
+        # currently, we only support validation using the reward_function.
+        if self.val_reward_fn is not None and self.config.trainer.get('val_before_train', True):
+            val_metrics = self._validate()
+            pprint(f'Initial validation metrics: {val_metrics}')
+            logger.log(data=val_metrics, step=self.global_steps)
+            if self.config.trainer.is_rl_validation:
+                val_env_metrics = self._validate_on_env(logger)
+                pprint(f'Initial validation metrics on envs: {val_env_metrics}')
+                logger.log(data=val_env_metrics, step=self.global_steps)
+
+            if self.config.trainer.get('val_only', False):
+                return
+
+        # add tqdm
+        progress_bar = tqdm(total=self.total_training_steps, initial=self.global_steps, desc="Training Progress")
+
+        # we start from step 1
+        self.global_steps += 1
+        last_val_metrics = None
+
+        for epoch in range(self.config.trainer.total_epochs):
+            for batch_dict in self.train_dataloader:
+                metrics = {}
+                timing_raw = {}
+
+                batch: DataProto = DataProto.from_single_dict(batch_dict)
+
+                # pop those keys for generation
+                if 'multi_modal_inputs' in batch.non_tensor_batch.keys():
+                    gen_batch = batch.pop(
+                        batch_keys=['input_ids', 'attention_mask', 'position_ids'],
+                        non_tensor_batch_keys=['raw_prompt_ids', 'multi_modal_data', 'multi_modal_inputs'],
+                    )
+                else:
+                    gen_batch = batch.pop(
+                        batch_keys=['input_ids', 'attention_mask', 'position_ids'],
+                        non_tensor_batch_keys=['raw_prompt_ids'],
+                    )
+
+                is_last_step = self.global_steps >= self.total_training_steps
+
+                with _timer('step', timing_raw):
+                    # generate a batch
+                    with _timer('gen', timing_raw):
+                        gen_batch_output = self.actor_rollout_wg.generate_sequences(gen_batch)
+
+                    if self.config.algorithm.adv_estimator == AdvantageEstimator.REMAX:
+                        with _timer('gen_max', timing_raw):
+                            gen_baseline_batch = deepcopy(gen_batch)
+                            gen_baseline_batch.meta_info['do_sample'] = False
+                            gen_baseline_output = self.actor_rollout_wg.generate_sequences(gen_baseline_batch)
+
+                            batch = batch.union(gen_baseline_output)
+                            reward_baseline_tensor = self.reward_fn(batch)
+                            reward_baseline_tensor = reward_baseline_tensor.sum(dim=-1)
+
+                            batch.pop(batch_keys=list(gen_baseline_output.batch.keys()))
+
+                            batch.batch['reward_baselines'] = reward_baseline_tensor
+
+                            del gen_baseline_batch, gen_baseline_output
+
+                    batch.non_tensor_batch['uid'] = np.array([str(uuid.uuid4()) for _ in range(len(batch.batch))],
+                                                             dtype=object)
+                    # repeat to align with repeated responses in rollout
+                    batch = batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n, interleave=True)
+                    batch = batch.union(gen_batch_output)
+
+                    batch.batch['response_mask'] = compute_response_mask(batch)
+                    # balance the number of valid tokens on each dp rank.
+                    # Note that this breaks the order of data inside the batch.
+                    # Please take care when you implement group based adv computation such as GRPO and rloo
+                    if self.config.trainer.balance_batch:
+                        self._balance_batch(batch, metrics=metrics)
+
+                    # compute global_valid tokens
+                    batch.meta_info['global_token_num'] = torch.sum(batch.batch['attention_mask'], dim=-1).tolist()
+
+                    # recompute old_log_probs
+                    with _timer('old_log_prob', timing_raw):
+                        old_log_prob = self.actor_rollout_wg.compute_log_prob(batch)
+                        batch = batch.union(old_log_prob)
+
+                    if self.use_reference_policy:
+                        # compute reference log_prob
+                        with _timer('ref', timing_raw):
+                            ref_log_prob = self.ref_policy_wg.compute_ref_log_prob(batch)
+                            batch = batch.union(ref_log_prob)
+
+                    # compute values
+                    if self.use_critic:
+                        with _timer('values', timing_raw):
+                            values = self.critic_wg.compute_values(batch)
+                            batch = batch.union(values)
+
+                    with _timer('adv', timing_raw):
+                        # compute scores. Support both model and function-based.
+                        # We first compute the scores using reward model. Then, we call reward_fn to combine
+                        # the results from reward model and rule-based results.
+                        if self.use_rm:
+                            # we first compute reward model score
+                            reward_tensor = self.rm_wg.compute_rm_score(batch)
+                            batch = batch.union(reward_tensor)
+
+                        # we combine with rule-based rm
+                        reward_tensor = self.reward_fn(batch)
+                        batch.batch['token_level_scores'] = reward_tensor
+
+                        # compute rewards. apply_kl_penalty if available
+                        if self.config.algorithm.use_kl_in_reward:
+                            batch, kl_metrics = apply_kl_penalty(batch,
+                                                                 kl_ctrl=self.kl_ctrl_in_reward,
+                                                                 kl_penalty=self.config.algorithm.kl_penalty)
+                            metrics.update(kl_metrics)
+                        else:
+                            batch.batch['token_level_rewards'] = batch.batch['token_level_scores']
+
+                        # compute advantages, executed on the driver process
+                        batch = compute_advantage(batch,
+                                                  adv_estimator=self.config.algorithm.adv_estimator,
+                                                  gamma=self.config.algorithm.gamma,
+                                                  lam=self.config.algorithm.lam,
+                                                  num_repeat=self.config.actor_rollout_ref.rollout.n)
+
+                    # update critic
+                    if self.use_critic:
+                        with _timer('update_critic', timing_raw):
+                            critic_output = self.critic_wg.update_critic(batch)
+                        critic_output_metrics = reduce_metrics(critic_output.meta_info['metrics'])
+                        metrics.update(critic_output_metrics)
+
+                    # implement critic warmup
+                    if self.config.trainer.critic_warmup <= self.global_steps:
+                        # update actor
+                        with _timer('update_actor', timing_raw):
+                            actor_output = self.actor_rollout_wg.update_actor(batch)
+                        actor_output_metrics = reduce_metrics(actor_output.meta_info['metrics'])
+                        metrics.update(actor_output_metrics)
+
+                    # validate
+                    if self.val_reward_fn is not None and self.config.trainer.test_freq > 0 and \
+                        (is_last_step or  self.global_steps % self.config.trainer.test_freq == 0):
+                        with _timer('testing', timing_raw):
+                            val_metrics: dict = self._validate()
+                            if self.config.trainer.is_rl_validation:
+                                val_env_metrics = self._validate_on_env(logger)
+                            if is_last_step:
+                                last_val_metrics = val_metrics
+                                if self.config.trainer.is_rl_validation:
+                                    last_val_env_metrics = val_env_metrics
+                        metrics.update(val_metrics)
+                        if self.config.trainer.is_rl_validation:
+                            metrics.update(val_env_metrics)
+
+                    if self.config.trainer.save_freq > 0 and ( is_last_step or \
+                            self.global_steps % self.config.trainer.save_freq == 0):
+                        with _timer('save_checkpoint', timing_raw):
+                            self._save_checkpoint()
+
+                # collect metrics
+                metrics.update(compute_data_metrics(batch=batch, use_critic=self.use_critic))
+                metrics.update(compute_timing_metrics(batch=batch, timing_raw=timing_raw))
+                # TODO: implement actual tflpo and theoretical tflpo
+                n_gpus = self.resource_pool_manager.get_n_gpus()
+                metrics.update(compute_throughout_metrics(batch=batch, timing_raw=timing_raw, n_gpus=n_gpus))
+
+                # TODO: make a canonical logger that supports various backend
+                logger.log(data=metrics, step=self.global_steps)
+
+                if is_last_step:
+                    pprint(f'Final validation metrics: {last_val_metrics}')
+                    if self.config.trainer.is_rl_validation:
+                        pprint(f'Final validation metrics on envs: {last_val_env_metrics}')
+                    progress_bar.close()
+                    return
+
+                progress_bar.update(1)
+                self.global_steps += 1

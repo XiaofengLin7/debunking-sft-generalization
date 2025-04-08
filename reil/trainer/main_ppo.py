@@ -14,12 +14,16 @@
 """
 Note that we don't combine the main with ray_trainer as ray_trainer is used by other main.
 """
-from verl.trainer.ppo.ray_trainer import RayPPOTrainer
 
+from reil.trainer.ppo.reil_trainer import ReilPPOTrainer
 import os
 import ray
 import hydra
-
+from ragen.env import SokobanEnv
+from ragen.utils.env import get_train_val_env
+ENV_CLASS_MAPPING = {
+    'sokoban': SokobanEnv,
+}
 
 def get_custom_reward_fn(config):
     import importlib.util, os
@@ -49,7 +53,7 @@ def get_custom_reward_fn(config):
     return getattr(module, function_name)
 
 
-@hydra.main(config_path='config', config_name='ppo_trainer', version_base=None)
+@hydra.main(config_path='config', config_name='reil_trainer', version_base=None)
 def main(config):
     run_ppo(config)
 
@@ -64,7 +68,8 @@ def run_ppo(config) -> None:
             'env_vars': {
                 'TOKENIZERS_PARALLELISM': 'true',
                 'NCCL_DEBUG': 'WARN',
-                'VLLM_LOGGING_LEVEL': 'WARN'
+                'VLLM_LOGGING_LEVEL': 'WARN',
+                'RAY_DEBUG': '1'
             }
         })
 
@@ -83,6 +88,7 @@ class TaskRunner:
         pprint(OmegaConf.to_container(config, resolve=True))  # resolve=True will eval symbol values
         OmegaConf.resolve(config)
 
+        env_class = ENV_CLASS_MAPPING[config.env.name]
         # download the checkpoint from hdfs
         local_path = copy_to_local(config.actor_rollout_ref.model.path)
 
@@ -162,14 +168,25 @@ class TaskRunner:
 
         resource_pool_manager = ResourcePoolManager(resource_pool_spec=resource_pool_spec, mapping=mapping)
 
-        trainer = RayPPOTrainer(config=config,
+        # trainer = RayPPOTrainer(config=config,
+        #                         tokenizer=tokenizer,
+        #                         processor=processor,
+        #                         role_worker_mapping=role_worker_mapping,
+        #                         resource_pool_manager=resource_pool_manager,
+        #                         ray_worker_group_cls=ray_worker_group_cls,
+        #                         reward_fn=reward_fn,
+        #                         val_reward_fn=val_reward_fn)
+        _, val_env = get_train_val_env(env_class, config)
+        trainer = ReilPPOTrainer(config=config,
                                 tokenizer=tokenizer,
                                 processor=processor,
                                 role_worker_mapping=role_worker_mapping,
                                 resource_pool_manager=resource_pool_manager,
                                 ray_worker_group_cls=ray_worker_group_cls,
                                 reward_fn=reward_fn,
-                                val_reward_fn=val_reward_fn)
+                                val_reward_fn=val_reward_fn,
+                                val_env=val_env,
+                                env_class=env_class)
         trainer.init_workers()
         trainer.fit()
 
