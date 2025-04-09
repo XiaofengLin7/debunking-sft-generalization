@@ -3,6 +3,7 @@ Reasoning Enhanced Imitation Learning
 
 ## TODO
 - [] validate scripts in pure RL envs
+- [] long chain of thought rewards
 - [] sft scripts
 
 
