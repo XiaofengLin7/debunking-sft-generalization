@@ -190,7 +190,6 @@ class ReilPPOTrainer(RayPPOTrainer):
         global_metrics = {}
         metrics = defaultdict(list)
         breakpoint()
-        self.val_num += 1
 
         gen_config = GenerationConfig(
             max_turns=self.config.max_turns,
@@ -242,16 +241,15 @@ class ReilPPOTrainer(RayPPOTrainer):
                 first_input_ids = test_gen_batch.batch['input_ids'][:, -gen_config.max_start_length:].clone()
                 output_dir = (f"{self.config.logging.log_image_dir}/"
                                 f"{self.config.trainer.experiment_name}/"
-                                f"validation_{self.val_num}/"
+                                f"validation_{self.global_steps}/"
                                 f"step_{val_global_steps}")
                 with _timer('gen', timing_raw):
-                    generation_manager.timing_raw = timing_raw
                     final_gen_batch_output = generation_manager.run_llm_loop(
                         gen_batch=test_gen_batch,
                         envs=envs,
                         initial_input_ids=first_input_ids,
                         output_dir=output_dir,
-                        global_steps=val_global_steps,
+                        global_steps=self.global_steps,
                     )
                 with torch.no_grad():
                     output = self.actor_rollout_wg.compute_log_prob(final_gen_batch_output)
@@ -305,7 +303,7 @@ class ReilPPOTrainer(RayPPOTrainer):
             'validate_metric/effective_action_ratio': float(np.array(metrics['effective_action_ratio'], dtype=np.float32).mean()),
         }
         print("global_metrics", global_metrics)
-        logger.log(data=global_metrics, step=self.val_num)
+
         return global_metrics
     
     def fit(self):

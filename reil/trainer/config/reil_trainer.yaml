@@ -16,14 +16,9 @@ data:
   filter_overlong_prompts: False # for large-scale dataset, filtering overlong prompts could be timeconsuming. You should disable this and set `truncation='left'
   truncation: error
   image_key: images
+  max_start_length: 512
+  max_obs_length: 512
 
-env:
-  name: sokoban
-  dim_x: 6
-  dim_y: 6
-  num_boxes: 1
-  max_steps: 100
-  search_depth: 30 # this will change the starting position of the player
 
 actor_rollout_ref:
   hybrid_engine: True
@@ -72,6 +67,8 @@ actor_rollout_ref:
       param_offload: False
       optimizer_offload: False
       fsdp_size: -1
+    state_masking: False
+
   ref:
     fsdp_config:
       param_offload: False
@@ -196,6 +193,10 @@ algorithm:
     kl_coef: 0.001
     horizon: 10000
     target_kl: 0.1
+  no_think_rl: False
+  state_masking:
+    start_state_marker: "<start-state>"
+    end_state_marker: "<end-state>"
 
 trainer:
   balance_batch: True
@@ -221,3 +222,19 @@ trainer:
   max_critic_ckpt_to_keep: null
   is_rl_validation: True 
   
+max_turns: 5
+
+env:
+  name: sokoban
+  dim_x: 6
+  dim_y: 6
+  num_boxes: 1
+  max_steps: 100
+  search_depth: 30 # this will change the starting position of the player
+
+logging:
+  mode: "['wandb']"
+  log_images: true
+  log_image_dir: "log/trajectory"
+  log_image_step_size: 4
+  log_n_image_per_batch: 32

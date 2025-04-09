@@ -176,7 +176,10 @@ class TaskRunner:
         #                         ray_worker_group_cls=ray_worker_group_cls,
         #                         reward_fn=reward_fn,
         #                         val_reward_fn=val_reward_fn)
-        _, val_env = get_train_val_env(env_class, config)
+        env, val_env = get_train_val_env(env_class, config)
+        if val_env is None:
+            val_env = env
+        breakpoint()
         trainer = ReilPPOTrainer(config=config,
                                 tokenizer=tokenizer,
                                 processor=processor,
