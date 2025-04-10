@@ -6,11 +6,12 @@ conda activate reil || exit 1
 set -x
 
 DATA_DIR="./data/sokoban"
-# BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-3B-Instruct/snapshots/aa8e72537993ba99e69dfaafa59ed015b17504d1"
+# BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-3B/snapshots/3aab1f1954e9cc14eb9509a215f9e5ca08227a9b"
+BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-0.5B/snapshots/060db6499f32faf8b98477b0a26969ef7d8b9987"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B-Instruct/snapshots/989aa7980e4cf806f80c7fef2b1adb7bc71aa306"
-BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-0.5B/snapshots/060db6499f32faf8b98477b0a26969ef7d8b9987"
-EXPERIMENT_NAME="0.5b-base-0.005beta-logic-with-kl"
+# BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-0.5B/snapshots/060db6499f32faf8b98477b0a26969ef7d8b9987"
+EXPERIMENT_NAME="0.5b-base-0.005beta-logic-without-kl"
 ROLLOUT_TP_SIZE=1
 N_GPUS=1
 export HYDRA_FULL_ERROR=1
@@ -37,7 +38,7 @@ actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=16 \
 critic.optim.lr=1e-5 \
 critic.model.path=$BASE_MODEL \
 critic.ppo_micro_batch_size=8 \
-algorithm.use_kl_in_reward=True \
+algorithm.use_kl_in_reward=False \
 algorithm.kl_ctrl.kl_coef=0.001 \
 trainer.logger=['wandb'] \
 trainer.val_before_train=True \
@@ -48,7 +49,7 @@ trainer.save_freq=500 \
 trainer.test_freq=25 \
 trainer.project_name=REIL \
 trainer.resume_mode=disable \
-trainer.log_val_generations=2 \
+trainer.log_val_generations=4 \
 trainer.experiment_name=$EXPERIMENT_NAME \
 trainer.total_epochs=500 \
 reward_model.reward_manager=complete \
