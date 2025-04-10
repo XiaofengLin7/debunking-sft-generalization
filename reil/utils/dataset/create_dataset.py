@@ -102,7 +102,7 @@ def main():
             continue
 
         if len_horizon > len(gt_action_sequence):
-            print(f"No enough actions for seed {seed_train}, skip")
+            print(f"No enough actions for seed {seed_test}, skip")
             continue
         
         for i in range(len(gt_action_sequence) - len_horizon + 1):
@@ -141,7 +141,7 @@ def main():
             "data_source": "sokoban",
             "prompt": [{"role": "user", "content": prompt_formatted}],
             "ability": "bfs",
-            "reward_model": {"style": "rule", "ground_truth": -1},
+            "reward_model": {"style": "rule", "ground_truth": [-1]},
             "extra_info": {"split": "test", "index": idx}
         }
 
@@ -173,9 +173,9 @@ def main():
     test_env_dataset = test_env_dataset.map(function=make_map_fn('test_env'), with_indices=True)
     test_env_dataset.to_parquet(os.path.join(args.output, 'test_env.parquet'))
     # push to hub
-    train_dataset.push_to_hub("Xiaofeng77/reil_sokoban", split="train")
-    test_dataset.push_to_hub("Xiaofeng77/reil_sokoban", split="test")
-    test_env_dataset.push_to_hub("Xiaofeng77/reil_sokoban", split="test_env")
+    train_dataset.push_to_hub("Xiaofeng77/reil_sokoban_long_horizon", split="train")
+    test_dataset.push_to_hub("Xiaofeng77/reil_sokoban_long_horizon", split="test")
+    test_env_dataset.push_to_hub("Xiaofeng77/reil_sokoban_long_horizon", split="test_env")
 
 if __name__ == "__main__":
     main()
