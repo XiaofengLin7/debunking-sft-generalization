@@ -30,7 +30,7 @@ All boxes placed: +10.0
 
 [Current Observation]:
 {observation}
-Decide the next action:\
+Decide the next {len_horizon} actions:\
 """
 
 templates = {
@@ -48,6 +48,7 @@ def main():
     parser.add_argument("--seed", type=int, default=42, help="Random seed (default: 42)")
     parser.add_argument("--max_steps", type=int, default=10, help="Maximum steps per episode (default: 10)")
     parser.add_argument("--search_depth", type=int, default=30, help="Maximum search depth for BFS (default: 30)")
+    parser.add_argument("--len_horizon", type=int, default=1, help="Length of horizon (default: 1)")
     parser.add_argument("--prefix", type=str, default='qwen-instruct', choices=['qwen-instruct', 'base'], 
                        help="Template prefix to use (default: qwen-instruct)")
     parser.add_argument("--train_size", type=int, default=1000, help="Number of train instances to generate (default: 1000)")
@@ -64,6 +65,7 @@ def main():
     max_steps = args.max_steps
     search_depth = args.search_depth
     prefix = args.prefix
+    len_horizon = args.len_horizon
     instances = []
     env = SokobanEnv(dim_room=(dim_x, dim_y), num_boxes=num_boxes, max_steps=max_steps, search_depth=search_depth)
 
@@ -76,13 +78,19 @@ def main():
             print(f"No action sequence found for seed {seed_train}")
             continue
         
-        for action in gt_action_sequence:
-            instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE.format(observation=obs))
+        if len_horizon > len(gt_action_sequence):
+            print(f"No enough actions for seed {seed_train}, skip")
+            continue
+        
+        for i in range(len(gt_action_sequence) - len_horizon + 1):
+            instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE.format(observation=obs, len_horizon=len_horizon))
+            action_sequence = gt_action_sequence[i:i+len_horizon]
             train_instances.append({
                 'instruction': instruction,
-                'gt_action': action
+                'gt_action': action_sequence
             })
-            obs, reward, done, info = env.step(action)
+    
+            obs, reward, done, info = env.step(action_sequence[0])
 
     # Create test instances 
     test_instances = []
@@ -93,19 +101,25 @@ def main():
             print(f"No action sequence found for seed {seed_test}")
             continue
 
-        for action in gt_action_sequence:
-            instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE.format(observation=obs))
+        if len_horizon > len(gt_action_sequence):
+            print(f"No enough actions for seed {seed_train}, skip")
+            continue
+        
+        for i in range(len(gt_action_sequence) - len_horizon + 1):
+            instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE.format(observation=obs, len_horizon=len_horizon))
+            action_sequence = gt_action_sequence[i:i+len_horizon]
             test_instances.append({
                 'instruction': instruction,
-                'gt_action': action
+                'gt_action': action_sequence
             })
-            obs, reward, done, info = env.step(action)
+    
+            obs, reward, done, info = env.step(action_sequence[0])
     
     # Create test instances for each test environment
     test_env_instances = []
     for seed_test_env in range(seed+args.train_size+args.test_size, seed+args.train_size+args.test_size+args.num_test_envs):
         obs = env.reset(seed=seed_test_env)
-        instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE.format(observation=obs))
+        instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE.format(observation=obs, len_horizon=len_horizon))
         test_env_instances.append(instruction)
 
     def _create_instance(idx, instance):
