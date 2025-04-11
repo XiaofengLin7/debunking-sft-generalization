@@ -189,7 +189,7 @@ class ReilPPOTrainer(RayPPOTrainer):
         global_token_scores = []
         global_metrics = {}
         metrics = defaultdict(list)
-        breakpoint()
+        # breakpoint()
 
         gen_config = GenerationConfig(
             max_turns=self.config.max_turns,

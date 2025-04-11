@@ -1,5 +1,5 @@
 import re
-
+import numpy as np
 def extract_solution(solution_str):
     """Extract the action sequence from the solution string."""
     # Remove everything before the first "Assistant:"
@@ -103,7 +103,7 @@ def compute_score(solution_str, ground_truth, format_score=0.0, score=1.0, *args
         return format_score
     
 def compute_score_with_format(solution_str, ground_truth, format_score=0.1, score=1.0, *args, **kwargs):
-    """The scoring function for Sokoban."""
+    """The scoring function for Sokoban. with format score."""
     final_answer, _ = extract_solution(solution_str)
 
     if final_answer is None:
@@ -135,6 +135,66 @@ def compute_score_with_logic(solution_str, ground_truth, format_score=0.1, score
             if action == ground_truth:
                 return score
     return format_score
+
+def convert_action_sequence(action_sequence):
+    """
+    Convert a sequence of actions to their numerical representations.
+    
+    Args:
+        action_sequence: Can be either:
+            - A string containing multiple actions (e.g., "up, down, left, right")
+            - A list of action strings (e.g., ["up", "down", "left", "right"])
+    
+    Returns:
+        A list of numerical action values:
+        - 0: Still (Invalid Action)
+        - 1: Up
+        - 2: Down
+        - 3: Left
+        - 4: Right
+    """
+    # If input is a string, split it into individual actions
+    if isinstance(action_sequence, str):
+        # Split by common separators (comma, semicolon, space)
+        actions = re.split(r'[,;\s]+', action_sequence.strip())
+        actions = [a for a in actions if a]  # Remove empty strings
+    else:
+        # Assume it's already a list/iterable of actions
+        actions = action_sequence
+    
+    # Convert each action using the existing extract_action function
+    numerical_actions = []
+    for action in actions:
+        numerical_actions.append(extract_action(action))
+    
+    return numerical_actions
+
+def compute_score_with_action_sequence(solution_str, ground_truth, format_score=0.1, score=1.0, *args, **kwargs):
+    if "Assistant:" in solution_str:
+        processed_str = solution_str.split("Assistant:", 1)[1]
+    elif "<|im_start|>assistant" in solution_str:
+        processed_str = solution_str.split("<|im_start|>assistant", 1)[1]
+    else:
+        return 0
+    
+    format_correct = validate_response_structure(processed_str)
+    if not format_correct:
+        return 0
+    else:
+        final_answer, _ = extract_solution(processed_str)
+        if final_answer is None:
+            return 0
+        else:
+            action_sequence = convert_action_sequence(final_answer)
+            len_horizon = len(ground_truth)
+            if len(action_sequence) < len_horizon:
+                return 0
+            else:
+                if np.array_equal(action_sequence[:len_horizon], ground_truth):
+                    return score
+                else:
+                    return format_score
+
 def main():
     # solution_str = "Assistant: <answer>up</answer> <answer>right</answer> <answer>down</answer> <answer>left</answer>"
     # print(extract_solution(solution_str))
@@ -147,14 +207,20 @@ def main():
     # print(compute_score(solution_str, 2))
     # print(compute_score(solution_str, 3))
     # print(compute_score(solution_str, 4))
-    print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>Right</answer>", 4))
-    print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>right</answer>", 4))
-    print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>RIGHT</answer>", 4))
-    print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>4</answer>", 4))
-    print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>4(right)</answer>", 4))
-    print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>3</answer>", 4))
-    print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<action>4(right)</action>", 4))
-    print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<action>up</action> <answer>left</answer>", 4))
-    print(compute_score_with_logic("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>up</answer>", 1))
+    # print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>Right</answer>", 4))
+    # print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>right</answer>", 4))
+    # print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>RIGHT</answer>", 4))
+    # print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>4</answer>", 4))
+    # print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>4(right)</answer>", 4))
+    # print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<answer>3</answer>", 4))
+    # print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<action>4(right)</action>", 4))
+    # print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<action>up</action> <answer>left</answer>", 4))
+    # print(compute_score_with_logic("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>up</answer>", 1))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>up, left, down, right</answer>", [1, 3, 2, 4], 0.1, 1.0))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>up, left, down, right, right</answer>", [1, 3, 2, 4], 0.1, 1.0))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>up, left, </answer>", [1, 3, 2, 4], 0.1, 1.0))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer></answer>", [1, 3, 2, 4], 0.1, 1.0))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>up, </answer>", [1, 3, 2, 4], 0.1, 1.0))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>up  left down left</answer>", [1, 3, 2, 4], 0.1, 1.0))
 if __name__ == "__main__":
     main()

@@ -179,7 +179,7 @@ class TaskRunner:
         env, val_env = get_train_val_env(env_class, config)
         if val_env is None:
             val_env = env
-        breakpoint()
+        # breakpoint()
         trainer = ReilPPOTrainer(config=config,
                                 tokenizer=tokenizer,
                                 processor=processor,

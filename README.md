@@ -2,10 +2,14 @@
 Reasoning Enhanced Imitation Learning
 
 ## TODO
-- [] validate scripts in pure RL envs
 - [] long chain of thought rewards
 - [] sft scripts
 
+## Experiments roadmap
+Diverse dataset, including math dataset, sokoban dataset.
+Sokoban dataset should be diverse enough with different length of horizons and different size of maps, etc.
+Increase the context windows.
+Implement long chain of thought rewards.
 
 ## Initial steps on scc
 configure user name and email

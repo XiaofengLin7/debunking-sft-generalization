@@ -1,0 +1,1393 @@
++ DATA_DIR=./data/sokoban
++ BASE_MODEL=./models/rlft/models--Qwen--Qwen2.5-3B/snapshots/3aab1f1954e9cc14eb9509a215f9e5ca08227a9b
++ BETA=0.005
++ KL_COEF=0.0005
++ EXPERIMENT_NAME=exp-3b-0.005beta-logic-with-kl-0.0005
++ ROLLOUT_TP_SIZE=1
++ N_GPUS=2
++ export VLLM_ATTENTION_BACKEND=XFORMERS
++ VLLM_ATTENTION_BACKEND=XFORMERS
++ tee verl_demo_3b.log
++ python3 -m reil.trainer.main_ppo data.train_files=./data/sokoban/train.parquet data.val_files=./data/sokoban/test.parquet data.train_batch_size=256 data.val_batch_size=32 data.max_prompt_length=400 data.max_response_length=400 actor_rollout_ref.model.path=./models/rlft/models--Qwen--Qwen2.5-3B/snapshots/3aab1f1954e9cc14eb9509a215f9e5ca08227a9b actor_rollout_ref.model.use_remove_padding=True actor_rollout_ref.actor.use_dynamic_bsz=True actor_rollout_ref.actor.optim.lr=1e-6 actor_rollout_ref.actor.ppo_mini_batch_size=64 actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=8 actor_rollout_ref.actor.entropy_coeff=0.005 actor_rollout_ref.rollout.log_prob_micro_batch_size=16 actor_rollout_ref.rollout.tensor_model_parallel_size=1 actor_rollout_ref.rollout.gpu_memory_utilization=0.5 actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=16 critic.optim.lr=1e-5 critic.model.path=./models/rlft/models--Qwen--Qwen2.5-3B/snapshots/3aab1f1954e9cc14eb9509a215f9e5ca08227a9b critic.ppo_micro_batch_size=8 algorithm.use_kl_in_reward=True algorithm.kl_ctrl.kl_coef=0.0005 'trainer.logger=[wandb]' trainer.val_before_train=True trainer.default_hdfs_dir=null trainer.n_gpus_per_node=2 trainer.nnodes=1 trainer.save_freq=500 trainer.test_freq=25 trainer.project_name=REIL trainer.resume_mode=disable trainer.log_val_generations=4 trainer.experiment_name=exp-3b-0.005beta-logic-with-kl-0.0005 trainer.total_epochs=500 trainer.is_rl_validation=False reward_model.reward_manager=complete custom_reward_function.path=./reil/utils/reward_score/sokoban.py custom_reward_function.name=compute_score_with_action_sequence
+2025-04-11 11:13:28,975	INFO worker.py:1832 -- Started a local Ray instance. View the dashboard at [1m[32m127.0.0.1:8265 [39m[22m
+[36m(TaskRunner pid=1836302)[0m {'actor_rollout_ref': {'actor': {'checkpoint': {'contents': ['model',
+[36m(TaskRunner pid=1836302)[0m                                                              'optimizer',
+[36m(TaskRunner pid=1836302)[0m                                                              'extra']},
+[36m(TaskRunner pid=1836302)[0m                                  'clip_ratio': 0.2,
+[36m(TaskRunner pid=1836302)[0m                                  'clip_ratio_c': 3.0,
+[36m(TaskRunner pid=1836302)[0m                                  'clip_ratio_high': 0.2,
+[36m(TaskRunner pid=1836302)[0m                                  'clip_ratio_low': 0.2,
+[36m(TaskRunner pid=1836302)[0m                                  'entropy_coeff': 0.005,
+[36m(TaskRunner pid=1836302)[0m                                  'fsdp_config': {'fsdp_size': -1,
+[36m(TaskRunner pid=1836302)[0m                                                  'optimizer_offload': False,
+[36m(TaskRunner pid=1836302)[0m                                                  'param_offload': False,
+[36m(TaskRunner pid=1836302)[0m                                                  'wrap_policy': {'min_num_params': 0}},
+[36m(TaskRunner pid=1836302)[0m                                  'grad_clip': 1.0,
+[36m(TaskRunner pid=1836302)[0m                                  'kl_loss_coef': 0.001,
+[36m(TaskRunner pid=1836302)[0m                                  'kl_loss_type': 'low_var_kl',
+[36m(TaskRunner pid=1836302)[0m                                  'loss_agg_mode': 'token-mean',
+[36m(TaskRunner pid=1836302)[0m                                  'optim': {'lr': 1e-06,
+[36m(TaskRunner pid=1836302)[0m                                            'lr_warmup_steps': -1,
+[36m(TaskRunner pid=1836302)[0m                                            'lr_warmup_steps_ratio': 0.0,
+[36m(TaskRunner pid=1836302)[0m                                            'min_lr_ratio': None,
+[36m(TaskRunner pid=1836302)[0m                                            'total_training_steps': -1,
+[36m(TaskRunner pid=1836302)[0m                                            'warmup_style': 'constant',
+[36m(TaskRunner pid=1836302)[0m                                            'weight_decay': 0.01},
+[36m(TaskRunner pid=1836302)[0m                                  'ppo_epochs': 1,
+[36m(TaskRunner pid=1836302)[0m                                  'ppo_max_token_len_per_gpu': 16384,
+[36m(TaskRunner pid=1836302)[0m                                  'ppo_micro_batch_size': None,
+[36m(TaskRunner pid=1836302)[0m                                  'ppo_micro_batch_size_per_gpu': 8,
+[36m(TaskRunner pid=1836302)[0m                                  'ppo_mini_batch_size': 64,
+[36m(TaskRunner pid=1836302)[0m                                  'shuffle': False,
+[36m(TaskRunner pid=1836302)[0m                                  'state_masking': False,
+[36m(TaskRunner pid=1836302)[0m                                  'strategy': 'fsdp',
+[36m(TaskRunner pid=1836302)[0m                                  'ulysses_sequence_parallel_size': 1,
+[36m(TaskRunner pid=1836302)[0m                                  'use_dynamic_bsz': True,
+[36m(TaskRunner pid=1836302)[0m                                  'use_kl_loss': False,
+[36m(TaskRunner pid=1836302)[0m                                  'use_torch_compile': True},
+[36m(TaskRunner pid=1836302)[0m                        'hybrid_engine': True,
+[36m(TaskRunner pid=1836302)[0m                        'model': {'enable_gradient_checkpointing': True,
+[36m(TaskRunner pid=1836302)[0m                                  'external_lib': None,
+[36m(TaskRunner pid=1836302)[0m                                  'override_config': {},
+[36m(TaskRunner pid=1836302)[0m                                  'path': './models/rlft/models--Qwen--Qwen2.5-3B/snapshots/3aab1f1954e9cc14eb9509a215f9e5ca08227a9b',
+[36m(TaskRunner pid=1836302)[0m                                  'use_remove_padding': True},
+[36m(TaskRunner pid=1836302)[0m                        'ref': {'fsdp_config': {'param_offload': False,
+[36m(TaskRunner pid=1836302)[0m                                                'wrap_policy': {'min_num_params': 0}},
+[36m(TaskRunner pid=1836302)[0m                                'log_prob_max_token_len_per_gpu': 16384,
+[36m(TaskRunner pid=1836302)[0m                                'log_prob_micro_batch_size': None,
+[36m(TaskRunner pid=1836302)[0m                                'log_prob_micro_batch_size_per_gpu': 16,
+[36m(TaskRunner pid=1836302)[0m                                'log_prob_use_dynamic_bsz': True,
+[36m(TaskRunner pid=1836302)[0m                                'ulysses_sequence_parallel_size': 1},
+[36m(TaskRunner pid=1836302)[0m                        'rollout': {'disable_log_stats': True,
+[36m(TaskRunner pid=1836302)[0m                                    'do_sample': True,
+[36m(TaskRunner pid=1836302)[0m                                    'dtype': 'bfloat16',
+[36m(TaskRunner pid=1836302)[0m                                    'enable_chunked_prefill': True,
+[36m(TaskRunner pid=1836302)[0m                                    'enforce_eager': True,
+[36m(TaskRunner pid=1836302)[0m                                    'free_cache_engine': True,
+[36m(TaskRunner pid=1836302)[0m                                    'gpu_memory_utilization': 0.5,
+[36m(TaskRunner pid=1836302)[0m                                    'ignore_eos': False,
+[36m(TaskRunner pid=1836302)[0m                                    'load_format': 'dummy_dtensor',
+[36m(TaskRunner pid=1836302)[0m                                    'log_prob_max_token_len_per_gpu': 16384,
+[36m(TaskRunner pid=1836302)[0m                                    'log_prob_micro_batch_size': 16,
+[36m(TaskRunner pid=1836302)[0m                                    'log_prob_micro_batch_size_per_gpu': None,
+[36m(TaskRunner pid=1836302)[0m                                    'log_prob_use_dynamic_bsz': True,
+[36m(TaskRunner pid=1836302)[0m                                    'max_model_len': None,
+[36m(TaskRunner pid=1836302)[0m                                    'max_num_batched_tokens': 8192,
+[36m(TaskRunner pid=1836302)[0m                                    'max_num_seqs': 1024,
+[36m(TaskRunner pid=1836302)[0m                                    'n': 1,
+[36m(TaskRunner pid=1836302)[0m                                    'name': 'vllm',
+[36m(TaskRunner pid=1836302)[0m                                    'prompt_length': 400,
+[36m(TaskRunner pid=1836302)[0m                                    'response_length': 400,
+[36m(TaskRunner pid=1836302)[0m                                    'temperature': 1.0,
+[36m(TaskRunner pid=1836302)[0m                                    'tensor_model_parallel_size': 1,
+[36m(TaskRunner pid=1836302)[0m                                    'top_k': -1,
+[36m(TaskRunner pid=1836302)[0m                                    'top_p': 1,
+[36m(TaskRunner pid=1836302)[0m                                    'use_fire_sampling': False,
+[36m(TaskRunner pid=1836302)[0m                                    'val_kwargs': {'do_sample': False,
+[36m(TaskRunner pid=1836302)[0m                                                   'n': 1,
+[36m(TaskRunner pid=1836302)[0m                                                   'temperature': 0,
+[36m(TaskRunner pid=1836302)[0m                                                   'top_k': -1,
+[36m(TaskRunner pid=1836302)[0m                                                   'top_p': 1.0}}},
+[36m(TaskRunner pid=1836302)[0m  'algorithm': {'adv_estimator': 'gae',
+[36m(TaskRunner pid=1836302)[0m                'gamma': 1.0,
+[36m(TaskRunner pid=1836302)[0m                'kl_ctrl': {'horizon': 10000,
+[36m(TaskRunner pid=1836302)[0m                            'kl_coef': 0.0005,
+[36m(TaskRunner pid=1836302)[0m                            'target_kl': 0.1,
+[36m(TaskRunner pid=1836302)[0m                            'type': 'fixed'},
+[36m(TaskRunner pid=1836302)[0m                'kl_penalty': 'kl',
+[36m(TaskRunner pid=1836302)[0m                'lam': 1.0,
+[36m(TaskRunner pid=1836302)[0m                'no_think_rl': False,
+[36m(TaskRunner pid=1836302)[0m                'state_masking': {'end_state_marker': '<end-state>',
+[36m(TaskRunner pid=1836302)[0m                                  'start_state_marker': '<start-state>'},
+[36m(TaskRunner pid=1836302)[0m                'use_kl_in_reward': True},
+[36m(TaskRunner pid=1836302)[0m  'critic': {'checkpoint': {'contents': ['model', 'optimizer', 'extra']},
+[36m(TaskRunner pid=1836302)[0m             'cliprange_value': 0.5,
+[36m(TaskRunner pid=1836302)[0m             'forward_max_token_len_per_gpu': 32768,
+[36m(TaskRunner pid=1836302)[0m             'forward_micro_batch_size': 8,
+[36m(TaskRunner pid=1836302)[0m             'forward_micro_batch_size_per_gpu': None,
+[36m(TaskRunner pid=1836302)[0m             'grad_clip': 1.0,
+[36m(TaskRunner pid=1836302)[0m             'model': {'enable_gradient_checkpointing': True,
+[36m(TaskRunner pid=1836302)[0m                       'external_lib': None,
+[36m(TaskRunner pid=1836302)[0m                       'fsdp_config': {'fsdp_size': -1,
+[36m(TaskRunner pid=1836302)[0m                                       'optimizer_offload': False,
+[36m(TaskRunner pid=1836302)[0m                                       'param_offload': False,
+[36m(TaskRunner pid=1836302)[0m                                       'wrap_policy': {'min_num_params': 0}},
+[36m(TaskRunner pid=1836302)[0m                       'override_config': {},
+[36m(TaskRunner pid=1836302)[0m                       'path': './models/rlft/models--Qwen--Qwen2.5-3B/snapshots/3aab1f1954e9cc14eb9509a215f9e5ca08227a9b',
+[36m(TaskRunner pid=1836302)[0m                       'tokenizer_path': './models/rlft/models--Qwen--Qwen2.5-3B/snapshots/3aab1f1954e9cc14eb9509a215f9e5ca08227a9b',
+[36m(TaskRunner pid=1836302)[0m                       'use_remove_padding': False},
+[36m(TaskRunner pid=1836302)[0m             'optim': {'lr': 1e-05,
+[36m(TaskRunner pid=1836302)[0m                       'lr_warmup_steps_ratio': 0.0,
+[36m(TaskRunner pid=1836302)[0m                       'min_lr_ratio': None,
+[36m(TaskRunner pid=1836302)[0m                       'total_training_steps': -1,
+[36m(TaskRunner pid=1836302)[0m                       'warmup_style': 'constant',
+[36m(TaskRunner pid=1836302)[0m                       'weight_decay': 0.01},
+[36m(TaskRunner pid=1836302)[0m             'ppo_epochs': 1,
+[36m(TaskRunner pid=1836302)[0m             'ppo_max_token_len_per_gpu': 32768,
+[36m(TaskRunner pid=1836302)[0m             'ppo_micro_batch_size': 8,
+[36m(TaskRunner pid=1836302)[0m             'ppo_micro_batch_size_per_gpu': None,
+[36m(TaskRunner pid=1836302)[0m             'ppo_mini_batch_size': 64,
+[36m(TaskRunner pid=1836302)[0m             'rollout_n': 1,
+[36m(TaskRunner pid=1836302)[0m             'shuffle': False,
+[36m(TaskRunner pid=1836302)[0m             'strategy': 'fsdp',
+[36m(TaskRunner pid=1836302)[0m             'ulysses_sequence_parallel_size': 1,
+[36m(TaskRunner pid=1836302)[0m             'use_dynamic_bsz': True},
+[36m(TaskRunner pid=1836302)[0m  'custom_reward_function': {'name': 'compute_score_with_action_sequence',
+[36m(TaskRunner pid=1836302)[0m                             'path': './reil/utils/reward_score/sokoban.py'},
+[36m(TaskRunner pid=1836302)[0m  'data': {'filter_overlong_prompts': False,
+[36m(TaskRunner pid=1836302)[0m           'image_key': 'images',
+[36m(TaskRunner pid=1836302)[0m           'max_obs_length': 512,
+[36m(TaskRunner pid=1836302)[0m           'max_prompt_length': 400,
+[36m(TaskRunner pid=1836302)[0m           'max_response_length': 400,
+[36m(TaskRunner pid=1836302)[0m           'max_start_length': 512,
+[36m(TaskRunner pid=1836302)[0m           'prompt_key': 'prompt',
+[36m(TaskRunner pid=1836302)[0m           'return_raw_chat': False,
+[36m(TaskRunner pid=1836302)[0m           'return_raw_input_ids': False,
+[36m(TaskRunner pid=1836302)[0m           'reward_fn_key': 'data_source',
+[36m(TaskRunner pid=1836302)[0m           'shuffle': True,
+[36m(TaskRunner pid=1836302)[0m           'tokenizer': None,
+[36m(TaskRunner pid=1836302)[0m           'train_batch_size': 256,
+[36m(TaskRunner pid=1836302)[0m           'train_files': './data/sokoban/train.parquet',
+[36m(TaskRunner pid=1836302)[0m           'truncation': 'error',
+[36m(TaskRunner pid=1836302)[0m           'val_batch_size': 32,
+[36m(TaskRunner pid=1836302)[0m           'val_env_batch_size': 16,
+[36m(TaskRunner pid=1836302)[0m           'val_env_files': './data/sokoban/test_env.parquet',
+[36m(TaskRunner pid=1836302)[0m           'val_files': './data/sokoban/test.parquet'},
+[36m(TaskRunner pid=1836302)[0m  'env': {'dim_x': 6,
+[36m(TaskRunner pid=1836302)[0m          'dim_y': 6,
+[36m(TaskRunner pid=1836302)[0m          'max_steps': 100,
+[36m(TaskRunner pid=1836302)[0m          'name': 'sokoban',
+[36m(TaskRunner pid=1836302)[0m          'num_boxes': 1,
+[36m(TaskRunner pid=1836302)[0m          'search_depth': 30},
+[36m(TaskRunner pid=1836302)[0m  'logging': {'log_image_dir': 'log/trajectory',
+[36m(TaskRunner pid=1836302)[0m              'log_image_step_size': 4,
+[36m(TaskRunner pid=1836302)[0m              'log_images': True,
+[36m(TaskRunner pid=1836302)[0m              'log_n_image_per_batch': 32,
+[36m(TaskRunner pid=1836302)[0m              'mode': "['wandb']"},
+[36m(TaskRunner pid=1836302)[0m  'max_turns': 5,
+[36m(TaskRunner pid=1836302)[0m  'reward_model': {'enable': False,
+[36m(TaskRunner pid=1836302)[0m                   'forward_max_token_len_per_gpu': 32768,
+[36m(TaskRunner pid=1836302)[0m                   'max_length': None,
+[36m(TaskRunner pid=1836302)[0m                   'micro_batch_size': None,
+[36m(TaskRunner pid=1836302)[0m                   'micro_batch_size_per_gpu': None,
+[36m(TaskRunner pid=1836302)[0m                   'model': {'external_lib': None,
+[36m(TaskRunner pid=1836302)[0m                             'fsdp_config': {'fsdp_size': -1,
+[36m(TaskRunner pid=1836302)[0m                                             'param_offload': False,
+[36m(TaskRunner pid=1836302)[0m                                             'wrap_policy': {'min_num_params': 0}},
+[36m(TaskRunner pid=1836302)[0m                             'input_tokenizer': './models/rlft/models--Qwen--Qwen2.5-3B/snapshots/3aab1f1954e9cc14eb9509a215f9e5ca08227a9b',
+[36m(TaskRunner pid=1836302)[0m                             'path': '~/models/FsfairX-LLaMA3-RM-v0.1',
+[36m(TaskRunner pid=1836302)[0m                             'use_remove_padding': False},
+[36m(TaskRunner pid=1836302)[0m                   'reward_manager': 'complete',
+[36m(TaskRunner pid=1836302)[0m                   'strategy': 'fsdp',
+[36m(TaskRunner pid=1836302)[0m                   'ulysses_sequence_parallel_size': 1,
+[36m(TaskRunner pid=1836302)[0m                   'use_dynamic_bsz': True},
+[36m(TaskRunner pid=1836302)[0m  'trainer': {'balance_batch': True,
+[36m(TaskRunner pid=1836302)[0m              'critic_warmup': 0,
+[36m(TaskRunner pid=1836302)[0m              'default_hdfs_dir': None,
+[36m(TaskRunner pid=1836302)[0m              'default_local_dir': 'checkpoints/REIL/exp-3b-0.005beta-logic-with-kl-0.0005',
+[36m(TaskRunner pid=1836302)[0m              'del_local_ckpt_after_load': False,
+[36m(TaskRunner pid=1836302)[0m              'experiment_name': 'exp-3b-0.005beta-logic-with-kl-0.0005',
+[36m(TaskRunner pid=1836302)[0m              'is_rl_validation': False,
+[36m(TaskRunner pid=1836302)[0m              'log_val_generations': 4,
+[36m(TaskRunner pid=1836302)[0m              'logger': ['wandb'],
+[36m(TaskRunner pid=1836302)[0m              'max_actor_ckpt_to_keep': None,
+[36m(TaskRunner pid=1836302)[0m              'max_critic_ckpt_to_keep': None,
+[36m(TaskRunner pid=1836302)[0m              'n_gpus_per_node': 2,
+[36m(TaskRunner pid=1836302)[0m              'nnodes': 1,
+[36m(TaskRunner pid=1836302)[0m              'project_name': 'REIL',
+[36m(TaskRunner pid=1836302)[0m /projectnb/replearn/xfl/.conda/envs/reil/lib/python3.9/site-packages/vllm/connections.py:8: RuntimeWarning: Failed to read commit hash:
+[36m(TaskRunner pid=1836302)[0m No module named 'vllm._version'
+[36m(TaskRunner pid=1836302)[0m   from vllm.version import __version__ as VLLM_VERSION
+[36m(TaskRunner pid=1836302)[0m DeprecationWarning: `ray.state.available_resources_per_node` is a private attribute and access will be removed in a future Ray version.
+[36m(pid=1836761)[0m /projectnb/replearn/xfl/.conda/envs/reil/lib/python3.9/site-packages/vllm/connections.py:8: RuntimeWarning: Failed to read commit hash:
+[36m(pid=1836761)[0m No module named 'vllm._version'
+[36m(pid=1836761)[0m   from vllm.version import __version__ as VLLM_VERSION
+[36m(pid=1836911)[0m /projectnb/replearn/xfl/.conda/envs/reil/lib/python3.9/site-packages/vllm/connections.py:8: RuntimeWarning: Failed to read commit hash:
+[36m(pid=1836911)[0m No module named 'vllm._version'
+[36m(pid=1836911)[0m   from vllm.version import __version__ as VLLM_VERSION
+[36m(WorkerDict pid=1836761)[0m Flash Attention 2.0 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2ForTokenClassification is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `torch_dtype` argument. Example: `model = AutoModel.from_pretrained("openai/whisper-tiny", attn_implementation="flash_attention_2", torch_dtype=torch.float16)`
+[36m(WorkerDict pid=1836761)[0m You are attempting to use Flash Attention 2.0 with a model not initialized on GPU. Make sure to move the model to GPU after initializing it on CPU with `model.to('cuda')`.
+[36m(WorkerDict pid=1836761)[0m Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]
+[36m(WorkerDict pid=1836911)[0m Loading checkpoint shards:  50%|█████     | 1/2 [00:16<00:16, 16.78s/it]
+[36m(WorkerDict pid=1836911)[0m Flash Attention 2.0 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2ForTokenClassification is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `torch_dtype` argument. Example: `model = AutoModel.from_pretrained("openai/whisper-tiny", attn_implementation="flash_attention_2", torch_dtype=torch.float16)`
+[36m(WorkerDict pid=1836911)[0m You are attempting to use Flash Attention 2.0 with a model not initialized on GPU. Make sure to move the model to GPU after initializing it on CPU with `model.to('cuda')`.
+[36m(WorkerDict pid=1836911)[0m Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]
+[36m(WorkerDict pid=1836761)[0m Loading checkpoint shards: 100%|██████████| 2/2 [00:26<00:00, 12.34s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:26<00:00, 13.01s/it]
+[36m(WorkerDict pid=1836761)[0m Some weights of Qwen2ForTokenClassification were not initialized from the model checkpoint at ./models/rlft/models--Qwen--Qwen2.5-3B/snapshots/3aab1f1954e9cc14eb9509a215f9e5ca08227a9b and are newly initialized: ['score.bias', 'score.weight']
+[36m(WorkerDict pid=1836761)[0m You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+[36m(WorkerDict pid=1836761)[0m Loading checkpoint shards:  50%|█████     | 1/2 [00:16<00:16, 16.82s/it]
+[36m(WorkerDict pid=1836761)[0m Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]
+[36m(WorkerDict pid=1836911)[0m Loading checkpoint shards: 100%|██████████| 2/2 [00:26<00:00, 12.35s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:26<00:00, 13.02s/it]
+[36m(WorkerDict pid=1836911)[0m Some weights of Qwen2ForTokenClassification were not initialized from the model checkpoint at ./models/rlft/models--Qwen--Qwen2.5-3B/snapshots/3aab1f1954e9cc14eb9509a215f9e5ca08227a9b and are newly initialized: ['score.bias', 'score.weight']
+[36m(WorkerDict pid=1836911)[0m You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+[36m(WorkerDict pid=1836761)[0m Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  5.12it/s]
+[36m(WorkerDict pid=1836761)[0m Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  6.12it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  5.94it/s]
+[36m(WorkerDict pid=1836761)[0m Flash Attention 2.0 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2ForCausalLM is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `torch_dtype` argument. Example: `model = AutoModel.from_pretrained("openai/whisper-tiny", attn_implementation="flash_attention_2", torch_dtype=torch.float16)`
+[36m(WorkerDict pid=1836761)[0m Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s][32m [repeated 2x across cluster] (Ray deduplicates logs by default. Set RAY_DEDUP_LOGS=0 to disable log deduplication, or see https://docs.ray.io/en/master/ray-observability/user-guides/configure-logging.html#log-deduplication for more options.)[0m
+[36m(WorkerDict pid=1836911)[0m Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  5.01it/s]
+[36m(WorkerDict pid=1836911)[0m Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  5.99it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  5.82it/s]
+[36m(WorkerDict pid=1836911)[0m Loading checkpoint shards:  50%|█████     | 1/2 [00:02<00:02,  2.38s/it]
+[36m(WorkerDict pid=1836911)[0m Loading checkpoint shards: 100%|██████████| 2/2 [00:04<00:00,  2.09s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:04<00:00,  2.14s/it]
+[36m(TaskRunner pid=1836302)[0m              'resume_from_path': None,
+[36m(TaskRunner pid=1836302)[0m              'resume_mode': 'disable',
+[36m(TaskRunner pid=1836302)[0m              'save_freq': 500,
+[36m(TaskRunner pid=1836302)[0m              'test_freq': 25,
+[36m(TaskRunner pid=1836302)[0m              'total_epochs': 500,
+[36m(TaskRunner pid=1836302)[0m              'total_training_steps': None,
+[36m(TaskRunner pid=1836302)[0m              'val_before_train': True}}
+[36m(TaskRunner pid=1836302)[0m using customized reward function 'compute_score_with_action_sequence' from './reil/utils/reward_score/sokoban.py'
+[36m(TaskRunner pid=1836302)[0m WARNING: val_batch_size is deprecated. Validation datasets are sent to inference engines as a whole batch, which will schedule the memory themselves.
+[36m(TaskRunner pid=1836302)[0m [validate_config] All configuration checks passed successfully!
+[36m(TaskRunner pid=1836302)[0m dataset len: 21664
+[36m(TaskRunner pid=1836302)[0m dataset len: 4544
+[36m(TaskRunner pid=1836302)[0m dataset len: 400
+[36m(TaskRunner pid=1836302)[0m Size of train dataloader: 84
+[36m(TaskRunner pid=1836302)[0m Total training steps: 42000
+[36m(WorkerDict pid=1836761)[0m Critic overriding config {'bos_token_id': None, 'eos_token_id': 151643, 'pad_token_id': 151643}
+[36m(WorkerDict pid=1836761)[0m Qwen2ForTokenClassification contains 3.09B parameters
+[36m(WorkerDict pid=1836761)[0m Before critic FSDP, memory allocated (GB): 0.0, memory reserved (GB): 0.0
+[36m(WorkerDict pid=1836761)[0m NCCL version 2.20.5+cuda12.4
+[36m(WorkerDict pid=1836761)[0m After critic FSDP, memory allocated (GB): 5.783203601837158, memory reserved (GB): 10.130859375
+[36m(WorkerDict pid=1836761)[0m Total steps: 42000, num_warmup_steps: 0
+[36m(WorkerDict pid=1836761)[0m Critic use_remove_padding=False
+[36m(WorkerDict pid=1836761)[0m Model config after override: Qwen2Config {
+[36m(WorkerDict pid=1836761)[0m   "_name_or_path": "./models/rlft/models--Qwen--Qwen2.5-3B/snapshots/3aab1f1954e9cc14eb9509a215f9e5ca08227a9b",
+[36m(WorkerDict pid=1836761)[0m   "architectures": [
+[36m(WorkerDict pid=1836761)[0m     "Qwen2ForCausalLM"
+[36m(WorkerDict pid=1836761)[0m   ],
+[36m(WorkerDict pid=1836761)[0m   "attention_dropout": 0.0,
+[36m(WorkerDict pid=1836761)[0m   "eos_token_id": 151643,
+[36m(WorkerDict pid=1836761)[0m   "hidden_act": "silu",
+[36m(WorkerDict pid=1836761)[0m   "hidden_size": 2048,
+[36m(WorkerDict pid=1836761)[0m   "initializer_range": 0.02,
+[36m(WorkerDict pid=1836761)[0m   "intermediate_size": 11008,
+[36m(WorkerDict pid=1836761)[0m   "max_position_embeddings": 32768,
+[36m(WorkerDict pid=1836761)[0m   "max_window_layers": 36,
+[36m(WorkerDict pid=1836761)[0m   "model_type": "qwen2",
+[36m(WorkerDict pid=1836761)[0m   "num_attention_heads": 16,
+[36m(WorkerDict pid=1836761)[0m   "num_hidden_layers": 36,
+[36m(WorkerDict pid=1836761)[0m   "num_key_value_heads": 2,
+[36m(WorkerDict pid=1836761)[0m   "pad_token_id": 151643,
+[36m(WorkerDict pid=1836761)[0m   "rms_norm_eps": 1e-06,
+[36m(WorkerDict pid=1836761)[0m   "rope_scaling": null,
+[36m(WorkerDict pid=1836761)[0m   "rope_theta": 1000000.0,
+[36m(WorkerDict pid=1836761)[0m   "sliding_window": 32768,
+[36m(WorkerDict pid=1836761)[0m   "tie_word_embeddings": true,
+[36m(WorkerDict pid=1836761)[0m   "torch_dtype": "bfloat16",
+[36m(WorkerDict pid=1836761)[0m   "transformers_version": "4.49.0",
+[36m(WorkerDict pid=1836761)[0m   "use_cache": true,
+[36m(WorkerDict pid=1836761)[0m   "use_mrope": false,
+[36m(WorkerDict pid=1836761)[0m   "use_sliding_window": false,
+[36m(WorkerDict pid=1836761)[0m   "vocab_size": 151936
+[36m(WorkerDict pid=1836761)[0m }
+[36m(WorkerDict pid=1836761)[0m 
+[36m(WorkerDict pid=1836761)[0m Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+[36m(WorkerDict pid=1836761)[0m Qwen2ForCausalLM contains 3.09B parameters
+[36m(WorkerDict pid=1836761)[0m wrap_policy: functools.partial(<function _or_policy at 0x151aa8b11430>, policies=[functools.partial(<function transformer_auto_wrap_policy at 0x151aa8b11310>, transformer_layer_cls={<class 'transformers.models.qwen2.modeling_qwen2.Qwen2DecoderLayer'>})])
+[36m(WorkerDict pid=1836761)[0m Actor use_remove_padding=True
+[36m(WorkerDict pid=1836761)[0m Model config after override: Qwen2Config {
+[36m(WorkerDict pid=1836761)[0m   "_name_or_path": "./models/rlft/models--Qwen--Qwen2.5-3B/snapshots/3aab1f1954e9cc14eb9509a215f9e5ca08227a9b",
+[36m(WorkerDict pid=1836761)[0m   "architectures": [
+[36m(WorkerDict pid=1836761)[0m     "Qwen2ForCausalLM"
+[36m(WorkerDict pid=1836761)[0m   ],
+[36m(WorkerDict pid=1836761)[0m   "attention_dropout": 0.0,
+[36m(WorkerDict pid=1836761)[0m   "eos_token_id": 151643,
+[36m(WorkerDict pid=1836761)[0m   "hidden_act": "silu",
+[36m(WorkerDict pid=1836761)[0m   "hidden_size": 2048,
+[36m(WorkerDict pid=1836761)[0m   "initializer_range": 0.02,
+[36m(WorkerDict pid=1836761)[0m   "intermediate_size": 11008,
+[36m(WorkerDict pid=1836761)[0m   "max_position_embeddings": 32768,
+[36m(WorkerDict pid=1836761)[0m   "max_window_layers": 36,
+[36m(WorkerDict pid=1836761)[0m   "model_type": "qwen2",
+[36m(WorkerDict pid=1836761)[0m   "num_attention_heads": 16,
+[36m(WorkerDict pid=1836761)[0m   "num_hidden_layers": 36,
+[36m(WorkerDict pid=1836761)[0m   "num_key_value_heads": 2,
+[36m(WorkerDict pid=1836761)[0m   "pad_token_id": 151643,
+[36m(WorkerDict pid=1836761)[0m   "rms_norm_eps": 1e-06,
+[36m(WorkerDict pid=1836761)[0m   "rope_scaling": null,
+[36m(WorkerDict pid=1836761)[0m   "rope_theta": 1000000.0,
+[36m(WorkerDict pid=1836761)[0m   "sliding_window": 32768,
+[36m(WorkerDict pid=1836761)[0m   "tie_word_embeddings": true,
+[36m(WorkerDict pid=1836761)[0m   "torch_dtype": "bfloat16",
+[36m(WorkerDict pid=1836761)[0m   "transformers_version": "4.49.0",
+[36m(WorkerDict pid=1836761)[0m   "use_cache": true,
+[36m(WorkerDict pid=1836761)[0m   "use_mrope": false,
+[36m(WorkerDict pid=1836761)[0m   "use_sliding_window": false,
+[36m(WorkerDict pid=1836761)[0m   "vocab_size": 151936
+[36m(WorkerDict pid=1836761)[0m }
+[36m(WorkerDict pid=1836761)[0m 
+[36m(WorkerDict pid=1836911)[0m Total steps: 42000, num_warmup_steps: 0
+[36m(WorkerDict pid=1836911)[0m Critic use_remove_padding=False
+[36m(WorkerDict pid=1836911)[0m Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+[36m(WorkerDict pid=1836911)[0m wrap_policy: functools.partial(<function _or_policy at 0x14f2d4a62430>, policies=[functools.partial(<function transformer_auto_wrap_policy at 0x14f2d4a62310>, transformer_layer_cls={<class 'transformers.models.qwen2.modeling_qwen2.Qwen2DecoderLayer'>})])
+[36m(WorkerDict pid=1836911)[0m Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+[36m(WorkerDict pid=1836911)[0m Actor use_remove_padding=True
+[36m(WorkerDict pid=1836761)[0m Qwen2ForCausalLM contains 3.09B parameters
+[36m(WorkerDict pid=1836761)[0m wrap_policy: functools.partial(<function _or_policy at 0x151aa8b11430>, policies=[functools.partial(<function transformer_auto_wrap_policy at 0x151aa8b11310>, transformer_layer_cls={<class 'transformers.models.qwen2.modeling_qwen2.Qwen2DecoderLayer'>})])
+[36m(WorkerDict pid=1836761)[0m Total steps: 42000, num_warmup_steps: 0
+[36m(WorkerDict pid=1836761)[0m Actor use_remove_padding=True
+[36m(WorkerDict pid=1836761)[0m Before building vllm rollout, memory allocated (GB): 11.543267726898193, memory reserved (GB): 15.927734375
+[36m(WorkerDict pid=1836761)[0m WARNING 04-11 11:14:59 config.py:380] To see benefits of async output processing, enable CUDA graph. Since, enforce-eager is enabled, async output processor cannot be used
+[36m(WorkerDict pid=1836761)[0m Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+[36m(WorkerDict pid=1836761)[0m /projectnb/replearn/xfl/.conda/envs/reil/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:211: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.
+[36m(WorkerDict pid=1836761)[0m   @torch.library.impl_abstract("xformers_flash::flash_fwd")
+[36m(WorkerDict pid=1836911)[0m Flash Attention 2.0 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2ForCausalLM is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `torch_dtype` argument. Example: `model = AutoModel.from_pretrained("openai/whisper-tiny", attn_implementation="flash_attention_2", torch_dtype=torch.float16)`
+[36m(WorkerDict pid=1836911)[0m Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]
+[36m(WorkerDict pid=1836761)[0m Loading checkpoint shards:  50%|█████     | 1/2 [00:02<00:02,  2.54s/it]
+[36m(WorkerDict pid=1836761)[0m Loading checkpoint shards: 100%|██████████| 2/2 [00:04<00:00,  2.17s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:04<00:00,  2.22s/it]
+[36m(WorkerDict pid=1836761)[0m   @torch.library.impl_abstract("xformers_flash::flash_bwd")
+[36m(WorkerDict pid=1836761)[0m /projectnb/replearn/xfl/.conda/envs/reil/lib/python3.9/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:689: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+[36m(WorkerDict pid=1836761)[0m   warnings.warn(
+[36m(WorkerDict pid=1836911)[0m /projectnb/replearn/xfl/.conda/envs/reil/lib/python3.9/site-packages/xformers/ops/fmha/flash.py:344: FutureWarning: `torch.library.impl_abstract` was renamed to `torch.library.register_fake`. Please use that instead; we will remove `torch.library.impl_abstract` in a future version of PyTorch.[32m [repeated 3x across cluster][0m
+[36m(WorkerDict pid=1836911)[0m   @torch.library.impl_abstract("xformers_flash::flash_fwd")
+[36m(WorkerDict pid=1836911)[0m   @torch.library.impl_abstract("xformers_flash::flash_bwd")
+[36m(TaskRunner pid=1836302)[0m wandb: Using wandb-core as the SDK backend.  Please refer to https://wandb.me/wandb-core for more information.
+[36m(TaskRunner pid=1836302)[0m wandb: Currently logged in as: xiaofeng_lin to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+[36m(TaskRunner pid=1836302)[0m wandb: Tracking run with wandb version 0.19.8
+[36m(TaskRunner pid=1836302)[0m wandb: Run data is saved locally in /projectnb/replearn/xfl/REIL/wandb/run-20250411_111510-qxgo1yyn
+[36m(TaskRunner pid=1836302)[0m wandb: Run `wandb offline` to turn off syncing.
+[36m(TaskRunner pid=1836302)[0m wandb: Syncing run exp-3b-0.005beta-logic-with-kl-0.0005
+[36m(TaskRunner pid=1836302)[0m wandb: ⭐️ View project at https://wandb.ai/xiaofeng_lin/REIL
+[36m(TaskRunner pid=1836302)[0m wandb: 🚀 View run at https://wandb.ai/xiaofeng_lin/REIL/runs/qxgo1yyn
+[36m(WorkerDict pid=1836911)[0m /projectnb/replearn/xfl/.conda/envs/reil/lib/python3.9/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:689: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+[36m(WorkerDict pid=1836911)[0m   warnings.warn(
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 0/42000 [00:00<?, ?it/s]
+[36m(WorkerDict pid=1836761)[0m /projectnb/replearn/xfl/.conda/envs/reil/lib/python3.9/site-packages/torch/utils/checkpoint.py:1399: FutureWarning: `torch.cpu.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cpu', args...)` instead.
+[36m(WorkerDict pid=1836761)[0m   with device_autocast_ctx, torch.cpu.amp.autocast(**cpu_autocast_kwargs), recompute_context:  # type: ignore[attr-defined]
+[36m(WorkerDict pid=1836761)[0m /projectnb/replearn/xfl/.conda/envs/reil/lib/python3.9/site-packages/torch/utils/checkpoint.py:1399: FutureWarning: `torch.cpu.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cpu', args...)` instead.[32m [repeated 2x across cluster][0m
+[36m(WorkerDict pid=1836761)[0m   with device_autocast_ctx, torch.cpu.amp.autocast(**cpu_autocast_kwargs), recompute_context:  # type: ignore[attr-defined][32m [repeated 2x across cluster][0m
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 1/42000 [01:31<1062:10:37, 91.05s/it]
+[36m(WorkerDict pid=1836911)[0m /projectnb/replearn/xfl/.conda/envs/reil/lib/python3.9/site-packages/torch/utils/checkpoint.py:1399: FutureWarning: `torch.cpu.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cpu', args...)` instead.
+[36m(WorkerDict pid=1836911)[0m   with device_autocast_ctx, torch.cpu.amp.autocast(**cpu_autocast_kwargs), recompute_context:  # type: ignore[attr-defined]
+[36m(WorkerDict pid=1836761)[0m /projectnb/replearn/xfl/.conda/envs/reil/lib/python3.9/site-packages/torch/utils/checkpoint.py:1399: FutureWarning: `torch.cpu.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cpu', args...)` instead.
+[36m(WorkerDict pid=1836761)[0m   with device_autocast_ctx, torch.cpu.amp.autocast(**cpu_autocast_kwargs), recompute_context:  # type: ignore[attr-defined]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 2/42000 [02:19<771:02:46, 66.09s/it] 
+[36m(WorkerDict pid=1836911)[0m /projectnb/replearn/xfl/.conda/envs/reil/lib/python3.9/site-packages/torch/utils/checkpoint.py:1399: FutureWarning: `torch.cpu.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cpu', args...)` instead.
+[36m(WorkerDict pid=1836911)[0m   with device_autocast_ctx, torch.cpu.amp.autocast(**cpu_autocast_kwargs), recompute_context:  # type: ignore[attr-defined]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 3/42000 [03:17<727:00:06, 62.32s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 4/42000 [04:15<707:20:20, 60.63s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 5/42000 [05:13<695:49:36, 59.65s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 6/42000 [06:14<702:07:11, 60.19s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 7/42000 [07:12<694:35:08, 59.55s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 8/42000 [08:11<692:22:13, 59.36s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 9/42000 [09:10<689:22:39, 59.10s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 10/42000 [10:07<682:32:19, 58.52s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 11/42000 [11:12<706:04:15, 60.54s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 12/42000 [12:11<699:59:35, 60.02s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 13/42000 [13:14<710:20:04, 60.90s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 14/42000 [14:18<720:58:34, 61.82s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 15/42000 [15:17<709:36:23, 60.85s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 16/42000 [16:00<649:29:03, 55.69s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 17/42000 [16:43<604:56:59, 51.87s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 18/42000 [17:40<622:18:08, 53.36s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 19/42000 [18:41<648:09:15, 55.58s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 20/42000 [19:39<655:51:54, 56.24s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 21/42000 [20:40<673:20:00, 57.74s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 22/42000 [21:40<680:40:16, 58.37s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 23/42000 [22:36<674:52:35, 57.88s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 24/42000 [23:39<691:14:08, 59.28s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 25/42000 [25:52<949:59:52, 81.48s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 26/42000 [26:48<859:25:30, 73.71s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 27/42000 [27:35<764:59:06, 65.61s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 28/42000 [28:28<723:33:40, 62.06s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 29/42000 [29:09<649:00:05, 55.67s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 30/42000 [30:02<640:59:09, 54.98s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 31/42000 [30:55<632:44:59, 54.28s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 32/42000 [31:57<657:57:54, 56.44s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 33/42000 [32:45<629:03:09, 53.96s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 34/42000 [33:29<594:09:54, 50.97s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 35/42000 [34:15<576:18:01, 49.44s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 36/42000 [34:58<553:56:49, 47.52s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 37/42000 [35:58<598:01:25, 51.30s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 38/42000 [36:56<621:26:25, 53.31s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 39/42000 [37:46<611:53:50, 52.50s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 40/42000 [38:46<638:16:36, 54.76s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 41/42000 [39:35<617:06:41, 52.95s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 42/42000 [40:17<577:56:32, 49.59s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 43/42000 [41:05<571:27:36, 49.03s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 44/42000 [41:48<551:56:28, 47.36s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 45/42000 [42:31<536:19:04, 46.02s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 46/42000 [43:07<503:02:56, 43.17s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 47/42000 [43:59<531:21:19, 45.60s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 48/42000 [44:54<565:00:49, 48.49s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 49/42000 [45:54<606:39:04, 52.06s/it]
+[36m(WorkerDict pid=1836911)[0m wrap_policy: functools.partial(<function _or_policy at 0x14f2d4a62430>, policies=[functools.partial(<function transformer_auto_wrap_policy at 0x14f2d4a62310>, transformer_layer_cls={<class 'transformers.models.qwen2.modeling_qwen2.Qwen2DecoderLayer'>})])
+[36m(WorkerDict pid=1836911)[0m Total steps: 42000, num_warmup_steps: 0
+[36m(WorkerDict pid=1836911)[0m Actor use_remove_padding=True
+[36m(WorkerDict pid=1836761)[0m local rank 0
+[36m(WorkerDict pid=1836911)[0m NCCL version 2.20.5+cuda12.4
+[36m(WorkerDict pid=1836761)[0m before init cache memory allocated: 18.621552128GB, reserved: 18.714984448GB
+[36m(WorkerDict pid=1836761)[0m after init cache memory allocated: 50.558162432GB, reserved: 50.725912576GB
+[36m(WorkerDict pid=1836911)[0m WARNING 04-11 11:14:59 config.py:380] To see benefits of async output processing, enable CUDA graph. Since, enforce-eager is enabled, async output processor cannot be used
+[36m(WorkerDict pid=1836911)[0m local rank 0
+[36m(WorkerDict pid=1836761)[0m kwargs: {'n': 1, 'logprobs': 0, 'max_tokens': 400, 'detokenize': False, 'temperature': 1.0, 'top_k': -1, 'top_p': 1, 'ignore_eos': False}
+[36m(WorkerDict pid=1836761)[0m After building vllm rollout, memory allocated (GB): 41.30230474472046, memory reserved (GB): 47.2421875
+[36m(WorkerDict pid=1836761)[0m After building sharding manager, memory allocated (GB): 41.30230474472046, memory reserved (GB): 47.2421875
+[36m(TaskRunner pid=1836302)[0m test_gen_batch meta info: {'eos_token_id': 151643, 'pad_token_id': 151643, 'recompute_log_prob': False, 'do_sample': False, 'validate': True}
+[36m(WorkerDict pid=1836911)[0m kwargs: {'n': 1, 'logprobs': 0, 'max_tokens': 400, 'detokenize': False, 'temperature': 1.0, 'top_k': -1, 'top_p': 1, 'ignore_eos': False}
+[36m(TaskRunner pid=1836302)[0m validation generation end
+[36m(TaskRunner pid=1836302)[0m [prompt and response] <|im_start|>user
+[36m(TaskRunner pid=1836302)[0m You are a Sokoban solver.
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Sokoban Quick Guide
+[36m(TaskRunner pid=1836302)[0m Goal: Push all boxes (X) onto targets (O).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Symbols:
+[36m(TaskRunner pid=1836302)[0m # Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rules:
+[36m(TaskRunner pid=1836302)[0m 1. Push boxes (can't pull).
+[36m(TaskRunner pid=1836302)[0m 2. Avoid walls (#).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Answers:
+[36m(TaskRunner pid=1836302)[0m <answer> Up </answer> | <answer> Down </answer> | <answer> Left </answer> | <answer> Right </answer>
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rewards:
+[36m(TaskRunner pid=1836302)[0m Move: -0.1
+[36m(TaskRunner pid=1836302)[0m Box on target: +1.0
+[36m(TaskRunner pid=1836302)[0m All boxes placed: +10.0
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m [Current Observation]:
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 _ 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 P 	 X 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 _ 	 O 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m Decide the next 3 actions:
+[36m(TaskRunner pid=1836302)[0m Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>
+[36m(TaskRunner pid=1836302)[0m <|im_start|>assistant
+[36m(TaskRunner pid=1836302)[0m <think> I will analyze the current state of the game and determine the best actions to take in order to solve the puzzle. </think>
+[36m(TaskRunner pid=1836302)[0m <answer> Up </answer><|endoftext|>
+[36m(TaskRunner pid=1836302)[0m [ground_truth] [1 4 2]
+[36m(TaskRunner pid=1836302)[0m [score] 0
+[36m(TaskRunner pid=1836302)[0m "Initial validation metrics: {'val/test_score/sokoban': 0.0}"
+[36m(TaskRunner pid=1836302)[0m test_gen_batch meta info: {'eos_token_id': 151643, 'pad_token_id': 151643, 'recompute_log_prob': False, 'do_sample': False, 'validate': True}
+[36m(TaskRunner pid=1836302)[0m validation generation end
+[36m(TaskRunner pid=1836302)[0m [prompt and response] <|im_start|>user
+[36m(TaskRunner pid=1836302)[0m You are a Sokoban solver.
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Sokoban Quick Guide
+[36m(TaskRunner pid=1836302)[0m Goal: Push all boxes (X) onto targets (O).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Symbols:
+[36m(TaskRunner pid=1836302)[0m # Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rules:
+[36m(TaskRunner pid=1836302)[0m 1. Push boxes (can't pull).
+[36m(TaskRunner pid=1836302)[0m 2. Avoid walls (#).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Answers:
+[36m(TaskRunner pid=1836302)[0m <answer> Up </answer> | <answer> Down </answer> | <answer> Left </answer> | <answer> Right </answer>
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rewards:
+[36m(TaskRunner pid=1836302)[0m Move: -0.1
+[36m(TaskRunner pid=1836302)[0m Box on target: +1.0
+[36m(TaskRunner pid=1836302)[0m All boxes placed: +10.0
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m [Current Observation]:
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 O 	 _ 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 _ 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 X 	 P 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 _ 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m Decide the next 3 actions:
+[36m(TaskRunner pid=1836302)[0m Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>
+[36m(TaskRunner pid=1836302)[0m <|im_start|>assistant
+[36m(TaskRunner pid=1836302)[0m <think> I will analyze the current state of the game and determine the next three actions to take. </think> <answer> Move right, then up, and finally left. </answer><|endoftext|>
+[36m(TaskRunner pid=1836302)[0m [ground_truth] [2 3 1]
+[36m(TaskRunner pid=1836302)[0m [score] 0.1
+[36m(TaskRunner pid=1836302)[0m test_gen_batch meta info: {'eos_token_id': 151643, 'pad_token_id': 151643, 'recompute_log_prob': False, 'do_sample': False, 'validate': True}
+[36m(TaskRunner pid=1836302)[0m validation generation end
+[36m(TaskRunner pid=1836302)[0m [prompt and response] <|im_start|>user
+[36m(TaskRunner pid=1836302)[0m You are a Sokoban solver.
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Sokoban Quick Guide
+[36m(TaskRunner pid=1836302)[0m Goal: Push all boxes (X) onto targets (O).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Symbols:
+[36m(TaskRunner pid=1836302)[0m # Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rules:
+[36m(TaskRunner pid=1836302)[0m 1. Push boxes (can't pull).
+[36m(TaskRunner pid=1836302)[0m 2. Avoid walls (#).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Answers:
+[36m(TaskRunner pid=1836302)[0m <answer> Up </answer> | <answer> Down </answer> | <answer> Left </answer> | <answer> Right </answer>
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rewards:
+[36m(TaskRunner pid=1836302)[0m Move: -0.1
+[36m(TaskRunner pid=1836302)[0m Box on target: +1.0
+[36m(TaskRunner pid=1836302)[0m All boxes placed: +10.0
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m [Current Observation]:
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 50/42000 [50:22<1360:14:05, 116.73s/it]
+[36m(WorkerDict pid=1836911)[0m /projectnb/replearn/xfl/.conda/envs/reil/lib/python3.9/site-packages/torch/utils/checkpoint.py:1399: FutureWarning: `torch.cpu.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cpu', args...)` instead.
+[36m(WorkerDict pid=1836911)[0m   with device_autocast_ctx, torch.cpu.amp.autocast(**cpu_autocast_kwargs), recompute_context:  # type: ignore[attr-defined]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 51/42000 [51:13<1130:23:55, 97.01s/it] 
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 52/42000 [52:01<960:44:04, 82.45s/it] 
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 53/42000 [52:48<834:01:31, 71.58s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 54/42000 [53:49<799:43:29, 68.64s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 55/42000 [54:49<767:02:15, 65.83s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 56/42000 [55:37<704:25:01, 60.46s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 57/42000 [56:21<649:35:07, 55.75s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 58/42000 [57:20<658:19:58, 56.51s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 59/42000 [57:59<599:46:32, 51.48s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 60/42000 [58:53<605:26:00, 51.97s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 61/42000 [1:00:03<668:29:20, 57.38s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 62/42000 [1:00:46<619:45:20, 53.20s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 63/42000 [1:01:29<582:51:31, 50.03s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 64/42000 [1:02:11<555:39:39, 47.70s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 65/42000 [1:03:05<579:41:41, 49.77s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 66/42000 [1:03:53<570:38:20, 48.99s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 67/42000 [1:04:36<551:54:00, 47.38s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 68/42000 [1:05:25<556:04:57, 47.74s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 69/42000 [1:06:08<538:56:20, 46.27s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 70/42000 [1:06:49<520:20:58, 44.68s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 71/42000 [1:07:30<510:15:30, 43.81s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 72/42000 [1:08:11<498:00:20, 42.76s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 73/42000 [1:08:51<488:33:12, 41.95s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 74/42000 [1:09:41<516:34:42, 44.36s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 75/42000 [1:11:05<654:09:54, 56.17s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 76/42000 [1:11:46<602:58:53, 51.78s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 77/42000 [1:12:21<543:37:32, 46.68s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 78/42000 [1:12:55<499:17:36, 42.88s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 79/42000 [1:13:39<504:56:06, 43.36s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 80/42000 [1:14:22<503:09:00, 43.21s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 81/42000 [1:15:07<509:35:14, 43.76s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 82/42000 [1:15:52<511:30:16, 43.93s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 83/42000 [1:16:33<502:20:10, 43.14s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 84/42000 [1:17:15<497:26:59, 42.72s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 85/42000 [1:17:56<492:59:47, 42.34s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 86/42000 [1:18:38<492:15:30, 42.28s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 87/42000 [1:19:25<506:51:30, 43.54s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 88/42000 [1:20:06<498:06:47, 42.79s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 89/42000 [1:20:49<500:01:08, 42.95s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 90/42000 [1:21:34<506:59:11, 43.55s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 91/42000 [1:22:14<494:29:29, 42.48s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 92/42000 [1:22:57<496:49:36, 42.68s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 93/42000 [1:23:32<470:13:34, 40.39s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 94/42000 [1:24:07<449:45:39, 38.64s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 95/42000 [1:24:51<470:59:36, 40.46s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 96/42000 [1:25:31<466:44:05, 40.10s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 97/42000 [1:26:11<467:29:18, 40.16s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 98/42000 [1:26:50<465:02:13, 39.95s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 99/42000 [1:27:30<463:08:25, 39.79s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 100/42000 [1:29:06<660:48:24, 56.78s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 101/42000 [1:29:50<615:09:23, 52.85s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 102/42000 [1:30:31<574:50:50, 49.39s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 103/42000 [1:31:19<567:21:42, 48.75s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 104/42000 [1:32:16<598:04:59, 51.39s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 105/42000 [1:33:08<601:26:31, 51.68s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 106/42000 [1:33:48<560:21:49, 48.15s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 107/42000 [1:34:35<554:34:00, 47.66s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 108/42000 [1:35:19<543:52:29, 46.74s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 109/42000 [1:36:03<531:49:34, 45.70s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 110/42000 [1:36:41<505:54:24, 43.48s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 111/42000 [1:37:21<492:50:55, 42.36s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 112/42000 [1:38:13<526:12:25, 45.22s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 113/42000 [1:39:13<578:03:46, 49.68s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 114/42000 [1:39:56<554:28:14, 47.66s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 115/42000 [1:40:52<585:33:25, 50.33s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 116/42000 [1:41:40<576:07:48, 49.52s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 117/42000 [1:42:37<603:46:09, 51.90s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 118/42000 [1:43:19<566:23:00, 48.68s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 119/42000 [1:44:02<547:34:02, 47.07s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 120/42000 [1:44:50<552:52:25, 47.52s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 121/42000 [1:45:26<511:08:49, 43.94s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 122/42000 [1:46:01<478:36:45, 41.14s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 123/42000 [1:46:38<464:17:36, 39.91s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 124/42000 [1:47:20<471:49:32, 40.56s/it]
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 _ 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 P 	 X 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 _ 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 _ 	 _ 	 O 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m Decide the next 3 actions:
+[36m(TaskRunner pid=1836302)[0m Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>
+[36m(TaskRunner pid=1836302)[0m <|im_start|>assistant
+[36m(TaskRunner pid=1836302)[0m <think>Let's analyze the current state of the puzzle. There are two boxes (X) and one target (O) in the top row. The top left corner is blocked by a wall (#). The bottom right corner is also blocked by a wall (#). The only available space for movement is the middle row, which has a floor (_). The player (P) is located in the middle of the bottom row. </think> <answer> Up, Left, Down </answer><|endoftext|>
+[36m(TaskRunner pid=1836302)[0m [ground_truth] [4 4 1]
+[36m(TaskRunner pid=1836302)[0m [score] 0.1
+[36m(TaskRunner pid=1836302)[0m test_gen_batch meta info: {'eos_token_id': 151643, 'pad_token_id': 151643, 'recompute_log_prob': False, 'do_sample': False, 'validate': True}
+[36m(TaskRunner pid=1836302)[0m validation generation end
+[36m(TaskRunner pid=1836302)[0m [prompt and response] <|im_start|>user
+[36m(TaskRunner pid=1836302)[0m You are a Sokoban solver.
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Sokoban Quick Guide
+[36m(TaskRunner pid=1836302)[0m Goal: Push all boxes (X) onto targets (O).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Symbols:
+[36m(TaskRunner pid=1836302)[0m # Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rules:
+[36m(TaskRunner pid=1836302)[0m 1. Push boxes (can't pull).
+[36m(TaskRunner pid=1836302)[0m 2. Avoid walls (#).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Answers:
+[36m(TaskRunner pid=1836302)[0m <answer> Up </answer> | <answer> Down </answer> | <answer> Left </answer> | <answer> Right </answer>
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rewards:
+[36m(TaskRunner pid=1836302)[0m Move: -0.1
+[36m(TaskRunner pid=1836302)[0m Box on target: +1.0
+[36m(TaskRunner pid=1836302)[0m All boxes placed: +10.0
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m [Current Observation]:
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 _ 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 _ 	 X 	 O 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 _ 	 P 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 _ 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m Decide the next 3 actions:
+[36m(TaskRunner pid=1836302)[0m Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>
+[36m(TaskRunner pid=1836302)[0m <|im_start|>assistant
+[36m(TaskRunner pid=1836302)[0m <think> Analyzing current state </think> <answer> Left Down Right </answer><|endoftext|>
+[36m(TaskRunner pid=1836302)[0m [ground_truth] [1 1 3]
+[36m(TaskRunner pid=1836302)[0m [score] 0.1
+[36m(TaskRunner pid=1836302)[0m test_gen_batch meta info: {'eos_token_id': 151643, 'pad_token_id': 151643, 'recompute_log_prob': False, 'do_sample': False, 'validate': True}
+[36m(TaskRunner pid=1836302)[0m validation generation end
+[36m(TaskRunner pid=1836302)[0m [prompt and response] <|im_start|>user
+[36m(TaskRunner pid=1836302)[0m You are a Sokoban solver.
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Sokoban Quick Guide
+[36m(TaskRunner pid=1836302)[0m Goal: Push all boxes (X) onto targets (O).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Symbols:
+[36m(TaskRunner pid=1836302)[0m # Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rules:
+[36m(TaskRunner pid=1836302)[0m 1. Push boxes (can't pull).
+[36m(TaskRunner pid=1836302)[0m 2. Avoid walls (#).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Answers:
+[36m(TaskRunner pid=1836302)[0m <answer> Up </answer> | <answer> Down </answer> | <answer> Left </answer> | <answer> Right </answer>
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rewards:
+[36m(TaskRunner pid=1836302)[0m Move: -0.1
+[36m(TaskRunner pid=1836302)[0m Box on target: +1.0
+[36m(TaskRunner pid=1836302)[0m All boxes placed: +10.0
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m [Current Observation]:
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 _ 	 P 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 _ 	 X 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 O 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 _ 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m Decide the next 3 actions:
+[36m(TaskRunner pid=1836302)[0m Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>
+[36m(TaskRunner pid=1836302)[0m <|im_start|>assistant
+[36m(TaskRunner pid=1836302)[0m <think> I'll need to analyze the current state before deciding </think> <answer> Left, Down, Right </answer><|endoftext|>
+[36m(TaskRunner pid=1836302)[0m [ground_truth] [2 4 2]
+[36m(TaskRunner pid=1836302)[0m [score] 0.1
+[36m(TaskRunner pid=1836302)[0m test_gen_batch meta info: {'eos_token_id': 151643, 'pad_token_id': 151643, 'recompute_log_prob': False, 'do_sample': False, 'validate': True}
+[36m(TaskRunner pid=1836302)[0m validation generation end
+[36m(TaskRunner pid=1836302)[0m [prompt and response] <|im_start|>user
+[36m(TaskRunner pid=1836302)[0m You are a Sokoban solver.
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Sokoban Quick Guide
+[36m(TaskRunner pid=1836302)[0m Goal: Push all boxes (X) onto targets (O).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Symbols:
+[36m(TaskRunner pid=1836302)[0m # Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rules:
+[36m(TaskRunner pid=1836302)[0m 1. Push boxes (can't pull).
+[36m(TaskRunner pid=1836302)[0m 2. Avoid walls (#).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Answers:
+[36m(TaskRunner pid=1836302)[0m <answer> Up </answer> | <answer> Down </answer> | <answer> Left </answer> | <answer> Right </answer>
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rewards:
+[36m(TaskRunner pid=1836302)[0m Move: -0.1
+[36m(TaskRunner pid=1836302)[0m Box on target: +1.0
+[36m(TaskRunner pid=1836302)[0m All boxes placed: +10.0
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m [Current Observation]:
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 O 	 # 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 # 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 X 	 # 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 P 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m Decide the next 3 actions:
+[36m(TaskRunner pid=1836302)[0m Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>
+[36m(TaskRunner pid=1836302)[0m <|im_start|>assistant
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 125/42000 [1:48:47<634:19:01, 54.53s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 126/42000 [1:49:28<587:34:04, 50.51s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 127/42000 [1:50:10<557:28:29, 47.93s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 128/42000 [1:50:51<532:27:49, 45.78s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 129/42000 [1:51:33<521:14:25, 44.82s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 130/42000 [1:52:13<504:26:45, 43.37s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 131/42000 [1:52:56<501:21:26, 43.11s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 132/42000 [1:53:38<496:37:58, 42.70s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 133/42000 [1:54:31<533:54:02, 45.91s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 134/42000 [1:55:11<513:55:02, 44.19s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 135/42000 [1:55:54<509:02:48, 43.77s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 136/42000 [1:56:34<495:31:05, 42.61s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 137/42000 [1:57:21<511:39:55, 44.00s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 138/42000 [1:58:13<540:40:51, 46.50s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 139/42000 [1:58:57<531:11:19, 45.68s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 140/42000 [1:59:42<529:23:12, 45.53s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 141/42000 [2:00:28<531:31:15, 45.71s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 142/42000 [2:01:15<534:48:01, 46.00s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 143/42000 [2:01:57<521:24:27, 44.84s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 144/42000 [2:02:39<511:44:57, 44.02s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 145/42000 [2:03:25<519:03:40, 44.65s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 146/42000 [2:04:15<535:15:31, 46.04s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 147/42000 [2:05:02<540:41:22, 46.51s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 148/42000 [2:05:46<530:30:03, 45.63s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 149/42000 [2:06:29<521:05:48, 44.82s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 150/42000 [2:08:02<688:22:06, 59.21s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 151/42000 [2:08:37<606:03:50, 52.14s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 152/42000 [2:09:12<543:51:16, 46.79s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 153/42000 [2:09:49<509:30:14, 43.83s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 154/42000 [2:10:33<512:36:29, 44.10s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 155/42000 [2:11:17<510:20:39, 43.91s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 156/42000 [2:11:58<499:58:44, 43.02s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 157/42000 [2:12:38<491:58:25, 42.33s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 158/42000 [2:13:16<476:49:37, 41.03s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 159/42000 [2:13:51<454:23:18, 39.10s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 160/42000 [2:14:36<475:01:49, 40.87s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 161/42000 [2:15:15<468:32:01, 40.31s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 162/42000 [2:15:56<471:42:22, 40.59s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 163/42000 [2:16:40<481:59:32, 41.47s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 164/42000 [2:17:16<463:53:13, 39.92s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 165/42000 [2:17:49<440:17:52, 37.89s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 166/42000 [2:18:23<424:58:27, 36.57s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 167/42000 [2:18:57<416:48:20, 35.87s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 168/42000 [2:19:30<408:34:29, 35.16s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 169/42000 [2:20:06<411:25:12, 35.41s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 170/42000 [2:20:41<408:33:59, 35.16s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 171/42000 [2:21:15<403:35:21, 34.73s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 172/42000 [2:21:50<404:20:29, 34.80s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 173/42000 [2:22:33<433:07:49, 37.28s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 174/42000 [2:23:17<455:45:49, 39.23s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 175/42000 [2:24:38<603:25:33, 51.94s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 176/42000 [2:25:13<543:17:27, 46.76s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 177/42000 [2:25:49<507:02:13, 43.64s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 178/42000 [2:26:27<487:19:14, 41.95s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 179/42000 [2:27:06<475:31:27, 40.93s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 180/42000 [2:27:42<457:55:51, 39.42s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 181/42000 [2:28:16<441:28:15, 38.00s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 182/42000 [2:28:51<430:44:27, 37.08s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 183/42000 [2:29:26<422:43:43, 36.39s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 184/42000 [2:30:02<419:48:25, 36.14s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 185/42000 [2:30:41<431:34:54, 37.16s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 186/42000 [2:31:23<449:10:38, 38.67s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 187/42000 [2:32:02<448:20:41, 38.60s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 188/42000 [2:32:41<451:39:45, 38.89s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 189/42000 [2:33:22<457:36:08, 39.40s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 190/42000 [2:34:01<455:40:31, 39.24s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 191/42000 [2:34:40<456:20:00, 39.29s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 192/42000 [2:35:25<474:03:01, 40.82s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 193/42000 [2:36:04<469:05:23, 40.39s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 194/42000 [2:36:49<483:39:41, 41.65s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 195/42000 [2:37:31<486:51:05, 41.92s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 196/42000 [2:38:10<476:23:49, 41.03s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 197/42000 [2:38:52<479:58:09, 41.33s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 198/42000 [2:39:28<461:02:09, 39.70s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 199/42000 [2:40:07<457:52:08, 39.43s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 200/42000 [2:41:24<587:58:13, 50.64s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 201/42000 [2:42:05<554:55:44, 47.79s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 202/42000 [2:42:52<554:24:02, 47.75s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 203/42000 [2:43:42<559:47:30, 48.22s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 204/42000 [2:44:32<567:28:42, 48.88s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 205/42000 [2:45:10<529:50:56, 45.64s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 206/42000 [2:45:46<496:17:41, 42.75s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 207/42000 [2:46:24<478:14:40, 41.20s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 208/42000 [2:47:06<480:31:11, 41.39s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 209/42000 [2:47:44<471:21:15, 40.60s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   0%|          | 210/42000 [2:48:25<469:50:25, 40.47s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 211/42000 [2:49:03<461:47:21, 39.78s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 212/42000 [2:49:37<442:54:17, 38.16s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 213/42000 [2:50:12<432:19:18, 37.25s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 214/42000 [2:50:52<442:53:25, 38.16s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 215/42000 [2:51:31<442:53:31, 38.16s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 216/42000 [2:52:09<443:57:17, 38.25s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 217/42000 [2:52:48<446:47:23, 38.50s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 218/42000 [2:53:29<456:19:32, 39.32s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 219/42000 [2:54:15<479:29:27, 41.31s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 220/42000 [2:54:50<457:51:31, 39.45s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 221/42000 [2:55:26<445:02:43, 38.35s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 222/42000 [2:56:09<458:54:03, 39.54s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 223/42000 [2:56:50<465:31:36, 40.12s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 224/42000 [2:57:38<493:23:00, 42.52s/it]
+[36m(TaskRunner pid=1836302)[0m <think>considering</think> <answer> Left Down Right </answer><|endoftext|>
+[36m(TaskRunner pid=1836302)[0m [ground_truth] [3 1 1]
+[36m(TaskRunner pid=1836302)[0m [score] 0.1
+[36m(TaskRunner pid=1836302)[0m test_gen_batch meta info: {'eos_token_id': 151643, 'pad_token_id': 151643, 'recompute_log_prob': False, 'do_sample': False, 'validate': True}
+[36m(TaskRunner pid=1836302)[0m validation generation end
+[36m(TaskRunner pid=1836302)[0m [prompt and response] <|im_start|>user
+[36m(TaskRunner pid=1836302)[0m You are a Sokoban solver.
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Sokoban Quick Guide
+[36m(TaskRunner pid=1836302)[0m Goal: Push all boxes (X) onto targets (O).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Symbols:
+[36m(TaskRunner pid=1836302)[0m # Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rules:
+[36m(TaskRunner pid=1836302)[0m 1. Push boxes (can't pull).
+[36m(TaskRunner pid=1836302)[0m 2. Avoid walls (#).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Answers:
+[36m(TaskRunner pid=1836302)[0m <answer> Up </answer> | <answer> Down </answer> | <answer> Left </answer> | <answer> Right </answer>
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rewards:
+[36m(TaskRunner pid=1836302)[0m Move: -0.1
+[36m(TaskRunner pid=1836302)[0m Box on target: +1.0
+[36m(TaskRunner pid=1836302)[0m All boxes placed: +10.0
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m [Current Observation]:
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 _ 	 P 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 X 	 _ 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 O 	 _ 	 _ 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 _ 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m Decide the next 3 actions:
+[36m(TaskRunner pid=1836302)[0m Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>
+[36m(TaskRunner pid=1836302)[0m <|im_start|>assistant
+[36m(TaskRunner pid=1836302)[0m <think> </think> <answer> Right Down Left </answer><|endoftext|>
+[36m(TaskRunner pid=1836302)[0m [ground_truth] [3 2 4]
+[36m(TaskRunner pid=1836302)[0m [score] 0.1
+[36m(TaskRunner pid=1836302)[0m test_gen_batch meta info: {'eos_token_id': 151643, 'pad_token_id': 151643, 'recompute_log_prob': False, 'do_sample': False, 'validate': True}
+[36m(TaskRunner pid=1836302)[0m validation generation end
+[36m(TaskRunner pid=1836302)[0m [prompt and response] <|im_start|>user
+[36m(TaskRunner pid=1836302)[0m You are a Sokoban solver.
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Sokoban Quick Guide
+[36m(TaskRunner pid=1836302)[0m Goal: Push all boxes (X) onto targets (O).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Symbols:
+[36m(TaskRunner pid=1836302)[0m # Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rules:
+[36m(TaskRunner pid=1836302)[0m 1. Push boxes (can't pull).
+[36m(TaskRunner pid=1836302)[0m 2. Avoid walls (#).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Answers:
+[36m(TaskRunner pid=1836302)[0m <answer> Up </answer> | <answer> Down </answer> | <answer> Left </answer> | <answer> Right </answer>
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rewards:
+[36m(TaskRunner pid=1836302)[0m Move: -0.1
+[36m(TaskRunner pid=1836302)[0m Box on target: +1.0
+[36m(TaskRunner pid=1836302)[0m All boxes placed: +10.0
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m [Current Observation]:
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 _ 	 O 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 _ 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 _ 	 X 	 P 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m Decide the next 3 actions:
+[36m(TaskRunner pid=1836302)[0m Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>
+[36m(TaskRunner pid=1836302)[0m <|im_start|>assistant
+[36m(TaskRunner pid=1836302)[0m <think> </think> <answer> Left Down Right </answer><|endoftext|>
+[36m(TaskRunner pid=1836302)[0m [ground_truth] [2 3 1]
+[36m(TaskRunner pid=1836302)[0m [score] 0.1
+[36m(TaskRunner pid=1836302)[0m test_gen_batch meta info: {'eos_token_id': 151643, 'pad_token_id': 151643, 'recompute_log_prob': False, 'do_sample': False, 'validate': True}
+[36m(TaskRunner pid=1836302)[0m validation generation end
+[36m(TaskRunner pid=1836302)[0m [prompt and response] <|im_start|>user
+[36m(TaskRunner pid=1836302)[0m You are a Sokoban solver.
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Sokoban Quick Guide
+[36m(TaskRunner pid=1836302)[0m Goal: Push all boxes (X) onto targets (O).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Symbols:
+[36m(TaskRunner pid=1836302)[0m # Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rules:
+[36m(TaskRunner pid=1836302)[0m 1. Push boxes (can't pull).
+[36m(TaskRunner pid=1836302)[0m 2. Avoid walls (#).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Answers:
+[36m(TaskRunner pid=1836302)[0m <answer> Up </answer> | <answer> Down </answer> | <answer> Left </answer> | <answer> Right </answer>
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rewards:
+[36m(TaskRunner pid=1836302)[0m Move: -0.1
+[36m(TaskRunner pid=1836302)[0m Box on target: +1.0
+[36m(TaskRunner pid=1836302)[0m All boxes placed: +10.0
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m [Current Observation]:
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 O 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 X 	 P 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 _ 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m Decide the next 3 actions:
+[36m(TaskRunner pid=1836302)[0m Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>
+[36m(TaskRunner pid=1836302)[0m <|im_start|>assistant
+[36m(TaskRunner pid=1836302)[0m <think> 1 </think> <answer> Left Down Right </answer><|endoftext|>
+[36m(TaskRunner pid=1836302)[0m [ground_truth] [2 3 1]
+[36m(TaskRunner pid=1836302)[0m [score] 0.1
+[36m(TaskRunner pid=1836302)[0m test_gen_batch meta info: {'eos_token_id': 151643, 'pad_token_id': 151643, 'recompute_log_prob': False, 'do_sample': False, 'validate': True}
+[36m(TaskRunner pid=1836302)[0m validation generation end
+[36m(TaskRunner pid=1836302)[0m [prompt and response] <|im_start|>user
+[36m(TaskRunner pid=1836302)[0m You are a Sokoban solver.
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Sokoban Quick Guide
+[36m(TaskRunner pid=1836302)[0m Goal: Push all boxes (X) onto targets (O).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Symbols:
+[36m(TaskRunner pid=1836302)[0m # Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rules:
+[36m(TaskRunner pid=1836302)[0m 1. Push boxes (can't pull).
+[36m(TaskRunner pid=1836302)[0m 2. Avoid walls (#).
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 225/42000 [3:01:52<1230:27:05, 106.04s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 226/42000 [3:02:35<1010:45:09, 87.10s/it] 
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 227/42000 [3:03:26<884:34:08, 76.23s/it] 
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 228/42000 [3:04:13<782:10:36, 67.41s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 229/42000 [3:05:02<716:58:54, 61.79s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 230/42000 [3:05:50<668:59:26, 57.66s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 231/42000 [3:06:27<596:51:53, 51.44s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 232/42000 [3:07:06<555:58:00, 47.92s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 233/42000 [3:07:50<541:32:50, 46.68s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 234/42000 [3:08:39<550:08:01, 47.42s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 235/42000 [3:09:19<521:38:31, 44.96s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 236/42000 [3:10:00<510:42:10, 44.02s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 237/42000 [3:10:47<518:48:30, 44.72s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 238/42000 [3:11:33<523:16:35, 45.11s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 239/42000 [3:12:18<522:11:58, 45.02s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 240/42000 [3:13:00<511:56:55, 44.13s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 241/42000 [3:13:48<526:20:14, 45.37s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 242/42000 [3:14:30<515:20:13, 44.43s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 243/42000 [3:15:22<540:15:11, 46.58s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 244/42000 [3:16:03<523:36:54, 45.14s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 245/42000 [3:16:45<511:10:23, 44.07s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 246/42000 [3:17:28<505:32:43, 43.59s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 247/42000 [3:18:02<473:25:55, 40.82s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 248/42000 [3:18:39<460:35:32, 39.71s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 249/42000 [3:19:31<503:49:42, 43.44s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 250/42000 [3:21:04<674:18:04, 58.14s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 251/42000 [3:21:42<606:50:42, 52.33s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 252/42000 [3:22:17<546:28:35, 47.12s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 253/42000 [3:23:17<589:10:31, 50.81s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 254/42000 [3:23:56<549:46:05, 47.41s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 255/42000 [3:24:42<542:27:12, 46.78s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 256/42000 [3:25:20<514:07:22, 44.34s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 257/42000 [3:26:01<503:24:26, 43.41s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 258/42000 [3:26:43<497:17:48, 42.89s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 259/42000 [3:27:21<479:49:09, 41.38s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 260/42000 [3:28:02<477:02:43, 41.14s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 261/42000 [3:28:42<474:16:02, 40.91s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 262/42000 [3:29:23<474:52:31, 40.96s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 263/42000 [3:29:59<456:13:18, 39.35s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 264/42000 [3:30:34<441:47:34, 38.11s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 265/42000 [3:31:10<434:13:17, 37.46s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 266/42000 [3:31:45<426:56:49, 36.83s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 267/42000 [3:32:21<422:36:19, 36.46s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 268/42000 [3:33:00<432:01:51, 37.27s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 269/42000 [3:33:44<455:43:59, 39.31s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 270/42000 [3:34:31<482:37:03, 41.63s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 271/42000 [3:35:17<498:32:30, 43.01s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 272/42000 [3:36:00<496:37:20, 42.85s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 273/42000 [3:36:41<492:43:39, 42.51s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 274/42000 [3:37:22<486:04:02, 41.94s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 275/42000 [3:38:35<593:16:36, 51.19s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 276/42000 [3:39:10<537:11:43, 46.35s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 277/42000 [3:39:46<501:05:27, 43.24s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 278/42000 [3:40:28<497:19:57, 42.91s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 279/42000 [3:41:10<494:29:29, 42.67s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 280/42000 [3:41:49<480:11:13, 41.44s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 281/42000 [3:42:27<469:10:09, 40.49s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 282/42000 [3:43:23<524:36:37, 45.27s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 283/42000 [3:44:04<507:39:39, 43.81s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 284/42000 [3:44:50<516:50:24, 44.60s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 285/42000 [3:45:42<543:28:39, 46.90s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 286/42000 [3:46:17<501:31:40, 43.28s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 287/42000 [3:46:55<481:11:03, 41.53s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 288/42000 [3:47:37<484:36:26, 41.82s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 289/42000 [3:48:29<520:52:23, 44.96s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 290/42000 [3:49:09<501:13:30, 43.26s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 291/42000 [3:49:54<506:58:01, 43.76s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 292/42000 [3:50:33<490:34:28, 42.34s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 293/42000 [3:51:07<463:16:10, 39.99s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 294/42000 [3:51:41<442:34:27, 38.20s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 295/42000 [3:52:19<439:27:59, 37.94s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 296/42000 [3:52:58<445:18:27, 38.44s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 297/42000 [3:53:42<463:03:58, 39.97s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 298/42000 [3:54:20<456:37:52, 39.42s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 299/42000 [3:55:00<460:31:36, 39.76s/it]
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Answers:
+[36m(TaskRunner pid=1836302)[0m <answer> Up </answer> | <answer> Down </answer> | <answer> Left </answer> | <answer> Right </answer>
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rewards:
+[36m(TaskRunner pid=1836302)[0m Move: -0.1
+[36m(TaskRunner pid=1836302)[0m Box on target: +1.0
+[36m(TaskRunner pid=1836302)[0m All boxes placed: +10.0
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m [Current Observation]:
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 _ 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 _ 	 _ 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 X 	 _ 	 O 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 P 	 _ 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m Decide the next 3 actions:
+[36m(TaskRunner pid=1836302)[0m Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>
+[36m(TaskRunner pid=1836302)[0m <|im_start|>assistant
+[36m(TaskRunner pid=1836302)[0m <think> -100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+[36m(TaskRunner pid=1836302)[0m [ground_truth] [1 4 4]
+[36m(TaskRunner pid=1836302)[0m [score] 0
+[36m(TaskRunner pid=1836302)[0m test_gen_batch meta info: {'eos_token_id': 151643, 'pad_token_id': 151643, 'recompute_log_prob': False, 'do_sample': False, 'validate': True}
+[36m(TaskRunner pid=1836302)[0m validation generation end
+[36m(TaskRunner pid=1836302)[0m [prompt and response] <|im_start|>user
+[36m(TaskRunner pid=1836302)[0m You are a Sokoban solver.
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Sokoban Quick Guide
+[36m(TaskRunner pid=1836302)[0m Goal: Push all boxes (X) onto targets (O).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Symbols:
+[36m(TaskRunner pid=1836302)[0m # Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rules:
+[36m(TaskRunner pid=1836302)[0m 1. Push boxes (can't pull).
+[36m(TaskRunner pid=1836302)[0m 2. Avoid walls (#).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Answers:
+[36m(TaskRunner pid=1836302)[0m <answer> Up </answer> | <answer> Down </answer> | <answer> Left </answer> | <answer> Right </answer>
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rewards:
+[36m(TaskRunner pid=1836302)[0m Move: -0.1
+[36m(TaskRunner pid=1836302)[0m Box on target: +1.0
+[36m(TaskRunner pid=1836302)[0m All boxes placed: +10.0
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m [Current Observation]:
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 O 	 P 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 X 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m Decide the next 3 actions:
+[36m(TaskRunner pid=1836302)[0m Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>
+[36m(TaskRunner pid=1836302)[0m <|im_start|>assistant
+[36m(TaskRunner pid=1836302)[0m <think> </think> <answer> Up Left Down </answer><|endoftext|>
+[36m(TaskRunner pid=1836302)[0m [ground_truth] [2 2 3]
+[36m(TaskRunner pid=1836302)[0m [score] 0.1
+[36m(TaskRunner pid=1836302)[0m test_gen_batch meta info: {'eos_token_id': 151643, 'pad_token_id': 151643, 'recompute_log_prob': False, 'do_sample': False, 'validate': True}
+[36m(TaskRunner pid=1836302)[0m validation generation end
+[36m(TaskRunner pid=1836302)[0m [prompt and response] <|im_start|>user
+[36m(TaskRunner pid=1836302)[0m You are a Sokoban solver.
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Sokoban Quick Guide
+[36m(TaskRunner pid=1836302)[0m Goal: Push all boxes (X) onto targets (O).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Symbols:
+[36m(TaskRunner pid=1836302)[0m # Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rules:
+[36m(TaskRunner pid=1836302)[0m 1. Push boxes (can't pull).
+[36m(TaskRunner pid=1836302)[0m 2. Avoid walls (#).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Answers:
+[36m(TaskRunner pid=1836302)[0m <answer> Up </answer> | <answer> Down </answer> | <answer> Left </answer> | <answer> Right </answer>
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rewards:
+[36m(TaskRunner pid=1836302)[0m Move: -0.1
+[36m(TaskRunner pid=1836302)[0m Box on target: +1.0
+[36m(TaskRunner pid=1836302)[0m All boxes placed: +10.0
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m [Current Observation]:
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 _ 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 _ 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 P 	 _ 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 X 	 _ 	 O 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m Decide the next 3 actions:
+[36m(TaskRunner pid=1836302)[0m Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>
+[36m(TaskRunner pid=1836302)[0m <|im_start|>assistant
+[36m(TaskRunner pid=1836302)[0m <think> </think> <answer> Left Down Right </answer><|endoftext|>
+[36m(TaskRunner pid=1836302)[0m [ground_truth] [2 4 4]
+[36m(TaskRunner pid=1836302)[0m [score] 0.1
+[36m(TaskRunner pid=1836302)[0m test_gen_batch meta info: {'eos_token_id': 151643, 'pad_token_id': 151643, 'recompute_log_prob': False, 'do_sample': False, 'validate': True}
+[36m(TaskRunner pid=1836302)[0m validation generation end
+[36m(TaskRunner pid=1836302)[0m [prompt and response] <|im_start|>user
+[36m(TaskRunner pid=1836302)[0m You are a Sokoban solver.
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Sokoban Quick Guide
+[36m(TaskRunner pid=1836302)[0m Goal: Push all boxes (X) onto targets (O).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Symbols:
+[36m(TaskRunner pid=1836302)[0m # Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rules:
+[36m(TaskRunner pid=1836302)[0m 1. Push boxes (can't pull).
+[36m(TaskRunner pid=1836302)[0m 2. Avoid walls (#).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Answers:
+[36m(TaskRunner pid=1836302)[0m <answer> Up </answer> | <answer> Down </answer> | <answer> Left </answer> | <answer> Right </answer>
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rewards:
+[36m(TaskRunner pid=1836302)[0m Move: -0.1
+[36m(TaskRunner pid=1836302)[0m Box on target: +1.0
+[36m(TaskRunner pid=1836302)[0m All boxes placed: +10.0
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m [Current Observation]:
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 _ 	 _ 	 P 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 _ 	 X 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 300/42000 [3:56:36<654:40:11, 56.52s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 301/42000 [3:57:16<596:38:21, 51.51s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 302/42000 [3:57:59<566:22:35, 48.90s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 303/42000 [3:58:51<577:30:44, 49.86s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 304/42000 [3:59:39<572:25:19, 49.42s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 305/42000 [4:00:14<521:51:47, 45.06s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 306/42000 [4:00:48<484:51:26, 41.86s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 307/42000 [4:01:26<469:27:52, 40.54s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 308/42000 [4:02:24<530:43:39, 45.83s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 309/42000 [4:03:11<535:25:15, 46.23s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 310/42000 [4:04:05<562:55:53, 48.61s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 311/42000 [4:04:51<553:57:02, 47.84s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 312/42000 [4:05:32<526:56:05, 45.50s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 313/42000 [4:06:10<504:10:19, 43.54s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 314/42000 [4:06:58<517:39:17, 44.70s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 315/42000 [4:07:37<498:24:13, 43.04s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 316/42000 [4:08:17<487:54:45, 42.14s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 317/42000 [4:08:51<460:18:25, 39.75s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 318/42000 [4:09:27<445:04:29, 38.44s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 319/42000 [4:10:15<478:23:22, 41.32s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 320/42000 [4:11:01<494:49:29, 42.74s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 321/42000 [4:11:40<481:56:14, 41.63s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 322/42000 [4:12:21<481:12:06, 41.56s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 323/42000 [4:13:07<495:17:50, 42.78s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 324/42000 [4:13:47<486:02:50, 41.99s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 325/42000 [4:15:04<606:18:57, 52.38s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 326/42000 [4:15:38<544:06:26, 47.00s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 327/42000 [4:16:17<515:26:24, 44.53s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 328/42000 [4:16:56<496:07:38, 42.86s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 329/42000 [4:17:33<477:07:44, 41.22s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 330/42000 [4:18:08<454:17:18, 39.25s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 331/42000 [4:18:50<464:27:52, 40.13s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 332/42000 [4:19:33<474:18:33, 40.98s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 333/42000 [4:20:14<476:03:37, 41.13s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 334/42000 [4:20:53<467:31:06, 40.39s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 335/42000 [4:21:35<471:55:31, 40.78s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 336/42000 [4:22:10<451:25:15, 39.01s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 337/42000 [4:22:46<441:00:28, 38.11s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 338/42000 [4:23:32<470:37:52, 40.67s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 339/42000 [4:24:07<450:39:42, 38.94s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 340/42000 [4:24:42<434:50:34, 37.58s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 341/42000 [4:25:17<427:08:42, 36.91s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 342/42000 [4:25:55<430:15:47, 37.18s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 343/42000 [4:26:40<459:28:42, 39.71s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 344/42000 [4:27:20<457:52:27, 39.57s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 345/42000 [4:27:54<441:02:17, 38.12s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 346/42000 [4:28:29<428:22:21, 37.02s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 347/42000 [4:29:03<418:05:57, 36.14s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 348/42000 [4:29:40<420:41:06, 36.36s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 349/42000 [4:30:22<441:36:24, 38.17s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 350/42000 [4:31:47<603:22:10, 52.15s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 351/42000 [4:32:32<578:03:34, 49.97s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 352/42000 [4:33:14<550:31:02, 47.59s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 353/42000 [4:33:57<533:34:09, 46.12s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 354/42000 [4:34:40<524:03:45, 45.30s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 355/42000 [4:35:21<507:54:56, 43.91s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 356/42000 [4:36:07<516:18:50, 44.63s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 357/42000 [4:36:43<485:09:02, 41.94s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 358/42000 [4:37:18<461:33:41, 39.90s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 359/42000 [4:37:58<462:33:24, 39.99s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 360/42000 [4:38:40<469:55:05, 40.63s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 361/42000 [4:39:28<494:29:37, 42.75s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 362/42000 [4:40:15<508:36:32, 43.97s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 363/42000 [4:40:57<503:58:49, 43.57s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 364/42000 [4:41:42<508:18:08, 43.95s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 365/42000 [4:42:29<518:39:57, 44.85s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 366/42000 [4:43:11<508:16:08, 43.95s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 367/42000 [4:43:52<497:31:19, 43.02s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 368/42000 [4:44:35<496:53:58, 42.97s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 369/42000 [4:45:17<494:39:40, 42.78s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 370/42000 [4:45:57<485:52:55, 42.02s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 371/42000 [4:46:38<482:30:49, 41.73s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 372/42000 [4:47:19<478:18:27, 41.36s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 373/42000 [4:47:54<457:19:10, 39.55s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 374/42000 [4:48:34<460:18:40, 39.81s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 375/42000 [4:50:00<618:43:12, 53.51s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 376/42000 [4:50:35<555:30:13, 48.04s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 377/42000 [4:51:11<511:45:16, 44.26s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 378/42000 [4:51:46<481:14:10, 41.62s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 379/42000 [4:52:22<462:31:05, 40.01s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 380/42000 [4:53:18<518:18:11, 44.83s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 381/42000 [4:53:58<501:24:08, 43.37s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 382/42000 [4:54:37<485:19:18, 41.98s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 383/42000 [4:55:17<477:16:19, 41.29s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 384/42000 [4:55:57<474:40:57, 41.06s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 385/42000 [4:56:34<460:42:31, 39.85s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 386/42000 [4:57:13<457:51:12, 39.61s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 387/42000 [4:57:59<477:31:08, 41.31s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 388/42000 [4:58:47<500:57:58, 43.34s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 389/42000 [4:59:30<502:10:56, 43.45s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 390/42000 [5:00:09<486:31:29, 42.09s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 391/42000 [5:00:46<468:20:53, 40.52s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 392/42000 [5:01:35<495:41:26, 42.89s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 393/42000 [5:02:16<491:39:08, 42.54s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 394/42000 [5:02:57<486:42:43, 42.11s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 395/42000 [5:03:41<492:30:09, 42.62s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 396/42000 [5:04:22<484:53:05, 41.96s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 397/42000 [5:05:11<509:30:02, 44.09s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 398/42000 [5:05:52<499:28:10, 43.22s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 399/42000 [5:06:38<509:36:24, 44.10s/it]
+[36m(TaskRunner pid=1836302)[0m  # 	 O 	 _ 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 # 	 # 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m Decide the next 3 actions:
+[36m(TaskRunner pid=1836302)[0m Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>
+[36m(TaskRunner pid=1836302)[0m <|im_start|>assistant
+[36m(TaskRunner pid=1836302)[0m <think> </think> | <answer> Left Down Right </answer><|endoftext|>
+[36m(TaskRunner pid=1836302)[0m [ground_truth] [3 2 4]
+[36m(TaskRunner pid=1836302)[0m [score] 1.0
+[36m(TaskRunner pid=1836302)[0m test_gen_batch meta info: {'eos_token_id': 151643, 'pad_token_id': 151643, 'recompute_log_prob': False, 'do_sample': False, 'validate': True}
+[36m(TaskRunner pid=1836302)[0m validation generation end
+[36m(TaskRunner pid=1836302)[0m [prompt and response] <|im_start|>user
+[36m(TaskRunner pid=1836302)[0m You are a Sokoban solver.
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Sokoban Quick Guide
+[36m(TaskRunner pid=1836302)[0m Goal: Push all boxes (X) onto targets (O).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Symbols:
+[36m(TaskRunner pid=1836302)[0m # Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rules:
+[36m(TaskRunner pid=1836302)[0m 1. Push boxes (can't pull).
+[36m(TaskRunner pid=1836302)[0m 2. Avoid walls (#).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Answers:
+[36m(TaskRunner pid=1836302)[0m <answer> Up </answer> | <answer> Down </answer> | <answer> Left </answer> | <answer> Right </answer>
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rewards:
+[36m(TaskRunner pid=1836302)[0m Move: -0.1
+[36m(TaskRunner pid=1836302)[0m Box on target: +1.0
+[36m(TaskRunner pid=1836302)[0m All boxes placed: +10.0
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m [Current Observation]:
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 O 	 X 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 _ 	 P 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 _ 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 _ 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m Decide the next 3 actions:
+[36m(TaskRunner pid=1836302)[0m Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>
+[36m(TaskRunner pid=1836302)[0m <|im_start|>assistant
+[36m(TaskRunner pid=1836302)[0m <think> </think> | <answer> Up Left Down </answer><|endoftext|>
+[36m(TaskRunner pid=1836302)[0m [ground_truth] [4 1 3]
+[36m(TaskRunner pid=1836302)[0m [score] 0.1
+[36m(TaskRunner pid=1836302)[0m test_gen_batch meta info: {'eos_token_id': 151643, 'pad_token_id': 151643, 'recompute_log_prob': False, 'do_sample': False, 'validate': True}
+[36m(TaskRunner pid=1836302)[0m validation generation end
+[36m(TaskRunner pid=1836302)[0m [prompt and response] <|im_start|>user
+[36m(TaskRunner pid=1836302)[0m You are a Sokoban solver.
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Sokoban Quick Guide
+[36m(TaskRunner pid=1836302)[0m Goal: Push all boxes (X) onto targets (O).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Symbols:
+[36m(TaskRunner pid=1836302)[0m # Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rules:
+[36m(TaskRunner pid=1836302)[0m 1. Push boxes (can't pull).
+[36m(TaskRunner pid=1836302)[0m 2. Avoid walls (#).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Answers:
+[36m(TaskRunner pid=1836302)[0m <answer> Up </answer> | <answer> Down </answer> | <answer> Left </answer> | <answer> Right </answer>
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rewards:
+[36m(TaskRunner pid=1836302)[0m Move: -0.1
+[36m(TaskRunner pid=1836302)[0m Box on target: +1.0
+[36m(TaskRunner pid=1836302)[0m All boxes placed: +10.0
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m [Current Observation]:
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 O 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 X 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 _ 	 P 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m Decide the next 3 actions:
+[36m(TaskRunner pid=1836302)[0m Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>
+[36m(TaskRunner pid=1836302)[0m <|im_start|>assistant
+[36m(TaskRunner pid=1836302)[0m <think> - </think> | <answer> Up Left Down </answer><|endoftext|>
+[36m(TaskRunner pid=1836302)[0m [ground_truth] [3 3 1]
+[36m(TaskRunner pid=1836302)[0m [score] 0.1
+[36m(TaskRunner pid=1836302)[0m test_gen_batch meta info: {'eos_token_id': 151643, 'pad_token_id': 151643, 'recompute_log_prob': False, 'do_sample': False, 'validate': True}
+[36m(TaskRunner pid=1836302)[0m validation generation end
+[36m(TaskRunner pid=1836302)[0m [prompt and response] <|im_start|>user
+[36m(TaskRunner pid=1836302)[0m You are a Sokoban solver.
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Sokoban Quick Guide
+[36m(TaskRunner pid=1836302)[0m Goal: Push all boxes (X) onto targets (O).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Symbols:
+[36m(TaskRunner pid=1836302)[0m # Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rules:
+[36m(TaskRunner pid=1836302)[0m 1. Push boxes (can't pull).
+[36m(TaskRunner pid=1836302)[0m 2. Avoid walls (#).
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Answers:
+[36m(TaskRunner pid=1836302)[0m <answer> Up </answer> | <answer> Down </answer> | <answer> Left </answer> | <answer> Right </answer>
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Rewards:
+[36m(TaskRunner pid=1836302)[0m Move: -0.1
+[36m(TaskRunner pid=1836302)[0m Box on target: +1.0
+[36m(TaskRunner pid=1836302)[0m All boxes placed: +10.0
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m [Current Observation]:
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 _ 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 _ 	 _ 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 P 	 X 	 _ 	 _ 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 _ 	 O 	 # 	
+[36m(TaskRunner pid=1836302)[0m  # 	 # 	 # 	 # 	 # 	 # 	
+[36m(TaskRunner pid=1836302)[0m Decide the next 3 actions:
+[36m(TaskRunner pid=1836302)[0m Always output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>
+[36m(TaskRunner pid=1836302)[0m <|im_start|>assistant
+[36m(TaskRunner pid=1836302)[0m <think> -sac </think> | <answer> Left Down Right </answer><|endoftext|>
+[36m(TaskRunner pid=1836302)[0m [ground_truth] [4 4 1]
+[36m(TaskRunner pid=1836302)[0m [score] 0.1
+[36m(TaskRunner pid=1836302)[0m test_gen_batch meta info: {'eos_token_id': 151643, 'pad_token_id': 151643, 'recompute_log_prob': False, 'do_sample': False, 'validate': True}
+[36m(TaskRunner pid=1836302)[0m validation generation end
+[36m(TaskRunner pid=1836302)[0m [prompt and response] <|im_start|>user
+[36m(TaskRunner pid=1836302)[0m You are a Sokoban solver.
+[36m(TaskRunner pid=1836302)[0m 
+[36m(TaskRunner pid=1836302)[0m Sokoban Quick Guide
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 400/42000 [5:07:56<627:29:58, 54.30s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 401/42000 [5:08:36<577:37:19, 49.99s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 402/42000 [5:09:22<562:57:07, 48.72s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 403/42000 [5:10:05<543:46:50, 47.06s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 404/42000 [5:10:50<536:02:35, 46.39s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 405/42000 [5:11:31<517:52:34, 44.82s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 406/42000 [5:12:09<493:03:23, 42.67s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 407/42000 [5:12:42<461:43:38, 39.96s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 408/42000 [5:13:19<451:50:53, 39.11s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 409/42000 [5:14:08<483:49:06, 41.88s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 410/42000 [5:14:52<493:33:24, 42.72s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 411/42000 [5:15:35<491:14:07, 42.52s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 412/42000 [5:16:23<512:34:31, 44.37s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 413/42000 [5:17:13<530:16:06, 45.90s/it]
+[36m(TaskRunner pid=1836302)[0m Training Progress:   1%|          | 414/42000 [5:17:58<528:38:36, 45.76s/it]
