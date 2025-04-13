@@ -192,8 +192,10 @@ def compute_score_with_action_sequence(solution_str, ground_truth, format_score=
             else:
                 if np.array_equal(action_sequence[:len_horizon], ground_truth):
                     return score
-                else:
+                elif len(action_sequence) == len_horizon and not any(action == 0 for action in action_sequence):
                     return format_score
+                
+    return 0
 
 def main():
     # solution_str = "Assistant: <answer>up</answer> <answer>right</answer> <answer>down</answer> <answer>left</answer>"
