@@ -6,7 +6,7 @@ conda activate reil || exit 1
 set -x
 
 
-DATA_DIR="./data/sokoban"
+DATA_DIR="./data/sokoban_diverse"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-3B-Instruct/snapshots/aa8e72537993ba99e69dfaafa59ed015b17504d1"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B-Instruct/snapshots/989aa7980e4cf806f80c7fef2b1adb7bc71aa306"
@@ -16,7 +16,7 @@ BETA=0.005
 KL_COEF=0.001
 CONTEXT_LENGTH=1024
 EXPERIMENT_NAME="exp-1.5b-${BETA}beta-logic-with-kl-${KL_COEF}-${CONTEXT_LENGTH}-ctx"
-ROLLOUT_TP_SIZE=2
+ROLLOUT_TP_SIZE=1
 N_GPUS=2
 
 export VLLM_ATTENTION_BACKEND=XFORMERS

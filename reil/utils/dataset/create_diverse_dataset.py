@@ -48,9 +48,9 @@ def main():
     parser.add_argument("--search_depth", type=int, default=30, help="Maximum search depth for BFS (default: 30)")
     parser.add_argument("--prefix", type=str, default='qwen-instruct', choices=['qwen-instruct', 'base'], 
                        help="Template prefix to use (default: qwen-instruct)")
-    parser.add_argument("--train_size_each_instance", type=int, default=500, help="Number of train instances to generate (default: 500)")
-    parser.add_argument("--test_size_each_instance", type=int, default=150, help="Number of test instances to generate (default: 150)")
-    parser.add_argument("--num_test_envs", type=int, default=20, help="Number of test environments(default: 20)")
+    parser.add_argument("--train_size_each_instance", type=int, default=200, help="Number of train instances to generate (default: 200)")
+    parser.add_argument("--test_size_each_instance", type=int, default=60, help="Number of test instances to generate (default: 60)")
+    parser.add_argument("--num_test_envs", type=int, default=200, help="Number of test environments(default: 200)")
     parser.add_argument("--output", type=str, default='./data/sokoban_diverse', help="Output directory (default: ./data/sokoban_diverse)")
     args = parser.parse_args()
 
@@ -92,7 +92,9 @@ def main():
                     action_sequence = gt_action_sequence[i:i+len_horizon]
                     train_instances.append({
                         'instruction': instruction,
-                        'gt_action': action_sequence
+                        'gt_action': action_sequence,
+                        'horizon': len_horizon,
+                        'room_dim': (env.dim_room[0], env.dim_room[1])
                     })
             
                     obs, reward, done, info = env.step(action_sequence[0])
@@ -117,7 +119,9 @@ def main():
                     action_sequence = gt_action_sequence[i:i+len_horizon]
                     test_instances.append({
                         'instruction': instruction,
-                        'gt_action': action_sequence
+                        'gt_action': action_sequence,
+                        'horizon': len_horizon,
+                        'room_dim': (env.dim_room[0], env.dim_room[1])
                     })
             
                     obs, reward, done, info = env.step(action_sequence[0])
@@ -139,7 +143,7 @@ def main():
         gt_action = instance['gt_action']
 
         return {
-            "data_source": "sokoban",
+            "data_source": f"sokoban_{instance['room_dim'][0]}x{instance['room_dim'][1]}_{instance['horizon']}horizon",
             "prompt": [{"role": "user", "content": prompt_formatted}],
             "ability": "bfs",
             "reward_model": {"style": "rule", "ground_truth": gt_action},
