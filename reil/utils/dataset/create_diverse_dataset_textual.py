@@ -1,26 +1,37 @@
 # create behavior cloning dataset for sokoban agent
 # adapted from ragen/sft/utils/generate_sft_verl_sokoban.py
 
-from ragen.env.sokoban import SokobanEnv
+
 from ragen.env.sokoban.room_utils import get_shortest_action_path
 from datasets import Dataset
 import os
 import argparse
+from reil.env.sokoban.env import SokobanEnvText
 
-INSTRUCTION_TEMPLATE = """You are a Sokoban solver.
+TEXT_INSTRUCTION_TEMPLATE = """You are a Sokoban solver.
 
 Sokoban Quick Guide
 Goal: Push all boxes (X) onto targets (O).
 
-Symbols:
-# Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+#### Symbols and Their Meaning
+- **Walls**: These block movement. You can't move through or push anything into walls.
+- **Floor**: Open spaces where you can walk and move boxes.
+- **Targets**: The spots where boxes need to go.
+- **Boxes**: These are what you need to push onto the targets.
+- **Player**: That's you! You'll move around the grid to push boxes.
+- **Box on Target**: A box successfully placed on a target.
+- **Player on Target**: You standing on a target.
 
-Rules:
-1. Push boxes (can't pull).
-2. Avoid walls (#).
+#### Rules to Remember
+1. **You Can Only Push Boxes**: You can't pull them, so plan ahead to avoid getting stuck.
+2. **No Moving Through Walls**: You can't walk through or push boxes into walls.
+3. **Avoid Traps**: Don't push boxes into corners or against walls where they can't be moved again.
 
-Answers:
-<answer> Up </answer> | <answer> Down </answer> | <answer> Left </answer> | <answer> Right </answer>
+Actions:
+- `Up`: the coordinate of the player will be (x-1, y) if (x-1, y) is a floor
+- `Down`: the coordinate of the player will be (x+1, y) if (x+1, y) is a floor
+- `Left`: the coordinate of the player will be (x, y-1) if (x, y-1) is a floor
+- `Right`: the coordinate of the player will be (x, y+1) if (x, y+1) is a floor
 
 Rewards:
 Move: -0.1
@@ -51,21 +62,15 @@ def main():
     parser.add_argument("--train_size_each_instance", type=int, default=200, help="Number of train instances to generate (default: 200)")
     parser.add_argument("--test_size_each_instance", type=int, default=60, help="Number of test instances to generate (default: 60)")
     parser.add_argument("--num_test_envs", type=int, default=200, help="Number of test environments(default: 200)")
-    parser.add_argument("--output", type=str, default='./data/sokoban_diverse', help="Output directory (default: ./data/sokoban_diverse)")
-    parser.add_argument("--hf_name", type=str, default='sokoban')
+    parser.add_argument("--output", type=str, default='./data/textual_sokoban_diverse', help="Output directory (default: ./data/textual_sokoban_diverse)")
     args = parser.parse_args()
 
     # Extract arguments
-    # train_dim_x = [6, 8, 10]
-    # train_dim_y = [6, 8, 10]
-    # test_dim_x = [7, 9]
-    # test_dim_y = [7, 9]
-    # horizons = [1, 2, 3, 4]
-    train_dim_x = [6]
-    train_dim_y = [6]
-    test_dim_x = [5, 6, 7]
-    test_dim_y = [5, 6, 7]
-    horizons = [1]
+    train_dim_x = [6, 7, 8]
+    train_dim_y = [6, 7, 8]
+    test_dim_x = [7, 9]
+    test_dim_y = [7, 9]
+    horizons = [1, 2, 3, 4]
     assert len(train_dim_x) == len(train_dim_y), "train_dim_x and train_dim_y must have the same length"
     assert len(test_dim_x) == len(test_dim_y), "test_dim_x and test_dim_y must have the same length"
     print(f"We will have {len(train_dim_x) * len(train_dim_y) * len(horizons) * args.train_size_each_instance} train instances in total.\n")
@@ -76,8 +81,8 @@ def main():
     max_steps = args.max_steps
     search_depth = args.search_depth
     prefix = args.prefix
-    train_envs = [SokobanEnv(dim_room=(dim_x, dim_y), num_boxes=num_boxes, max_steps=max_steps, search_depth=search_depth) for dim_x, dim_y in zip(train_dim_x, train_dim_y)]
-    test_envs = [SokobanEnv(dim_room=(dim_x, dim_y), num_boxes=num_boxes, max_steps=max_steps, search_depth=search_depth) for dim_x, dim_y in zip(test_dim_x, test_dim_y)]
+    train_envs = [SokobanEnvText(dim_room=(dim_x, dim_y), num_boxes=num_boxes, max_steps=max_steps, search_depth=search_depth) for dim_x, dim_y in zip(train_dim_x, train_dim_y)]
+    test_envs = [SokobanEnvText(dim_room=(dim_x, dim_y), num_boxes=num_boxes, max_steps=max_steps, search_depth=search_depth) for dim_x, dim_y in zip(test_dim_x, test_dim_y)]
     # Create training instances
     train_instances = []
     for seed_train in range(seed, seed + args.train_size_each_instance):
@@ -94,7 +99,7 @@ def main():
                     continue
                 
                 for i in range(len(gt_action_sequence) - len_horizon + 1):
-                    instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE.format(observation=obs, len_horizon=len_horizon))
+                    instruction = templates[prefix].format(prompt=TEXT_INSTRUCTION_TEMPLATE.format(observation=obs, len_horizon=len_horizon))
                     action_sequence = gt_action_sequence[i:i+len_horizon]
                     train_instances.append({
                         'instruction': instruction,
@@ -121,7 +126,7 @@ def main():
                     continue
                 
                 for i in range(len(gt_action_sequence) - len_horizon + 1):
-                    instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE.format(observation=obs, len_horizon=len_horizon))
+                    instruction = templates[prefix].format(prompt=TEXT_INSTRUCTION_TEMPLATE.format(observation=obs, len_horizon=len_horizon))
                     action_sequence = gt_action_sequence[i:i+len_horizon]
                     test_instances.append({
                         'instruction': instruction,
@@ -136,7 +141,7 @@ def main():
     test_env_instances = []
     for seed_test_env in range(seed+args.train_size_each_instance+args.test_size_each_instance, seed+args.train_size_each_instance+args.test_size_each_instance+args.num_test_envs):
         obs = test_envs[0].reset(seed=seed_test_env)
-        instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE.format(observation=obs, len_horizon=len_horizon))
+        instruction = templates[prefix].format(prompt=TEXT_INSTRUCTION_TEMPLATE.format(observation=obs, len_horizon=len_horizon))
         test_env_instances.append(
             {
                 'instruction': instruction,
@@ -195,9 +200,9 @@ def main():
     test_env_dataset = test_env_dataset.map(function=make_map_fn('test_env'), with_indices=True)
     test_env_dataset.to_parquet(os.path.join(args.output, 'test_env.parquet'))
     # push to hub
-    train_dataset.push_to_hub("Xiaofeng77/"+args.hf_name, split="train")
-    test_dataset.push_to_hub("Xiaofeng77/"+args.hf_name, split="test")
-    test_env_dataset.push_to_hub("Xiaofeng77/"+args.hf_name, split="test_env")
+    train_dataset.push_to_hub("Xiaofeng77/reil_textual_sokoban_diverse", split="train")
+    test_dataset.push_to_hub("Xiaofeng77/reil_textual_sokoban_diverse", split="test")
+    test_env_dataset.push_to_hub("Xiaofeng77/reil_textual_sokoban_diverse", split="test_env")
 
 if __name__ == "__main__":
     main()
