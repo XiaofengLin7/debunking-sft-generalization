@@ -6,7 +6,7 @@ from ragen.env.sokoban.room_utils import get_shortest_action_path
 from datasets import Dataset
 import os
 import argparse
-from reil.env.sokoban.env import SokobanEnvText
+from reil.env.sokoban.env import SokobanEnvReil
 
 TEXT_INSTRUCTION_TEMPLATE = """You are a Sokoban solver.
 
@@ -81,8 +81,8 @@ def main():
     max_steps = args.max_steps
     search_depth = args.search_depth
     prefix = args.prefix
-    train_envs = [SokobanEnvText(dim_room=(dim_x, dim_y), num_boxes=num_boxes, max_steps=max_steps, search_depth=search_depth) for dim_x, dim_y in zip(train_dim_x, train_dim_y)]
-    test_envs = [SokobanEnvText(dim_room=(dim_x, dim_y), num_boxes=num_boxes, max_steps=max_steps, search_depth=search_depth) for dim_x, dim_y in zip(test_dim_x, test_dim_y)]
+    train_envs = [SokobanEnvReil(dim_room=(dim_x, dim_y), num_boxes=num_boxes, max_steps=max_steps, search_depth=search_depth) for dim_x, dim_y in zip(train_dim_x, train_dim_y)]
+    test_envs = [SokobanEnvReil(dim_room=(dim_x, dim_y), num_boxes=num_boxes, max_steps=max_steps, search_depth=search_depth) for dim_x, dim_y in zip(test_dim_x, test_dim_y)]
     # Create training instances
     train_instances = []
     for seed_train in range(seed, seed + args.train_size_each_instance):

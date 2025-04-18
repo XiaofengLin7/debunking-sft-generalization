@@ -3,12 +3,69 @@ import numpy as np
 from ragen.utils import NoLoggerWarnings
 from ragen.env.sokoban.room_utils import generate_room
 from ragen.utils import set_seed
+from typing import List
+import torch
+from transformers import AutoTokenizer
+from ragen.env.base import BaseEnv
+from gym_sokoban.envs.sokoban_env import SokobanEnv as GymSokobanEnv
+import copy
+INSTRUCTION_TEMPLATE = """You are a Sokoban solver.
 
-class SokobanEnvText(SokobanEnv):
-    def __init__(self, **kwargs):
+Sokoban Quick Guide
+Goal: Push all boxes (X) onto targets (O).
+
+Symbols:
+# Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+
+Rules:
+1. Push boxes (can't pull).
+2. Avoid walls (#).
+
+Answers:
+<answer> Up </answer> | <answer> Down </answer> | <answer> Left </answer> | <answer> Right </answer>
+
+Rewards:
+Move: -0.1
+Box on target: +1.0
+All boxes placed: +10.0
+
+
+[Current Observation]:
+{observation}
+Decide the next 1 actions:\
+"""
+
+templates = {
+    'qwen-instruct': '<|im_start|>user\n{prompt}\nAlways output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>\n<|im_start|>assistant\n<think>',
+    'base': 'A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks briefly about the reasoning process in the mind and then provides the user with the answer.\nUser: {prompt}\nShow your work in <think> </think> tags. And return the final answer in <answer> </answer> tags, for example <think> [Thoughts] </think> <answer> 1 </answer>\nAssistant: \n<think>'
+}
+
+class SokobanEnvReil(SokobanEnv):
+    def __init__(self, prefix='qwen-instruct', **kwargs):
+        self.prefix = prefix
         super().__init__(**kwargs)
+        
+    def step(self, action: int):
+        """
+        - Step the environment with the given action.
+        - Check if the action is effective (whether player moves in the env).
+        """
+        assert not self.success()
 
-    def reset(self, mode='text', seed=None):
+        if action == self.INVALID_ACTION:
+            return self.render(), 0, False, {"action_is_effective": False}
+        prev_player_position = self.player_position
+        _, reward, done, _ = GymSokobanEnv.step(self, action, observation_mode='tiny_rgb_array')
+        
+        # # NOTE re-define reward for sokoban
+        # reward = -1 # format reward
+        # if done:
+        #     reward = 1 # success reward
+            
+        obs = self.render(mode='complete')
+        return obs, reward, done, {"action_is_effective": not np.array_equal(prev_player_position, self.player_position)}
+    
+    def reset(self, mode='complete', seed=None):
         self._reset_tracking_variables()
         with NoLoggerWarnings():
             try:
@@ -30,8 +87,8 @@ class SokobanEnvText(SokobanEnv):
             self.num_env_steps = self.reward_last = self.boxes_on_target = 0
             return self.render(mode)
         
-    def render(self, mode='text'):
-        assert mode in ['tiny_rgb_array', 'list', 'state', 'rgb_array', 'text']
+    def render(self, mode='complete'):
+        assert mode in ['tiny_rgb_array', 'list', 'state', 'rgb_array', 'text', 'complete']
 
         if mode == 'rgb_array':
             img = self.get_image(mode, scale=1) # numpy array
@@ -49,6 +106,10 @@ class SokobanEnvText(SokobanEnv):
         if mode == 'tiny_rgb_array':
             lookup = lambda cell: self.GRID_LOOKUP.get(cell, "?")
             return "\n".join("".join(lookup(cell) for cell in row) for row in room_state)
+        
+        if mode == 'complete':
+            map = self.render(mode='tiny_rgb_array')
+            return templates[self.prefix].format(prompt=INSTRUCTION_TEMPLATE.format(observation=map))
         
         if mode == 'text':
             # Get map dimensions from room_state
@@ -89,7 +150,77 @@ class SokobanEnvText(SokobanEnv):
             description.append("rest are floors.")
 
             return "\n".join(description)
+    
+    @classmethod
+    def execute_predictions(
+            cls, 
+            envs: List['BaseEnv'], 
+            predictions: List[str], 
+            prediction_ids: torch.Tensor,
+            tokenizer: AutoTokenizer,
+        ) -> List[str]:
+        """
+        Execute predictions across multiple environments.
+        NOTE: the function is the actual `step` function in the environment
+        NOTE penalty_for_invalid is not included in observation shown to the LLM
         
+        Args:
+            envs: List of environment instances
+            predictions: List of action predictions
+            pad_token: Token to use for padding
+            
+        Returns:
+            List of observation strings
+        """
+        cur_actions, action_is_valid = cls.postprocess_predictions(envs, predictions)
+        next_obs, dones = [], []
+        
+        for env, action, response, response_id, av in zip(envs, cur_actions, predictions, prediction_ids, action_is_valid):
+            obs = ""
+
+            if env.finished():
+                obs += tokenizer.pad_token
+                done = True
+            else:
+                # thinking reward
+                # thinking_reward = 0
+                # n_non_pad = (response_id != tokenizer.pad_token_id).sum().item()
+                # if n_non_pad > 50: # NOTE hard-coded here
+                #     thinking_reward += 1
+                
+                
+                # step in environment
+                observation, env_reward, done, extra_info = env.step(action)
+
+                obs += observation
+                
+                env._update_tracking_variables(
+                    response=response, 
+                    action=action, 
+                    action_is_valid=av, 
+                    action_is_effective=extra_info.get("action_is_effective", False), 
+                    reward=env_reward, 
+                )
+            next_obs.append(obs)
+            dones.append(done)
+        return next_obs, dones
+    
+    def copy(self):
+        new_self = SokobanEnvReil(
+            dim_room=self.dim_room,
+            max_steps=self.max_steps,
+            num_boxes=self.num_boxes,
+            search_depth=self.search_depth
+        )
+        new_self.room_fixed = self.room_fixed.copy()
+        new_self.room_state = self.room_state.copy()
+        new_self.box_mapping = self.box_mapping.copy()
+        new_self.action_sequence = self.action_sequence.copy()
+        new_self.player_position = self.player_position.copy()
+        new_self.reward = self.reward
+        new_self._valid_actions = copy.deepcopy(self._valid_actions)
+        return new_self
+    
 if __name__ == "__main__":
-    env = SokobanEnv(dim_room=(6, 6), num_boxes=1, max_steps=100, search_depth=30)
-    print(env.reset(mode='text', seed=1010))
+    env = SokobanEnvReil(dim_room=(6, 6), num_boxes=1, max_steps=100, search_depth=30, prefix='base')
+    print(env.reset(mode='complete', seed=1010))

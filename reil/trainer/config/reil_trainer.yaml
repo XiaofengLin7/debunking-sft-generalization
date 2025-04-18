@@ -194,6 +194,7 @@ algorithm:
     horizon: 10000
     target_kl: 0.1
   no_think_rl: False
+  append_obs: False
   state_masking:
     start_state_marker: "<start-state>"
     end_state_marker: "<end-state>"

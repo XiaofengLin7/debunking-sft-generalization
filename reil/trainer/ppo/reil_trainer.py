@@ -53,7 +53,8 @@ from verl.trainer.ppo.ray_trainer import compute_response_mask
 import torch
 from verl.utils.torch_functional import masked_mean
 from collections import defaultdict
-from ragen.llm_agent.generation import LLMGenerationManager, GenerationConfig
+# from ragen.llm_agent.generation import LLMGenerationManager, GenerationConfig
+from reil.trainer.llm_agent.generation import ReilGenerationManager, GenerationConfig
 WorkerType = Type[Worker]
 
 @contextmanager
@@ -141,8 +142,8 @@ class ReilPPOTrainer(RayPPOTrainer):
             shuffle=True,
             drop_last=False,
             collate_fn=collate_fn)
-        
-        self.val_env_dataset = RLHFDataset(parquet_files=self.config.data.val_env_files,
+        if self.config.trainer.is_rl_validation:
+            self.val_env_dataset = RLHFDataset(parquet_files=self.config.data.val_env_files,
                                        tokenizer=self.tokenizer,
                                        prompt_key=self.config.data.prompt_key,
                                        max_prompt_length=self.config.data.max_prompt_length,
@@ -150,7 +151,7 @@ class ReilPPOTrainer(RayPPOTrainer):
                                        return_raw_chat=self.config.data.get('return_raw_chat', False),
                                        truncation='error')
         
-        self.val_env_dataloader = StatefulDataLoader(dataset=self.val_env_dataset,
+            self.val_env_dataloader = StatefulDataLoader(dataset=self.val_env_dataset,
                                              batch_size=self.config.data.val_env_batch_size,
                                              num_workers=8,
                                              shuffle=True,
@@ -189,8 +190,30 @@ class ReilPPOTrainer(RayPPOTrainer):
         global_token_scores = []
         global_metrics = {}
         metrics = defaultdict(list)
-        # breakpoint()
 
+        # gen_config = GenerationConfig(
+        #     max_turns=self.config.max_turns,
+        #     max_start_length=self.config.data.max_start_length,
+        #     max_prompt_length=self.config.data.max_prompt_length,
+        #     max_response_length=self.config.data.max_response_length,
+        #     max_obs_length=self.config.data.max_obs_length,
+        #     logging=self.config.logging,
+        #     num_gpus=self.config.trainer.n_gpus_per_node,
+        #     no_think_rl=self.config.algorithm.no_think_rl,
+        #     state_masking=self.config.actor_rollout_ref.actor.state_masking,
+        #     start_state_marker=self.config.algorithm.state_masking.start_state_marker,
+        #     end_state_marker=self.config.algorithm.state_masking.end_state_marker,
+        # )
+
+        # # Agent config preparation
+        # generation_manager = LLMGenerationManager(
+        #     tokenizer=self.tokenizer,
+        #     actor_rollout_wg=self.actor_rollout_wg,
+        #     env_class=self.env_class,
+        #     config=gen_config,
+        #     logger = logger,
+        #     is_validation = True,
+        # )
         gen_config = GenerationConfig(
             max_turns=self.config.max_turns,
             max_start_length=self.config.data.max_start_length,
@@ -200,21 +223,16 @@ class ReilPPOTrainer(RayPPOTrainer):
             logging=self.config.logging,
             num_gpus=self.config.trainer.n_gpus_per_node,
             no_think_rl=self.config.algorithm.no_think_rl,
-            state_masking=self.config.actor_rollout_ref.actor.state_masking,
-            start_state_marker=self.config.algorithm.state_masking.start_state_marker,
-            end_state_marker=self.config.algorithm.state_masking.end_state_marker,
+            append_obs=self.config.algorithm.append_obs
         )
-
-        # Agent config preparation
-        generation_manager = LLMGenerationManager(
+        generation_manager = ReilGenerationManager(
             tokenizer=self.tokenizer,
             actor_rollout_wg=self.actor_rollout_wg,
             env_class=self.env_class,
             config=gen_config,
-            logger = logger,
-            is_validation = True,
+            logger=logger,
+            is_validation=True
         )
-
         envs = [self.val_env.copy() for _ in range(self.config.data.val_env_batch_size)] # do not repeat
         # envs = [self.val_env.copy() for _ in range(self.config.data.val_batch_size * self.config.actor_rollout_ref.rollout.n_agent)]
         val_global_steps = 1
@@ -251,9 +269,9 @@ class ReilPPOTrainer(RayPPOTrainer):
                         output_dir=output_dir,
                         global_steps=self.global_steps,
                     )
-                with torch.no_grad():
-                    output = self.actor_rollout_wg.compute_log_prob(final_gen_batch_output)
-                    final_gen_batch_output = final_gen_batch_output.union(output)
+                # with torch.no_grad():
+                #     output = self.actor_rollout_wg.compute_log_prob(final_gen_batch_output)
+                #     final_gen_batch_output = final_gen_batch_output.union(output)
 
                 test_batch.non_tensor_batch['reward'] = np.array([0 for _ in range(len(envs))], dtype=object)
                 for idx, env in enumerate(envs):
@@ -494,7 +512,6 @@ class ReilPPOTrainer(RayPPOTrainer):
 
                 # TODO: make a canonical logger that supports various backend
                 logger.log(data=metrics, step=self.global_steps)
-
                 if is_last_step:
                     pprint(f'Final validation metrics: {last_val_metrics}')
                     if self.config.trainer.is_rl_validation:
