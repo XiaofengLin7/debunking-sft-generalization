@@ -4,6 +4,7 @@ from verl.utils.tracking import Tracking
 import torch
 from typing import List, Any, Tuple, Dict
 from verl import DataProto
+from verl.protocol import pad_dataproto_to_divisor, unpad_dataproto
 
 @dataclass
 class GenerationConfig:
@@ -79,7 +80,9 @@ class ReilGenerationManager(LLMGenerationManager):
                 next_obs_ids
             ])
         else:
-            new_input_ids = next_obs_ids
+            new_input_ids = self.tensor_fn.concatenate_with_padding([
+                next_obs_ids
+            ])
         
         # Create attention mask and position ids
         new_attention_mask = self.tensor_fn.create_attention_mask(new_input_ids)
@@ -115,17 +118,19 @@ class ReilGenerationManager(LLMGenerationManager):
         for step in range(self.config.max_turns):
             if not active_mask.sum():
                 break
-            rollings.batch = self.tensor_fn.cut_to_effective_len(
-                rollings.batch,
-                keys=['input_ids', 'attention_mask', 'position_ids']
-            )
-            
+            # rollings.batch = self.tensor_fn.cut_to_effective_len(
+            #     rollings.batch,
+            #     keys=['input_ids', 'attention_mask', 'position_ids']
+            # )
+            breakpoint()
             # gen_output = self.actor_rollout_wg.generate_sequences(rollings)
             rollings_active = DataProto.from_dict({
                 k: v[active_mask] for k, v in rollings.batch.items()
-            })
-            rollings_active.meta_info = gen_batch.meta_info
-            gen_output = self._generate_with_gpu_padding(rollings_active)
+            }, meta_info=gen_batch.meta_info)
+
+            rollings_active, pad_size = pad_dataproto_to_divisor(rollings_active, self.actor_rollout_wg.world_size)
+            gen_output = self.actor_rollout_wg.generate_sequences(rollings_active)
+            gen_output = unpad_dataproto(gen_output, pad_size=pad_size)
 
             meta_info = gen_output.meta_info            
             responses_ids, responses_str = self._postprocess_responses(gen_output.batch['responses'],envs=envs)
@@ -138,7 +143,6 @@ class ReilGenerationManager(LLMGenerationManager):
             next_obs, dones = self.env_class.execute_predictions(
                 envs, responses_str, responses_ids, self.tokenizer
             )
-            breakpoint()
             active_mask = torch.tensor([not done for done in dones], dtype=torch.bool)
             active_num_list.append(active_mask.sum().item())
             next_obs_ids = self._process_next_obs(next_obs)
