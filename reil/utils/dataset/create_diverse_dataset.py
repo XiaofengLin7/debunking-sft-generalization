@@ -52,7 +52,10 @@ def main():
     parser.add_argument("--test_size_each_instance", type=int, default=60, help="Number of test instances to generate (default: 60)")
     parser.add_argument("--num_test_envs", type=int, default=200, help="Number of test environments(default: 200)")
     parser.add_argument("--output", type=str, default='./data/sokoban_diverse', help="Output directory (default: ./data/sokoban_diverse)")
+    # parser.add_argument("--is_push_to_hub", type=bool, default=True, help="Whether to push to hub (default: True)")
+    parser.add_argument("--push_to_hub", action='store_true', help="Push to hub (default: False)")
     parser.add_argument("--hf_name", type=str, default='sokoban')
+
     args = parser.parse_args()
 
     # Extract arguments
@@ -195,9 +198,10 @@ def main():
     test_env_dataset = test_env_dataset.map(function=make_map_fn('test_env'), with_indices=True)
     test_env_dataset.to_parquet(os.path.join(args.output, 'test_env.parquet'))
     # push to hub
-    train_dataset.push_to_hub("Xiaofeng77/"+args.hf_name, split="train")
-    test_dataset.push_to_hub("Xiaofeng77/"+args.hf_name, split="test")
-    test_env_dataset.push_to_hub("Xiaofeng77/"+args.hf_name, split="test_env")
+    if args.push_to_hub:
+        train_dataset.push_to_hub("Xiaofeng77/"+args.hf_name, split="train")
+        test_dataset.push_to_hub("Xiaofeng77/"+args.hf_name, split="test")
+        test_env_dataset.push_to_hub("Xiaofeng77/"+args.hf_name, split="test_env")  
 
 if __name__ == "__main__":
     main()

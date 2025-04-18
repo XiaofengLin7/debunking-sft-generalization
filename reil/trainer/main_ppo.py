@@ -20,9 +20,11 @@ import os
 import ray
 import hydra
 from ragen.env import SokobanEnv
-from ragen.utils.env import get_train_val_env
+from reil.env.sokoban.env import SokobanEnvReil
+from reil.utils.env import get_train_val_env
 ENV_CLASS_MAPPING = {
     'sokoban': SokobanEnv,
+    'sokoban_reil': SokobanEnvReil,
 }
 
 def get_custom_reward_fn(config):
