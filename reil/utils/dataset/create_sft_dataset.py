@@ -23,7 +23,9 @@ def convert_to_sft_data(data_file: str):
     for index, row in df.iterrows():
         instance = copy.deepcopy(instance_template)
         instance['data_source'] = row['data_source']
-        instance['prompt'] = row['prompt']
+        assert len(row['prompt']) == 1, "prompt should be a list with one element"
+        assert 'content' in row['prompt'][0]
+        instance['prompt'] = row['prompt'][0]['content']
         
         instance['extra_info']['index'] = index
         action = row['reward_model']['ground_truth'][:]
