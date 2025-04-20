@@ -6,7 +6,7 @@ conda activate reil || exit 1
 set -x
 
 
-DATA_DIR="./data/sokoban_one_horizon_small_envs"
+DATA_DIR="./data/sokoban_one_horizon_large_envs"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-3B-Instruct/snapshots/aa8e72537993ba99e69dfaafa59ed015b17504d1"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B-Instruct/snapshots/989aa7980e4cf806f80c7fef2b1adb7bc71aa306"

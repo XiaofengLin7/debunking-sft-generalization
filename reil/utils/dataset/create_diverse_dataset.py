@@ -66,8 +66,8 @@ def main():
     # horizons = [1, 2, 3, 4]
     train_dim_x = [6]
     train_dim_y = [6]
-    test_dim_x = [5, 6, 7]
-    test_dim_y = [5, 6, 7]
+    test_dim_x = [5, 6, 7, 8]
+    test_dim_y = [5, 6, 7, 8]
     horizons = [1]
     assert len(train_dim_x) == len(train_dim_y), "train_dim_x and train_dim_y must have the same length"
     assert len(test_dim_x) == len(test_dim_y), "test_dim_x and test_dim_y must have the same length"
