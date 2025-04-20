@@ -24,7 +24,7 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
     trainer.experiment_name=$EXPERIMENT_NAME \
     trainer.default_local_dir=checkpoints/sft/$EXPERIMENT_NAME \
     trainer.logger=['console'] \
-    trainer.total_epochs=1 \
+    trainer.total_epochs=20 \
     trainer.default_hdfs_dir=null $@ \
     model.lora_rank=32\
     model.lora_alpha=16 \

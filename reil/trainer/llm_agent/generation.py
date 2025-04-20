@@ -122,7 +122,6 @@ class ReilGenerationManager(LLMGenerationManager):
             #     rollings.batch,
             #     keys=['input_ids', 'attention_mask', 'position_ids']
             # )
-            breakpoint()
             # gen_output = self.actor_rollout_wg.generate_sequences(rollings)
             rollings_active = DataProto.from_dict({
                 k: v[active_mask] for k, v in rollings.batch.items()

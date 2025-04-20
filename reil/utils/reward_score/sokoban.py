@@ -11,8 +11,8 @@ def extract_solution(solution_str):
     #     print("[Error] Failed to locate model response header")
     #     return None, solution_str
     # print(f"\n[Model Response]\n{solution_str}")
-    processed_str = solution_str.split('\n')[-1]
-    
+    # processed_str = solution_str.split('\n')[-1]
+    processed_str = solution_str
     action_pattern = r'<answer>(.*?)</answer>|<action>(.*?)</action>'
     match = re.finditer(action_pattern, processed_str)
     matches = list(match)
