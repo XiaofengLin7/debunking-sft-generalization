@@ -32,7 +32,7 @@ All boxes placed: +10.0
 
 [Current Observation]:
 {observation}
-Decide the next 1 actions:\
+Decide the next action:\
 """
 
 templates = {

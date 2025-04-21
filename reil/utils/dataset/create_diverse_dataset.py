@@ -7,7 +7,32 @@ from datasets import Dataset
 import os
 import argparse
 
-INSTRUCTION_TEMPLATE = """You are a Sokoban solver.
+INSTRUCTION_TEMPLATE_SINGLE_ACTION = """You are a Sokoban solver.
+
+Sokoban Quick Guide
+Goal: Push all boxes (X) onto targets (O).
+
+Symbols:
+# Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+
+Rules:
+1. Push boxes (can't pull).
+2. Avoid walls (#).
+
+Answers:
+<answer> Up </answer> | <answer> Down </answer> | <answer> Left </answer> | <answer> Right </answer>
+
+Rewards:
+Move: -0.1
+Box on target: +1.0
+All boxes placed: +10.0
+
+
+[Current Observation]:
+{observation}
+Decide the next action:\
+"""
+INSTRUCTION_TEMPLATE_MULTI_ACTION = """You are a Sokoban solver.
 
 Sokoban Quick Guide
 Goal: Push all boxes (X) onto targets (O).
@@ -97,7 +122,10 @@ def main():
                     continue
                 
                 for i in range(len(gt_action_sequence) - len_horizon + 1):
-                    instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE.format(observation=obs, len_horizon=len_horizon))
+                    if len_horizon == 1:
+                        instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE_SINGLE_ACTION.format(observation=obs))
+                    else:
+                        instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE_MULTI_ACTION.format(observation=obs, len_horizon=len_horizon))
                     action_sequence = gt_action_sequence[i:i+len_horizon]
                     train_instances.append({
                         'instruction': instruction,
@@ -124,7 +152,10 @@ def main():
                     continue
                 
                 for i in range(len(gt_action_sequence) - len_horizon + 1):
-                    instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE.format(observation=obs, len_horizon=len_horizon))
+                    if len_horizon == 1:
+                        instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE_SINGLE_ACTION.format(observation=obs))
+                    else:
+                        instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE_MULTI_ACTION.format(observation=obs, len_horizon=len_horizon))
                     action_sequence = gt_action_sequence[i:i+len_horizon]
                     test_instances.append({
                         'instruction': instruction,
@@ -139,7 +170,7 @@ def main():
     test_env_instances = []
     for seed_test_env in range(seed+args.train_size_each_instance+args.test_size_each_instance, seed+args.train_size_each_instance+args.test_size_each_instance+args.num_test_envs):
         obs = test_envs[0].reset(seed=seed_test_env)
-        instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE.format(observation=obs, len_horizon=len_horizon))
+        instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE_SINGLE_ACTION.format(observation=obs))
         test_env_instances.append(
             {
                 'instruction': instruction,

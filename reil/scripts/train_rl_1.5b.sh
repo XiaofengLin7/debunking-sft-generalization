@@ -6,7 +6,7 @@ conda activate reil || exit 1
 set -x
 
 
-DATA_DIR="./data/sokoban_one_horizon"
+DATA_DIR="./data/sokoban_one_horizon_large_envs"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-3B-Instruct/snapshots/aa8e72537993ba99e69dfaafa59ed015b17504d1"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B-Instruct/snapshots/989aa7980e4cf806f80c7fef2b1adb7bc71aa306"
@@ -15,7 +15,7 @@ BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a26334
 BETA=0.005
 KL_COEF=0.001
 CONTEXT_LENGTH=1024
-EXPERIMENT_NAME="exp-1.5b-${BETA}beta-logic-with-kl-${KL_COEF}-${CONTEXT_LENGTH}-ctx-one-horizon"
+EXPERIMENT_NAME="1.5b-${BETA}beta-${KL_COEF}kl-$(date +%Y-%m-%d)"
 ROLLOUT_TP_SIZE=1
 N_GPUS=2
 
@@ -45,15 +45,17 @@ critic.ppo_micro_batch_size=16 \
 algorithm.use_kl_in_reward=True \
 algorithm.kl_ctrl.kl_coef=${KL_COEF} \
 trainer.logger=['wandb'] \
-+trainer.val_only=True \
++trainer.val_only=False \
+trainer.max_actor_ckpt_to_keep=1 \
+trainer.max_critic_ckpt_to_keep=1 \
 trainer.val_before_train=True \
 trainer.default_hdfs_dir=null \
 trainer.n_gpus_per_node=$N_GPUS \
 trainer.nnodes=1 \
-trainer.save_freq=500 \
-trainer.test_freq=25 \
+trainer.save_freq=400 \
+trainer.test_freq=50 \
 trainer.project_name=REIL \
-trainer.resume_mode=auto \
+trainer.resume_mode=disable \
 trainer.log_val_generations=4 \
 trainer.experiment_name=$EXPERIMENT_NAME \
 trainer.total_epochs=500 \
