@@ -7,4 +7,5 @@
 	url = git@github.com:XiaofengLin7/verl.git
 [submodule "thirdparty/alfworld"]
 	path = thirdparty/alfworld
-	url = git@github.com:alfworld/alfworld.git
+	url = git@github.com:XiaofengLin7/alfworld_vlm.git
+	branch = bugs/expert_tw
