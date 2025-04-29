@@ -2,15 +2,6 @@ import re
 import numpy as np
 def extract_solution(solution_str):
     """Extract the action sequence from the solution string."""
-    # Remove everything before the first "Assistant:"
-    # if "Assistant:" in solution_str:
-    #     processed_str = solution_str.split("Assistant:", 1)[1]
-    # elif "<|im_start|>assistant" in solution_str:
-    #     processed_str = solution_str.split("<|im_start|>assistant", 1)[1]
-    # else:
-    #     print("[Error] Failed to locate model response header")
-    #     return None, solution_str
-    # print(f"\n[Model Response]\n{solution_str}")
     # processed_str = solution_str.split('\n')[-1]
     processed_str = solution_str
     action_pattern = r'<answer>(.*?)</answer>|<action>(.*?)</action>'

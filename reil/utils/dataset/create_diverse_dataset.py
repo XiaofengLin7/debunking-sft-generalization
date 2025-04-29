@@ -91,8 +91,8 @@ def main():
     # horizons = [1, 2, 3, 4]
     train_dim_x = [6]
     train_dim_y = [6]
-    test_dim_x = [5, 6, 7, 8]
-    test_dim_y = [5, 6, 7, 8]
+    test_dim_x = [5, 6, 7, 8, 9, 10]
+    test_dim_y = [5, 6, 7, 8, 9, 10]
     horizons = [1]
     assert len(train_dim_x) == len(train_dim_y), "train_dim_x and train_dim_y must have the same length"
     assert len(test_dim_x) == len(test_dim_y), "test_dim_x and test_dim_y must have the same length"
@@ -169,7 +169,7 @@ def main():
     # Create test instances for each test environment
     test_env_instances = []
     for seed_test_env in range(seed+args.train_size_each_instance+args.test_size_each_instance, seed+args.train_size_each_instance+args.test_size_each_instance+args.num_test_envs):
-        obs = test_envs[0].reset(seed=seed_test_env)
+        obs = test_envs[-1].reset(seed=seed_test_env)
         instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE_SINGLE_ACTION.format(observation=obs))
         test_env_instances.append(
             {
