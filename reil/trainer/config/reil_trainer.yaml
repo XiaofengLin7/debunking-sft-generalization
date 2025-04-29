@@ -223,12 +223,12 @@ trainer:
   max_critic_ckpt_to_keep: null
   is_rl_validation: True 
   
-max_turns: 5
+max_turns: 14
 
 env:
   name: sokoban
-  dim_x: 6
-  dim_y: 6
+  dim_x: 10
+  dim_y: 10
   num_boxes: 1
   max_steps: 100
   search_depth: 30 # this will change the starting position of the player
