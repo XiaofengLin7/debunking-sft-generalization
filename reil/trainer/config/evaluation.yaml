@@ -1,3 +1,7 @@
+defaults:
+  - reil_trainer
+  - envs
+
 env:
   name: sokoban
   dim_x: 6
@@ -10,7 +14,10 @@ data:
   max_prompt_length: 1024
   max_response_length: 1024
 
-max_turn: 10
+agent_proxy:
+  max_turn: 10
+  enable_think: False # False -> no think RL
+
 
 actor_rollout_ref:
   model:
@@ -52,3 +59,19 @@ actor_rollout_ref:
       temperature: 0
       n: 1
       do_sample: False # default eager for validation
+
+es_manager:
+  format_penalty: -0.1
+  train:
+    env_groups: 8
+    # under the same group, the env config and env seed are ensured to be equal
+    group_size: 16
+    env_configs:
+      tags: ["LargerSokoban"]
+      n_groups: [8] # If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
+  val:
+    env_groups: 256
+    group_size: 1 # should be set to 1 because val temperature is set to 0 and same prompt leads to same output
+    env_configs:
+      tags: ["LargerSokoban"]
+      n_groups: [256] # TODO: If not set, all env names divide nums equally. Under the same group, the env config
