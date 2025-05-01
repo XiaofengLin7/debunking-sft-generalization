@@ -6,7 +6,7 @@ set -x
 
 # Shift the arguments so $@ refers to the rest
 shift 2
-N_GPUS=1
+N_GPUS=2
 DATA_DIR="./data/sokoban_one_horizon/sft"
 BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
 EXPERIMENT_NAME="sokoban-1.5b-sft-qwen-2.5-1.5b-base-lora-32"

@@ -11,14 +11,15 @@ DATA_DIR="./data/sokoban_one_horizon_large_envs"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B-Instruct/snapshots/989aa7980e4cf806f80c7fef2b1adb7bc71aa306"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-3B/snapshots/3aab1f1954e9cc14eb9509a215f9e5ca08227a9b"
-INFERENCE_MODEL="./checkpoints/sft/sokoban-1.5b-sft-qwen-2.5-1.5b-base-merged"
+INFERENCE_MODEL="./checkpoints/ds543/sft/sokoban-1.5b-sft-qwen-2.5-1.5b-base-full-sft/global_step_225"
+# INFERENCE_MODEL="./checkpoints/REIL/exp-1.5b-0.005beta-logic-with-kl-0.001-1024-ctx-one-horizon/huggingface"
 BETA=0.005
 KL_COEF=0.001
 CONTEXT_LENGTH=1024
-EXPERIMENT_NAME="inference-1.5b-sft-qwen-2.5-1.5b-base-merged"
+EXPERIMENT_NAME="inference-1.5b-${INFERENCE_MODEL}"
 ROLLOUT_TP_SIZE=1
 N_GPUS=1
-
+export CUDA_VISIBLE_DEVICES=3
 export VLLM_ATTENTION_BACKEND=XFORMERS
 
 python3 -m reil.trainer.main_ppo \
@@ -41,7 +42,7 @@ actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=16 \
 actor_rollout_ref.actor.entropy_coeff=${BETA} \
 actor_rollout_ref.rollout.log_prob_micro_batch_size=16 \
 actor_rollout_ref.rollout.tensor_model_parallel_size=$ROLLOUT_TP_SIZE \
-actor_rollout_ref.rollout.gpu_memory_utilization=0.6 \
+actor_rollout_ref.rollout.gpu_memory_utilization=0.7 \
 actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=16 \
 critic.optim.lr=1e-5 \
 critic.model.path=$INFERENCE_MODEL \

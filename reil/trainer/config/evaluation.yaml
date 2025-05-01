@@ -1,0 +1,78 @@
+defaults:
+  - reil_trainer
+  - envs
+  - _self_
+
+env:
+  name: sokoban
+  dim_x: 6
+  dim_y: 6
+  num_boxes: 1
+  max_steps: 100
+  search_depth: 30 # this will change the starting position of the player
+
+data:
+  max_prompt_length: 1024
+  max_response_length: 1024
+
+agent_proxy:
+  max_turn: 14
+  enable_think: True # False -> no think RL
+
+
+actor_rollout_ref:
+  model:
+    path: /projectnb/replearn/xfl/REIL/checkpoints/REIL/exp-1.5b-0.005beta-logic-with-kl-0.001-1024-ctx-one-horizon/huggingface
+
+  rollout:
+    name: vllm
+    temperature: 1.0
+    top_k: -1 # 0 for hf rollout, -1 for vllm rollout
+    top_p: 1
+    use_fire_sampling: False # https://arxiv.org/abs/2410.21236
+    prompt_length: ${data.max_prompt_length}  # not use for opensource
+    response_length: ${data.max_response_length}
+    # for vllm rollout
+    dtype: bfloat16 # should align with FSDP
+    gpu_memory_utilization: 0.5
+    ignore_eos: False
+    enforce_eager: True
+    free_cache_engine: True
+    load_format: dummy_dtensor
+    tensor_model_parallel_size: 1
+    max_num_batched_tokens: 8192
+    max_model_len: null
+    max_num_seqs: 1024
+    log_prob_micro_batch_size: null # will be deprecated, use log_prob_micro_batch_size_per_gpu
+    log_prob_micro_batch_size_per_gpu: null
+    log_prob_use_dynamic_bsz: ${actor_rollout_ref.actor.use_dynamic_bsz}
+    log_prob_max_token_len_per_gpu: ${actor_rollout_ref.actor.ppo_max_token_len_per_gpu}
+    disable_log_stats: True
+    enable_chunked_prefill: True # may get higher throughput when set to True. When activated, Please increase max_num_batched_tokens or decrease max_model_len.
+    # for hf rollout
+    do_sample: True
+    # number of responses (i.e. num sample times)
+    n: 1 # > 1 for grpo
+    val_kwargs:
+      # sampling parameters for validation
+      top_k: -1 # 0 for hf rollout, -1 for vllm rollout
+      top_p: 1.0
+      temperature: 0
+      n: 1
+      do_sample: False # default eager for validation
+
+es_manager:
+  format_penalty: -0.1
+  train:
+    env_groups: 8
+    # under the same group, the env config and env seed are ensured to be equal
+    group_size: 16
+    env_configs:
+      tags: ["LargerSokoban"]
+      n_groups: [8] # If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
+  val:
+    env_groups: 256
+    group_size: 1 # should be set to 1 because val temperature is set to 0 and same prompt leads to same output
+    env_configs:
+      tags: ["LargerSokoban"]
+      n_groups: [256] # TODO: If not set, all env names divide nums equally. Under the same group, the env config

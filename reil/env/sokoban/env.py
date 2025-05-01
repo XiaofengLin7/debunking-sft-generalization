@@ -9,6 +9,8 @@ from transformers import AutoTokenizer
 from ragen.env.base import BaseEnv
 from gym_sokoban.envs.sokoban_env import SokobanEnv as GymSokobanEnv
 import copy
+from .config import SokobanEnvConfig
+
 INSTRUCTION_TEMPLATE = """You are a Sokoban solver.
 
 Sokoban Quick Guide
@@ -41,9 +43,19 @@ templates = {
 }
 
 class SokobanEnvReil(SokobanEnv):
-    def __init__(self, prefix='qwen-instruct', **kwargs):
-        self.prefix = prefix
-        super().__init__(**kwargs)
+    def __init__(self, config=None):
+        self.config = config or SokobanEnvConfig()
+        self.search_depth = self.config.search_depth
+        self.dim_room = self.config.dim_room
+        self.num_boxes = self.config.num_boxes
+        self.prefix = self.config.prefix or 'qwen-instruct'
+        super().__init__(
+            dim_room=self.dim_room,
+            max_steps=self.config.max_steps,
+            num_boxes=self.num_boxes,
+            search_depth=self.search_depth
+        )
+
         
     def step(self, action: int):
         """
@@ -63,7 +75,9 @@ class SokobanEnvReil(SokobanEnv):
         #     reward = 1 # success reward
             
         obs = self.render(mode='complete')
-        return obs, reward, done, {"action_is_effective": not np.array_equal(prev_player_position, self.player_position)}
+        info = {"action_is_effective": not np.array_equal(prev_player_position, self.player_position),
+                "success": self.success()}
+        return obs, reward, done, info
     
     def reset(self, mode='complete', seed=None):
         self._reset_tracking_variables()
@@ -220,6 +234,10 @@ class SokobanEnvReil(SokobanEnv):
         new_self.reward = self.reward
         new_self._valid_actions = copy.deepcopy(self._valid_actions)
         return new_self
+    
+    def close(self):
+        self.render_cache = None
+        super(SokobanEnvReil, self).close()
     
 if __name__ == "__main__":
     env = SokobanEnvReil(dim_room=(6, 6), num_boxes=1, max_steps=100, search_depth=30, prefix='base')
