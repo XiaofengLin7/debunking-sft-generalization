@@ -16,8 +16,8 @@ data:
   max_response_length: 1024
 
 agent_proxy:
-  max_turn: 10
-  enable_think: False # False -> no think RL
+  max_turn: 14
+  enable_think: True # False -> no think RL
 
 
 actor_rollout_ref:

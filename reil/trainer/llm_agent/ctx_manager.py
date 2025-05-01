@@ -13,12 +13,11 @@ from verl import DataProto
 from verl.utils.dataset.rl_dataset import collate_fn
 from transformers import AutoTokenizer
 import hydra
-from ragen.utils import register_resolvers
-from ragen.env import REGISTERED_ENV_CONFIGS
+from reil.env import REGISTERED_ENV_CONFIGS
 from tensordict import TensorDict
 
 from dataclasses import asdict
-register_resolvers()
+
 
 def get_masks_and_scores(input_ids: torch.Tensor, tokenizer: AutoTokenizer, all_scores: List[List[float]] = None, use_turn_scores: bool = False):
     """
@@ -135,6 +134,13 @@ class ContextManager:
             for special_token in self.special_token_list:
                 action_content = action_content.replace(special_token, "").strip()
                 think_content = think_content.replace(special_token, "").strip()
+            
+            actions = [action.strip() for action in action_content.split(self.action_sep) if action.strip()]
+            max_actions = self.config.agent_proxy.max_actions_per_turn
+
+            if len(actions) > max_actions:
+                actions = actions[:max_actions] #Only the first MAX_ACTIONS actions are kept in the rollout.
+                action_content = (" " + self.action_sep + " ").join(actions)
 
             llm_response = f"<think>{think_content}</think><answer>{action_content}</answer>" if self.config.agent_proxy.enable_think else f"<answer>{action_content}</answer>"
         return llm_response, actions
@@ -306,3 +312,96 @@ class ContextManager:
     def formulate_rollouts(self, env_outputs: List[Dict]) -> DataProto:
         llm_inputs = self.get_lm_inputs(env_outputs, prepare_for_update=True)
         return llm_inputs
+    
+class NaiveContextManager(ContextManager):
+    def __init__(self, 
+                 config,
+                 tokenizer,
+                 processor = None,
+                 mode: str = "train",
+                 ):
+        """
+        Initialize the ContextManager.
+        Processor is used to process the image data.
+        """
+        self.config = config
+        self.tokenizer = tokenizer
+        self.processor = processor
+        self.special_token_list = ["<think>", "</think>", "<answer>", "</answer>", "<|im_start|>", "<|im_end|>"]
+
+        self.es_cfg = self.config.es_manager[mode]
+        self.env_nums = {
+                env_tag: n_group * self.es_cfg.group_size
+                for n_group, env_tag in zip(self.es_cfg.env_configs.n_groups, self.es_cfg.env_configs.tags)
+        }
+    def _parse_response(self, response: str) -> List:
+        pattern = r'<think>(.*?)</think>\s*<answer>(.*?)</answer>' if self.config.agent_proxy.enable_think else r'<answer>(.*?)</answer>'
+        match = re.search(pattern, response, re.DOTALL)
+        if not match:
+            # think_content, action_content, actions = "", "", [] # do not remove this kind of invalid string
+            llm_response, actions = response, []
+        else:
+            if self.config.agent_proxy.enable_think:
+                think_content, action_content = match.group(1), match.group(2)
+            else:
+                think_content, action_content = "", match.group(1)
+
+                
+            for special_token in self.special_token_list:
+                action_content = action_content.replace(special_token, "").strip()
+                think_content = think_content.replace(special_token, "").strip()
+            
+            actions = [action_content]
+
+            llm_response = f"<think>{think_content}</think><answer>{action_content}</answer>" if self.config.agent_proxy.enable_think else f"<answer>{action_content}</answer>"
+        return llm_response, actions
+    
+    def get_lm_inputs(self, env_outputs: List[Dict], prepare_for_update: bool) -> DataProto:
+        """
+        env_outputs - please see below example
+        [
+            {"env_id": 1, "history": [{"state": "###\n#x_#", "llm_response": "Response 1", "reward": 0.5}, {"state": "###\n#x_#"}]},
+            {"env_id": 2, "history": [{"state": "###\n#x_#"}]},
+            ...
+        ]
+        prefix_lookup - from env_id to initial prompt
+        """
+        llm_input_texts = []
+        for env_output in env_outputs:
+            assert 'state' in env_output['history'][-1]
+            text = env_output['history'][-1]['state']
+            llm_input_texts.append(text)
+
+        inputs = self.tokenizer(llm_input_texts, padding='longest', return_tensors='pt') # do not truncate here. Process later at TODO
+        input_ids, attention_mask = inputs.input_ids, inputs.attention_mask
+        position_ids = attention_mask.cumsum(dim=-1)
+
+        llm_inputs = DataProto()
+        llm_inputs.batch = TensorDict({
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "position_ids": position_ids,
+            "responses": input_ids[:, 1:], # remove the first token
+        }, batch_size=input_ids.shape[0])
+
+        llm_inputs.non_tensor_batch = {
+            "env_ids": np.array([env_output["env_id"] for env_output in env_outputs], dtype=object),
+            "group_ids": np.array([env_output["group_id"] for env_output in env_outputs], dtype=object),
+            "messages_list": np.array(llm_input_texts, dtype=object),
+        }
+        if prepare_for_update:
+            metrics = {}
+            for env_output in env_outputs:
+                for key, value in env_output["metrics"].items():
+                    if key not in metrics:
+                        metrics[key] = []
+                    metrics[key].append(value)
+            metrics = {
+                key: np.sum(value) / self.env_nums[key.split("/")[0]]
+                for key, value in metrics.items()
+            }
+            llm_inputs.meta_info = {"metrics": metrics}
+        return llm_inputs
+
+    
+

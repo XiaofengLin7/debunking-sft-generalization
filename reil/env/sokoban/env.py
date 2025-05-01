@@ -75,7 +75,9 @@ class SokobanEnvReil(SokobanEnv):
         #     reward = 1 # success reward
             
         obs = self.render(mode='complete')
-        return obs, reward, done, {"action_is_effective": not np.array_equal(prev_player_position, self.player_position)}
+        info = {"action_is_effective": not np.array_equal(prev_player_position, self.player_position),
+                "success": self.success()}
+        return obs, reward, done, info
     
     def reset(self, mode='complete', seed=None):
         self._reset_tracking_variables()
@@ -232,6 +234,10 @@ class SokobanEnvReil(SokobanEnv):
         new_self.reward = self.reward
         new_self._valid_actions = copy.deepcopy(self._valid_actions)
         return new_self
+    
+    def close(self):
+        self.render_cache = None
+        super(SokobanEnvReil, self).close()
     
 if __name__ == "__main__":
     env = SokobanEnvReil(dim_room=(6, 6), num_boxes=1, max_steps=100, search_depth=30, prefix='base')

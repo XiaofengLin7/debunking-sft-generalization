@@ -249,7 +249,7 @@ class EnvStateManager:
 def main(cfg):
     es_manager = EnvStateManager(cfg, mode="train")
     print("Initializing environments...")
-    es_manager.reset(seed=123)
+    es_manager.reset(seed=42)
 
     renders = es_manager.render()
     for i, render in enumerate(renders[:4]):  # Show first 2 environments
@@ -276,6 +276,14 @@ def main(cfg):
         print(f"Environment {i}:")
         pprint(output)
         print("\n")
+
+    rollout_states = es_manager.get_rollout_states()
+    for i, state in enumerate(rollout_states[:4]):
+        print(f"Rollout state {i}:")
+        pprint(state)
+        print("\n")
+        
+    es_manager.close()
 
 if __name__ == "__main__":
     main()
