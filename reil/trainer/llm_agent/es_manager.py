@@ -8,7 +8,8 @@ from typing import Dict, List, Optional, Any, Union
 import PIL.Image
 import random
 import numpy as np
-
+import hydra
+from pprint import pprint
 from reil.env import REGISTERED_ENVS, REGISTERED_ENV_CONFIGS
 
 
@@ -195,9 +196,6 @@ class EnvStateManager:
             cache['metrics'] = env_metric
         return rollout_cache
 
-
-
-
     def _update_cache_history(self, history: List[Dict], next_state, actions_left, num_actions_info: Optional[Dict] = None):
         """
         Update last step info and append state to history
@@ -245,3 +243,39 @@ class EnvStateManager:
     def close(self):
         for entry in self.envs:
             entry['env'].close()
+
+
+@hydra.main(config_path="../config", config_name="evaluation.yaml")
+def main(cfg):
+    es_manager = EnvStateManager(cfg, mode="train")
+    print("Initializing environments...")
+    es_manager.reset(seed=123)
+
+    renders = es_manager.render()
+    for i, render in enumerate(renders[:4]):  # Show first 2 environments
+        print(f"Environment {i}:\n{render}\n")
+
+    print("\nRunning step for training environments...")
+    all_env_inputs = [
+        {
+            "env_id": 0,
+            "llm_raw_response": "Go down",
+            "llm_response": "Go down",
+            "actions": ["down"]
+        },
+        {
+            "env_id": 3,
+            "llm_raw_response": "Go down",
+            "llm_response": "Go down",
+            "actions": ["up"]
+        }
+    ]
+    env_outputs = es_manager.step(all_env_inputs)
+    print("\nEnvironment outputs:")
+    for i, output in enumerate(env_outputs):
+        print(f"Environment {i}:")
+        pprint(output)
+        print("\n")
+
+if __name__ == "__main__":
+    main()

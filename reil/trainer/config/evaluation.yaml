@@ -1,6 +1,7 @@
 defaults:
   - reil_trainer
   - envs
+  - _self_
 
 env:
   name: sokoban
