@@ -1,6 +1,13 @@
 from thirdparty.alfworld.alfworld.agents.environment.alfred_tw_env import AlfredTWEnv
 from typing import List, Dict
+import yaml
+import os
 
+def load_config_file(path):
+    assert os.path.exists(path), "Invalid config file"
+    with open(path) as reader:
+        config = yaml.safe_load(reader)
+    return config
 
 def _get_base_query(base_query: str, start_info: str, memory: List[str]) -> str:
     query = base_query
@@ -69,6 +76,9 @@ class ALFWorldTW(AlfredTWEnv):
         self.env = self.init_env(batch_size=1)
         self.task_type = None
 
+    def get_game_files(self):
+        return self.game_files
+    
     def get_history(self):
         return str(self.history)
 
@@ -130,3 +140,31 @@ class ALFWorldTW(AlfredTWEnv):
             self.task_type = None
         return obs, infos
     
+    def reset_to_game_file(self, game_file: str):
+        if self.env.batch_env is not None:
+            self.env.batch_env.close()
+        
+        self.env.batch_env.load([game_file])
+        self.env.batch_env.last_commands = [None] * self.env.batch_env.batch_size
+        obs, infos = self.env.batch_env.reset()
+        start_info = '\n'.join(obs[0].split('\n\n')[1:])
+        self.history = EnvironmentHistory(
+            start_info=start_info,
+            history=[]
+        )
+        if infos["extra.gamefile"][0] is not None:
+            if "pick_and_place" in infos["extra.gamefile"][0]:
+                self.task_type = "pick_and_place"
+            elif "pick_two_obj_and_place" in infos["extra.gamefile"][0]:
+                self.task_type = "pick_two_obj_and_place"
+            elif "look_at_obj_in_light" in infos["extra.gamefile"][0]:
+                self.task_type = "look_at_obj_in_light"
+            elif "pick_heat_then_place_in_recep" in infos["extra.gamefile"][0]:
+                self.task_type = "pick_heat_then_place_in_recep"
+            elif "pick_cool_then_place_in_recep" in infos["extra.gamefile"][0]:
+                self.task_type = "pick_cool_then_place_in_recep"
+            elif "pick_clean_then_place_in_recep" in infos["extra.gamefile"][0]:
+                self.task_type = "pick_clean_then_place_in_recep"
+        else:
+            self.task_type = None
+        return obs, infos

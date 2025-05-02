@@ -2,7 +2,7 @@ from datasets import Dataset
 import os
 import argparse
 import yaml
-from reil.env.alfworld.env import ALFWorldTW
+from reil.env.alfworld.env import ALFWorldTW, load_config_file
 
 os.environ['ALFWORLD_DATA'] = "/projectnb/replearn/xfl/Retriever/src/envs/alf_world/data_storage"
 
@@ -27,11 +27,6 @@ templates = {
     'qwen-instruct': '<|im_start|>user\n{prompt}\nAlways output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>\n<|im_start|>assistant\n<think>',
     'base': 'A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks briefly about the reasoning process in the mind and then provides the user with the answer.\nUser: {prompt}\nShow your work in <think> </think> tags. And return the final answer in <answer> </answer> tags, for example <think> [Thoughts] </think> <answer> 1 </answer>\nAssistant: \n<think>'
 }
-def load_config_file(path):
-    assert os.path.exists(path), "Invalid config file"
-    with open(path) as reader:
-        config = yaml.safe_load(reader)
-    return config
 
 def main():
     parser = argparse.ArgumentParser()
