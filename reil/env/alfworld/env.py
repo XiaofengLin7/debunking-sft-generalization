@@ -1,8 +1,8 @@
 from thirdparty.alfworld.alfworld.agents.environment.alfred_tw_env import AlfredTWEnv
-from typing import List, Dict
+from typing import List, Dict, Union
 import yaml
 import os
-
+from reil.env.alfworld.config import ALFWorldConfig
 def load_config_file(path):
     assert os.path.exists(path), "Invalid config file"
     with open(path) as reader:
@@ -70,11 +70,15 @@ def process_ob(ob):
 
 
 class ALFWorldTW(AlfredTWEnv):
-    def __init__(self, config, train_eval='train'):
+    def __init__(self, aw_config: ALFWorldConfig):
+        config_path = aw_config.config_path
+        train_eval = aw_config.train_eval
+        config = load_config_file(config_path)
         assert config['env']['type'] == 'AlfredTWEnv', "ALFWorldTW only supports AlfredTWEnv"
         super().__init__(config, train_eval)
         self.env = self.init_env(batch_size=1)
         self.task_type = None
+        self.render_mode = aw_config.render_mode or "default"
 
     def get_game_files(self):
         return self.game_files
@@ -103,14 +107,23 @@ class ALFWorldTW(AlfredTWEnv):
     def get_task_type(self):
         return self.task_type
 
-    def step(self, action):
+    def step(self, action: Union[List[str], str]):
+        # expected only batch size 1, hence only return first element
+        if isinstance(action, str):
+            action = [action]
         obs, scores, dones, infos = self.env.step(action)
         obs = process_ob(obs[0])
         if not any(cmd in action[0] for cmd in ["look", "examine", "inventory"]):
             self.history.add(label='action', value=action[0])
             self.history.add(label='observation', value=obs)
-        return obs, scores, dones, infos
+
+        if self.render_mode == "complete":
+            infos = {"success": infos["won"][0],
+                     "effective_action": True if "Nothing happens" not in obs else False}
+        return obs, scores[0], dones[0], infos
     
+    def render(self):
+        return self.get_history()
 
     def reset(
         self,
@@ -168,3 +181,6 @@ class ALFWorldTW(AlfredTWEnv):
         else:
             self.task_type = None
         return obs, infos
+    
+    def close(self):
+        self.env.batch_env.close()

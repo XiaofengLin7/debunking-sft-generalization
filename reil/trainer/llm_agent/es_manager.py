@@ -11,7 +11,7 @@ import numpy as np
 import hydra
 from pprint import pprint
 from reil.env import REGISTERED_ENVS, REGISTERED_ENV_CONFIGS
-
+import os
 
 @dataclass
 class EnvStatus:
@@ -247,7 +247,8 @@ class EnvStateManager:
 
 @hydra.main(config_path="../config", config_name="evaluation.yaml")
 def main(cfg):
-    es_manager = EnvStateManager(cfg, mode="train")
+    os.environ['ALFWORLD_DATA'] = "/projectnb/replearn/xfl/Retriever/src/envs/alf_world/data_storage"
+    es_manager = EnvStateManager(cfg, mode="val")
     print("Initializing environments...")
     es_manager.reset(seed=42)
 
@@ -256,18 +257,32 @@ def main(cfg):
         print(f"Environment {i}:\n{render}\n")
 
     print("\nRunning step for training environments...")
+    # all_env_inputs = [
+    #     {
+    #         "env_id": 0,
+    #         "llm_raw_response": "Go down",
+    #         "llm_response": "Go down",
+    #         "actions": ["down"]
+    #     },
+    #     {
+    #         "env_id": 3,
+    #         "llm_raw_response": "Go down",
+    #         "llm_response": "Go down",
+    #         "actions": ["up"]
+    #     }
+    # ]
     all_env_inputs = [
         {
             "env_id": 0,
             "llm_raw_response": "Go down",
             "llm_response": "Go down",
-            "actions": ["down"]
+            "actions": ["go to stoveburner 1"]
         },
         {
-            "env_id": 3,
+            "env_id": 1,
             "llm_raw_response": "Go down",
             "llm_response": "Go down",
-            "actions": ["up"]
+            "actions": ["go to shelf 1"]
         }
     ]
     env_outputs = es_manager.step(all_env_inputs)

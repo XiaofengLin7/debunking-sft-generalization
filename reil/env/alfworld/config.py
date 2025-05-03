@@ -5,3 +5,4 @@ from typing import Tuple, Optional, Dict
 class ALFWorldConfig:
     train_eval: str = "eval_out_of_distribution"
     render_mode: str = "complete"
+    config_path: str = "./thirdparty/alfworld/configs/base_config.yaml"
