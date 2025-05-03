@@ -16,13 +16,13 @@ data:
   max_response_length: 1024
 
 agent_proxy:
-  max_turn: 14
-  enable_think: True # False -> no think RL
+  max_turn: 30
+  enable_think: False # False -> no think RL(alfworld), True -> think RL(sokoban)
 
 
 actor_rollout_ref:
   model:
-    path: /projectnb/replearn/xfl/REIL/checkpoints/REIL/exp-1.5b-0.005beta-logic-with-kl-0.001-1024-ctx-one-horizon/huggingface
+    path: /projectnb/replearn/xfl/REIL/checkpoints/ds543/REIL/alfworld-1.5b-0.005beta-0.001kl-2025-04-25/huggingface
 
   rollout:
     name: vllm
@@ -71,8 +71,8 @@ es_manager:
       tags: ["LargerSokoban"]
       n_groups: [8] # If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
   val:
-    env_groups: 256
+    env_groups: 2
     group_size: 1 # should be set to 1 because val temperature is set to 0 and same prompt leads to same output
     env_configs:
-      tags: ["LargerSokoban"]
-      n_groups: [256] # TODO: If not set, all env names divide nums equally. Under the same group, the env config
+      tags: ["ALFWorld"]
+      n_groups: [2] # TODO: If not set, all env names divide nums equally. Under the same group, the env config
