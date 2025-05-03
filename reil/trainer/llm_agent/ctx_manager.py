@@ -405,3 +405,24 @@ class NaiveContextManager(ContextManager):
 
     
 
+    def get_env_inputs(self, lm_outputs: DataProto) -> List[Dict]:
+        if lm_outputs.batch is not None and 'responses' in lm_outputs.batch.keys():
+            responses = self.tokenizer.batch_decode(
+                lm_outputs.batch['responses'], 
+                skip_special_tokens=True
+            )
+        else: # dataproto has textual responses
+            responses = lm_outputs.non_tensor_batch['response_texts']
+        responses = ["<think>" + response if self.config.agent_proxy.enable_think else response for response in responses] # The LLM generation does not include <think> tags. Add them back here.
+            
+        env_ids = lm_outputs.non_tensor_batch['env_ids']
+        env_inputs = []
+        for env_id, response in zip(env_ids, responses):
+            llm_response, actions = self._parse_response(response)
+            env_inputs.append({
+                "env_id": env_id,
+                "llm_raw_response": response,
+                "llm_response": llm_response,
+                "actions": actions,
+            })
+        return env_inputs

@@ -3,6 +3,7 @@ from typing import List, Dict, Union
 import yaml
 import os
 from reil.env.alfworld.config import ALFWorldConfig
+from reil.env.utils.prompts import ALFWORLD_INSTRUCTION_PROMPT, templates
 def load_config_file(path):
     assert os.path.exists(path), "Invalid config file"
     with open(path) as reader:
@@ -79,6 +80,7 @@ class ALFWorldTW(AlfredTWEnv):
         self.env = self.init_env(batch_size=1)
         self.task_type = None
         self.render_mode = aw_config.render_mode or "default"
+        self.prefix = aw_config.prefix or 'qwen-instruct'
 
     def get_game_files(self):
         return self.game_files
@@ -120,10 +122,12 @@ class ALFWorldTW(AlfredTWEnv):
         if self.render_mode == "complete":
             infos = {"success": infos["won"][0],
                      "effective_action": True if "Nothing happens" not in obs else False}
-        return obs, scores[0], dones[0], infos
+        
+        return self.render(), scores[0], dones[0], infos
     
     def render(self):
-        return self.get_history()
+
+        return templates[self.prefix].format(prompt=ALFWORLD_INSTRUCTION_PROMPT.format(history=self.get_history()))
 
     def reset(
         self,
@@ -180,7 +184,7 @@ class ALFWorldTW(AlfredTWEnv):
                 self.task_type = "pick_clean_then_place_in_recep"
         else:
             self.task_type = None
-        return obs, infos
+        return self.render(), infos
     
     def close(self):
         self.env.batch_env.close()

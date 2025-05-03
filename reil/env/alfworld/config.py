@@ -6,3 +6,4 @@ class ALFWorldConfig:
     train_eval: str = "eval_out_of_distribution"
     render_mode: str = "complete"
     config_path: str = "./thirdparty/alfworld/configs/base_config.yaml"
+    prefix: Optional[str] = None
