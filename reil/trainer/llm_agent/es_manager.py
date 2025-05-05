@@ -12,7 +12,7 @@ import hydra
 from pprint import pprint
 from reil.env import REGISTERED_ENVS, REGISTERED_ENV_CONFIGS
 import os
-
+from tqdm import tqdm
 @dataclass
 class EnvStatus:
     """Status of an environment"""
@@ -93,7 +93,7 @@ class EnvStateManager:
             print("All environments are ALFWorld instances")
             game_files = envs[0]['env'].get_game_files()
             print("Number of game files:", len(game_files))
-            for entry, idx in zip(envs, range(len(envs))):
+            for entry, idx in tqdm(zip(envs, range(len(envs))), total=len(envs), desc="Resetting ALFWorld envs"):
                 entry['env'].reset_to_game_file(game_files[idx])
         else:
             seeds = _expand_seed(seed)

@@ -120,8 +120,8 @@ class ALFWorldTW(AlfredTWEnv):
             self.history.add(label='observation', value=obs)
 
         if self.render_mode == "complete":
-            infos = {"success": infos["won"][0],
-                     "effective_action": True if "Nothing happens" not in obs else False}
+            infos = {f"{self.task_type}/success": infos["won"][0],
+                     f"{self.task_type}/effective_action": True if "Nothing happens" not in obs else False}
         
         return self.render(), scores[0], dones[0], infos
     
