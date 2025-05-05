@@ -22,7 +22,7 @@ agent_proxy:
 
 actor_rollout_ref:
   model:
-    path: /projectnb/replearn/xfl/REIL/checkpoints/ds543/REIL/alfworld-1.5b-0.005beta-0.001kl-2025-04-25/huggingface
+    path: /projectnb/replearn/xfl/REIL/checkpoints/ds543/REIL/alfworld-1.5b-0.005beta-0.0015kl-2025-04-28/huggingface
 
   rollout:
     name: vllm
@@ -71,8 +71,8 @@ es_manager:
       tags: ["LargerSokoban"]
       n_groups: [8] # If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
   val:
-    env_groups: 3
+    env_groups: 134
     group_size: 1 # should be set to 1 because val temperature is set to 0 and same prompt leads to same output
     env_configs:
       tags: ["ALFWorld"]
-      n_groups: [3] # TODO: If not set, all env names divide nums equally. Under the same group, the env config
+      n_groups: [134] # TODO: If not set, all env names divide nums equally. Under the same group, the env config

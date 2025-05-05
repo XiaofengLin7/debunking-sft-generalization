@@ -29,7 +29,13 @@ def convert_to_sft_data(data_file: str):
         
         instance['extra_info']['index'] = index
         action = row['reward_model']['ground_truth'][:]
-        action_str = " ".join([SokobanEnvReil.ACTION_LOOKUP[a] for a in action])
+        if "sokoban" in row['data_source']:
+            action_str = " ".join([SokobanEnvReil.ACTION_LOOKUP[a] for a in action])
+        else:
+            if type(action) == list:
+                action_str = " ".join([a for a in action])
+            else:
+                action_str = action
         instance['response'] = qwen_response_template.format(action=action_str)
         instances.append(instance)
 
@@ -37,15 +43,15 @@ def convert_to_sft_data(data_file: str):
 
 
 def main():
-    train_instances = convert_to_sft_data("./data/sokoban_one_horizon_large_envs/train.parquet")
-    test_instances = convert_to_sft_data("./data/sokoban_one_horizon_large_envs/test.parquet")
+    train_instances = convert_to_sft_data("./data/alfworld/train.parquet")
+    test_instances = convert_to_sft_data("./data/alfworld/test.parquet")
     train_dataset = Dataset.from_list(train_instances)
     test_dataset = Dataset.from_list(test_instances)
-    train_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/sft/train.parquet")
-    test_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/sft/test.parquet")
+    train_dataset.to_parquet("./data/alfworld/sft/train.parquet")
+    test_dataset.to_parquet("./data/alfworld/sft/test.parquet")
 
-    train_dataset.push_to_hub("Xiaofeng77/reil_sokoban_one_horizon_large_envs_sft", split="train")
-    test_dataset.push_to_hub("Xiaofeng77/reil_sokoban_one_horizon_large_envs_sft", split="test")
+    train_dataset.push_to_hub("Xiaofeng77/reil_alfworld_sft", split="train")
+    test_dataset.push_to_hub("Xiaofeng77/reil_alfworld_sft", split="test")
     
 if __name__ == "__main__":
     main()

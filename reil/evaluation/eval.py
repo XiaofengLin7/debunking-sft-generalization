@@ -8,6 +8,7 @@ import os
 from typing import List, Dict
 from verl import DataProto
 from pprint import pprint
+from tqdm import tqdm
 @hydra.main(config_path="../trainer/config", config_name="evaluation.yaml")
 def main(config):
     run_eval(config)
@@ -35,7 +36,7 @@ def run_eval(config):
     }
     
     start_time = time.time()
-    for i in range(config.agent_proxy.max_turn):
+    for i in tqdm(range(config.agent_proxy.max_turn)):
         lm_inputs: DataProto = ctx_manager.get_lm_inputs(env_outputs, prepare_for_update=False)
         lm_inputs.meta_info = meta_info 
         lm_outputs: DataProto = proxy.generate_sequences(lm_inputs)

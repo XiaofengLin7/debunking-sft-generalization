@@ -191,13 +191,19 @@ class EnvStateManager:
             custom_metric = {}
             for turn in cache['history']:
                 for k, v in turn.get('info', {}).items():
-                    if k == 'success':
+                    if 'success' in k:
+                        # for different types of tasks in alfworld
+                        custom_metric[k] = env_metric['success']
                         continue
                     if k not in custom_metric:
                         custom_metric[k] = []
                     custom_metric[k].append(float(v))
+            
             for k, v in custom_metric.items():
-                env_metric[k] = np.sum(v) / (len(cache['history']) - 1) # NOTE: exclude the last observation
+                if 'success' not in k:
+                    env_metric[k] = np.sum(v) / (len(cache['history']) - 1) # NOTE: exclude the last observation
+                else:
+                    env_metric[k] = v
 
             cache['history'][-1]['metrics'] = custom_metric
             env_metric = {f"{entry['tag']}/{k}": v for k, v in env_metric.items()}

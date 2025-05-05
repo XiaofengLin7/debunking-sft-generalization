@@ -397,7 +397,8 @@ class NaiveContextManager(ContextManager):
                         metrics[key] = []
                     metrics[key].append(value)
             metrics = {
-                key: np.sum(value) / self.env_nums[key.split("/")[0]]
+                # key: np.sum(value) / self.env_nums[key.split("/")[0]]
+                key: np.mean(value)
                 for key, value in metrics.items()
             }
             llm_inputs.meta_info = {"metrics": metrics}
