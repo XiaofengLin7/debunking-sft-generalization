@@ -88,10 +88,18 @@ class EnvStateManager:
             seed = random.randint(0, 1000000) if seed is None else seed # get a random seed
         else:
             seed = 123
-        seeds = _expand_seed(seed)
-        for seed, entry in zip(seeds, envs):
-            entry['env'].reset(seed=seed)
-            entry['status'] = EnvStatus(seed=seed)
+        # Check if all environments are ALFWorld
+        if self.mode == "val" and all(entry['tag'] == "ALFWorld" for entry in envs):
+            print("All environments are ALFWorld instances")
+            game_files = envs[0]['env'].get_game_files()
+            print("Number of game files:", len(game_files))
+            for entry, idx in zip(envs, range(len(envs))):
+                entry['env'].reset_to_game_file(game_files[idx])
+        else:
+            seeds = _expand_seed(seed)
+            for seed, entry in zip(seeds, envs):
+                entry['env'].reset(seed=seed)
+                entry['status'] = EnvStatus(seed=seed)
 
         # update rollout cache
         for cache, env in zip(rollout_cache, envs):

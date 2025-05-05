@@ -12,21 +12,22 @@ DATA_DIR="./data/sokoban_one_horizon_large_envs"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B-Instruct/snapshots/989aa7980e4cf806f80c7fef2b1adb7bc71aa306"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-3B/snapshots/3aab1f1954e9cc14eb9509a215f9e5ca08227a9b"
 BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
-BETA=0.0075
+BETA=0.01
 KL_COEF=0.001
 CONTEXT_LENGTH=1024
-# EXPERIMENT_NAME="sokoban-1.5b-${BETA}beta-${KL_COEF}kl-$(date +%Y-%m-%d)"
-EXPERIMENT_NAME="sokoban-1.5b-${BETA}beta-${KL_COEF}kl-2025-05-01"
+BATCH_SIZE=512
+EXPERIMENT_NAME="sokoban-1.5b-${BETA}beta-${KL_COEF}kl-${BATCH_SIZE}bsz-$(date +%Y-%m-%d)"
+# EXPERIMENT_NAME="sokoban-1.5b-${BETA}beta-${KL_COEF}kl-2025-05-01"
 # EXPERIMENT_NAME="1.5b-${BETA}beta-${KL_COEF}kl-2025-04-20"
 ROLLOUT_TP_SIZE=1
 N_GPUS=2
-
+export CUDA_VISIBLE_DEVICES="0,1"
 export VLLM_ATTENTION_BACKEND=XFORMERS
 
 python3 -m reil.trainer.main_ppo \
 data.train_files=$DATA_DIR/train.parquet \
 data.val_files=$DATA_DIR/test.parquet \
-data.train_batch_size=256 \
+data.train_batch_size=$BATCH_SIZE \
 data.val_batch_size=32 \
 data.max_prompt_length=1000 \
 data.max_response_length=$CONTEXT_LENGTH \

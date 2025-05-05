@@ -21,8 +21,11 @@ def run_eval(config):
     proxy = LLMAgentProxy(config, actor_wg, tokenizer)
     es_manager = EnvStateManager(config, mode="val")
     ctx_manager = NaiveContextManager(config, tokenizer, processor=None, mode="val")
-
+    import time
+    start_time = time.time()
     env_outputs = es_manager.reset()
+    end_time = time.time()
+    print(f"Loading envs takes: {end_time - start_time} seconds")
     meta_info = {
         'eos_token_id': tokenizer.eos_token_id,
         'pad_token_id': tokenizer.pad_token_id,
@@ -30,7 +33,7 @@ def run_eval(config):
         'do_sample': False,
         'validate': True,
     }
-    import time
+    
     start_time = time.time()
     for i in range(config.agent_proxy.max_turn):
         lm_inputs: DataProto = ctx_manager.get_lm_inputs(env_outputs, prepare_for_update=False)
