@@ -64,13 +64,26 @@ def merge_lora_model(
     print("Merge completed successfully!")
     return model
 
+def upload_model_to_huggingface(hf_path):
+    # Push to hugging face
+    from huggingface_hub import HfApi
+    api = HfApi()
+    api.create_repo(repo_id=args.hf_upload_path, private=False, exist_ok=True)
+    api.upload_folder(
+        folder_path=hf_path,
+        repo_id=args.hf_upload_path,
+        repo_type="model"
+    )
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--base_model_name", type=str, required=True)
     parser.add_argument("--lora_model_path", type=str, required=True)
     parser.add_argument("--output_path", type=str, required=True)
+    parser.add_argument("--hf_upload_path", type=str, required=False)
     args = parser.parse_args()
 
     os.makedirs(args.output_path, exist_ok=False)
     merge_lora_model(args.base_model_name, args.lora_model_path, args.output_path)
+    if args.hf_upload_path:
+        upload_model_to_huggingface(args.output_path)
