@@ -124,7 +124,9 @@ class ALFWorldTW(AlfredTWEnv):
                      "success": infos["won"][0],
                      "effective_action": True if "Nothing happens" not in obs else False}
         
-        return self.render(), scores[0], dones[0], infos
+            return self.render(), scores[0], dones[0], infos
+        else:
+            return obs, scores, dones, infos
     
     def render(self):
 
@@ -132,9 +134,10 @@ class ALFWorldTW(AlfredTWEnv):
 
     def reset(
         self,
-        seed=42,
+        seed=None,
     ):
-        self.env.seed(seed)
+        if seed is not None:
+            self.env.seed(seed)
         obs, infos = self.env.reset()
         start_info = '\n'.join(obs[0].split('\n\n')[1:])
         self.history = EnvironmentHistory(

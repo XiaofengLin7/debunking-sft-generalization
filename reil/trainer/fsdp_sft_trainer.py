@@ -51,6 +51,8 @@ from peft import LoraConfig, TaskType, get_peft_model
 from verl.workers.sharding_manager import FSDPUlyssesShardingManager
 from verl.utils.ulysses import ulysses_pad_and_slice_inputs, gather_outpus_and_unpad
 from verl import DataProto
+import pdb
+import ipdb
 
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv('VERL_SFT_LOGGING_LEVEL', 'WARN'))
@@ -506,6 +508,7 @@ class FSDPSFTTrainer(object):
 
             # save checkpoint
             if val_loss < min_val_loss:
+                ipdb.set_trace()
                 min_val_loss = val_loss
                 if self.config.trainer.use_val_save:
                     self.save_checkpoint(step=global_step)

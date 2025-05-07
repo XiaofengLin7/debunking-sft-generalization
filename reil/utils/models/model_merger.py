@@ -180,11 +180,12 @@ def convert_fsdp_checkpoints_to_hfmodels():
     model.save_pretrained(hf_path, state_dict=state_dict)
     del state_dict
     del model
-    if args.hf_upload_path:
-        upload_model_to_huggingface(hf_path)
     if args.hf_model_path:
         tokenizer = AutoTokenizer.from_pretrained(args.hf_model_path, trust_remote_code=True)
         tokenizer.save_pretrained(hf_path)
+    if args.hf_upload_path:
+        upload_model_to_huggingface(hf_path)
+
 
 
 def get_tp_pp_rank_from_sharded_dir(sharded_dir):

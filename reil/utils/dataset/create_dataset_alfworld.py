@@ -3,6 +3,7 @@ import os
 import argparse
 import yaml
 from reil.env.alfworld.env import ALFWorldTW, load_config_file
+from reil.env.alfworld.config import ALFWorldConfig
 
 os.environ['ALFWORLD_DATA'] = "/projectnb/replearn/xfl/Retriever/src/envs/alf_world/data_storage"
 
@@ -42,10 +43,11 @@ def main():
     
     args = parser.parse_args()
 
-    config = load_config_file(args.config_file)
-
+    config = ALFWorldConfig()
+    config.train_eval = 'train'
+    config.render_mode = 'complete'
     # setup environment
-    env = ALFWorldTW(config=config, train_eval='train')
+    env = ALFWorldTW(aw_config=config)
 
     train_instances = []
     test_instances = []
