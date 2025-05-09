@@ -6,21 +6,21 @@ conda activate reil || exit 1
 set -x
 
 
-DATA_DIR="./data/alfworld"
+DATA_DIR="./data/alfworld_task_type"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-3B-Instruct/snapshots/aa8e72537993ba99e69dfaafa59ed015b17504d1"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B-Instruct/snapshots/989aa7980e4cf806f80c7fef2b1adb7bc71aa306"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-3B/snapshots/3aab1f1954e9cc14eb9509a215f9e5ca08227a9b"
 BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
-BETA=0.0075
+BETA=0.005
 KL_COEF=0.001
 CONTEXT_LENGTH=1024
-EXPERIMENT_NAME="alfworld-1.5b-${BETA}beta-${KL_COEF}kl-$(date +%Y-%m-%d)"
+# EXPERIMENT_NAME="alfworld-1.5b-${BETA}beta-${KL_COEF}kl-pick_n_place_$(date +%m-%d)"
+EXPERIMENT_NAME="alfworld-1.5b-${BETA}beta-${KL_COEF}kl-pick_n_place_05-07"
 # EXPERIMENT_NAME="alfworld-1.5b-${BETA}beta-${KL_COEF}kl-2025-04-28"
 # EXPERIMENT_NAME="1.5b-${BETA}beta-${KL_COEF}kl-2025-04-20"
 ROLLOUT_TP_SIZE=1
-N_GPUS=2
-CUDA_VISIBLE_DEVICES=0,1
+N_GPUS=4
 
 export VLLM_ATTENTION_BACKEND=XFORMERS
 
