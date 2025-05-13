@@ -105,6 +105,7 @@ class FSDPSFTTrainer:
         # build model
         self._build_model_optimizer()
 
+        self.init_agent_proxy()
         # TODO: add checkpoint manager
         if self.device_mesh.get_rank() == 0:
             print(self.config)
@@ -274,6 +275,9 @@ class FSDPSFTTrainer:
         #     self.lr_scheduler = get_wsd_schedule_with_warmup(optimizer=self.optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=self.total_steps)
         else:
             raise ValueError(f"Unknown lr scheduler: {self.config.optim.lr_scheduler}")
+
+    def init_agent_proxy(self):
+        pass
 
     def _compute_loss_and_backward(self, batch, do_backward=True):
         """Compute loss with optional sequence parallelism and remove padding features"""
@@ -467,20 +471,9 @@ class FSDPSFTTrainer:
                     raise RuntimeError(f"Device mismatch: current={torch.cuda.current_device()}, expected={rank}")
 
                 local_rank = int(os.environ["LOCAL_RANK"])
-                # Try to do a small CUDA operation first
-                try:
-                    test_tensor = torch.zeros(1, device='cuda')
-                    torch.cuda.synchronize()
-                except RuntimeError as e:
-                    print(f"Error in test CUDA operation: {e}")
-                    raise
 
-                # Then try the actual .cuda() call
-                try:
-                    data = TensorDict(data, batch_size=self.config.data.train_batch_size).cuda(device=local_rank)
-                except RuntimeError as e:
-                    print(f"Error moving data to CUDA: {e}")
-                    raise
+                data = TensorDict(data, batch_size=self.config.data.train_batch_size).cuda(device=local_rank)
+
 
                 metric = self.training_step(data)
                 if rank == 0:
@@ -523,7 +516,6 @@ class FSDPSFTTrainer:
 @hydra.main(config_path="config", config_name="sft_trainer", version_base=None)
 def main(config):
     local_rank, rank, world_size = initialize_global_process_group()
-    print(f"Local rank: {local_rank}, rank: {rank}, world size: {world_size}")
 
     device_mesh = init_device_mesh(device_type="cuda", mesh_shape=(world_size,), mesh_dim_names=("fsdp",))
     dp_size = world_size // config.ulysses_sequence_parallel_size

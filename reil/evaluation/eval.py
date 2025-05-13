@@ -1,5 +1,5 @@
 import hydra
-from reil.trainer.llm_agent.agent_proxy import VllmWrapperWg, LLMAgentProxy
+from reil.trainer.llm_agent.agent_proxy import VllmWrapperWg, HFWrapperWg, LLMAgentProxy
 from reil.trainer.llm_agent.es_manager import EnvStateManager
 from reil.trainer.llm_agent.ctx_manager import NaiveContextManager
 
@@ -15,10 +15,12 @@ def main(config):
 
 def run_eval(config):
     os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
-    os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+    # os.environ["CUDA_VISIBLE_DEVICES"] = "3"
     os.environ['ALFWORLD_DATA'] = "/projectnb/replearn/xfl/Retriever/src/envs/alf_world/data_storage"
     tokenizer = AutoTokenizer.from_pretrained(config.actor_rollout_ref.model.path)
-    actor_wg = VllmWrapperWg(config, tokenizer)
+    # actor_wg = VllmWrapperWg(config, tokenizer)
+    actor_wg = HFWrapperWg(module=None, config=config, tokenizer=tokenizer)
+    # actor_wg = HFWrapperWg_vllm(module=None, config=config, tokenizer=tokenizer)
     proxy = LLMAgentProxy(config, actor_wg, tokenizer)
     es_manager = EnvStateManager(config, mode="val")
     ctx_manager = NaiveContextManager(config, tokenizer, processor=None, mode="val")

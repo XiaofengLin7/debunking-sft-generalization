@@ -3,11 +3,21 @@ Adapted from https://github.com/RAGEN-AI/RAGEN/blob/main/ragen/llm_agent/agent_p
 """
 
 from vllm import LLM, SamplingParams
-from typing import List, Dict
+from typing import List, Dict, Union, Any
 from verl.protocol import pad_dataproto_to_divisor, unpad_dataproto
 from verl.single_controller.ray.base import RayWorkerGroup
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from verl import DataProto
+from verl.workers.rollout.hf_rollout import HFRollout
+from torch import nn
+
+class Config:
+	def __init__(self, **kwargs):
+		for key, value in kwargs.items():
+			setattr(self, key, value)
+	
+	def get(self, key: str, default: Any = None) -> Any:
+		return getattr(self, key, default)
 
 class VllmWrapperWg: # Thi is a developing class for eval and test
 	def __init__(self, config, tokenizer):
@@ -29,7 +39,6 @@ class VllmWrapperWg: # Thi is a developing class for eval and test
             enable_chunked_prefill=ro_config.enable_chunked_prefill,
             enable_prefix_caching=True,
 		)
-		print("LLM initialized")
 		self.sampling_params = SamplingParams(
 			max_tokens=ro_config.response_length,
 			temperature=ro_config.val_kwargs.temperature,
@@ -62,6 +71,40 @@ class VllmWrapperWg: # Thi is a developing class for eval and test
 
 		return lm_outputs
 	
+class HFWrapperWg:
+	def __init__(self, config, tokenizer, module: Union[nn.Module, None] = None):
+		if module is None:
+			module = AutoModelForCausalLM.from_pretrained(config.actor_rollout_ref.model.path, device_map="cuda")
+		self.config = config
+		self.tokenizer = tokenizer
+		HFRolloutConfig = Config(
+			micro_batch_size=config.es_manager.val.env_groups,
+			response_length=config.actor_rollout_ref.rollout.response_length,
+			do_sample=config.actor_rollout_ref.rollout.do_sample,
+			temperature=config.actor_rollout_ref.rollout.val_kwargs.temperature,
+			top_p=config.actor_rollout_ref.rollout.val_kwargs.top_p,
+			top_k=config.actor_rollout_ref.rollout.val_kwargs.top_k
+		)
+		self.llm = HFRollout(module, HFRolloutConfig)
+
+	def generate_sequences(self, lm_inputs: DataProto):
+		input_ids = lm_inputs.batch['input_ids']
+		input_texts = self.tokenizer.batch_decode(input_ids, skip_special_tokens=False)
+		input_texts = [i.replace("<|endoftext|>", "") for i in input_texts]
+
+		inputs = self.tokenizer(input_texts, return_tensors="pt", padding=True, padding_side="left", truncation=False)
+		lm_inputs.batch['input_ids'] = inputs.input_ids
+		lm_inputs.batch['attention_mask'] = inputs.attention_mask
+		position_ids = inputs.attention_mask.cumsum(dim=-1)
+		lm_inputs.batch['position_ids'] = position_ids
+
+		lm_outputs = self.llm.generate_sequences(lm_inputs)
+		lm_outputs.non_tensor_batch = {
+			'env_ids': lm_inputs.non_tensor_batch['env_ids'],
+			'group_ids': lm_inputs.non_tensor_batch['group_ids']
+		}
+		lm_outputs.meta_info = lm_inputs.meta_info
+		return lm_outputs
 
 class LLMAgentProxy:
 	"""
@@ -80,7 +123,7 @@ class LLMAgentProxy:
 			lm_outputs = unpad_dataproto(padded_lm_outputs, pad_size=pad_size)
 			lm_outputs.meta_info = lm_inputs.meta_info
 			lm_outputs.non_tensor_batch = lm_inputs.non_tensor_batch
-		elif isinstance(self.actor_wg, VllmWrapperWg):
+		elif isinstance(self.actor_wg, VllmWrapperWg) or isinstance(self.actor_wg, HFWrapperWg):
 			lm_outputs = self.actor_wg.generate_sequences(lm_inputs)
 		else:
 			raise ValueError(f"Unsupported actor worker type: {type(self.actor_wg)}")
