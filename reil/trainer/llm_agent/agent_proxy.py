@@ -10,7 +10,6 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from verl import DataProto
 from verl.workers.rollout.hf_rollout import HFRollout
 from torch import nn
-from types import SimpleNamespace
 
 class Config:
 	def __init__(self, **kwargs):
@@ -89,15 +88,15 @@ class HFWrapperWg:
 		self.llm = HFRollout(module, HFRolloutConfig)
 
 	def generate_sequences(self, lm_inputs: DataProto):
-		# input_ids = lm_inputs.batch['input_ids']
-		# input_texts = self.tokenizer.batch_decode(input_ids, skip_special_tokens=False)
-		# input_texts = [i.replace("<|endoftext|>", "") for i in input_texts]
+		input_ids = lm_inputs.batch['input_ids']
+		input_texts = self.tokenizer.batch_decode(input_ids, skip_special_tokens=False)
+		input_texts = [i.replace("<|endoftext|>", "") for i in input_texts]
 
-		# inputs = self.tokenizer(input_texts, return_tensors="pt", padding=True, padding_side="left", truncation=False)
-		# lm_inputs.batch['input_ids'] = inputs.input_ids
-		# lm_inputs.batch['attention_mask'] = inputs.attention_mask
-		# position_ids = inputs.attention_mask.cumsum(dim=-1)
-		# lm_inputs.batch['position_ids'] = position_ids
+		inputs = self.tokenizer(input_texts, return_tensors="pt", padding=True, padding_side="left", truncation=False)
+		lm_inputs.batch['input_ids'] = inputs.input_ids
+		lm_inputs.batch['attention_mask'] = inputs.attention_mask
+		position_ids = inputs.attention_mask.cumsum(dim=-1)
+		lm_inputs.batch['position_ids'] = position_ids
 
 		lm_outputs = self.llm.generate_sequences(lm_inputs)
 		lm_outputs.non_tensor_batch = {
