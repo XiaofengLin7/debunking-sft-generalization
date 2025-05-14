@@ -1,3 +1,8 @@
+defaults:
+  - envs
+  - evaluation
+  - _self_
+  
 data:
   tokenizer: null
   train_files: ./data/sokoban/train.parquet
@@ -221,9 +226,7 @@ trainer:
   default_local_dir: checkpoints/${trainer.project_name}/${trainer.experiment_name}
   max_actor_ckpt_to_keep: null
   max_critic_ckpt_to_keep: null
-  is_rl_validation: True 
-  
-max_turns: 14
+  policy_eval: True
 
 env:
   name: sokoban
