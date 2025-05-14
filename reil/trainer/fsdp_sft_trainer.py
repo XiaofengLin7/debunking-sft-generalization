@@ -56,7 +56,8 @@ from verl.utils.ulysses import (
     ulysses_pad_and_slice_inputs,
 )
 from verl.workers.sharding_manager.fsdp_ulysses import FSDPUlyssesShardingManager
-from reil.trainer.llm_agent.agent_proxy import VllmWrapperWg, LLMAgentProxy, HFWrapperWg
+from reil.trainer.llm_agent.agent_proxy import LLMAgentProxy, HFWrapperWg
+
 
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv("VERL_SFT_LOGGING_LEVEL", "WARN"))
@@ -493,10 +494,17 @@ class FSDPSFTTrainer:
                         val_data = TensorDict(val_data, batch_size=self.config.data.micro_batch_size_per_gpu).cuda(device=local_rank)
                         val_loss = self.validation_step(val_data)
                         val_losses.append(val_loss)
+                    if self.config.trainer.policy_eval and self.config.model.lora_rank == 0:
+                        actor_wg = HFWrapperWg(self.config, self.tokenizer, module=self.fsdp_model)
+                        self.proxy.set_actor_wg(actor_wg)
+                        rollouts = self.proxy.rollout()
+
                     if rank == 0:
                         avg_val_loss = torch.mean(torch.stack(val_losses))
                         metric = {"val/loss": avg_val_loss.detach().item()}
                         tracking.log(data=metric, step=global_step)
+                        tracking.log(data=rollouts.meta_info['metrics'], step=global_step)
+                    
                     torch.distributed.barrier()
 
                     # Save final checkpoint
@@ -509,17 +517,16 @@ class FSDPSFTTrainer:
                 data = TensorDict(data, batch_size=self.config.data.micro_batch_size_per_gpu).cuda(device=local_rank)
                 val_loss = self.validation_step(data)
                 val_losses.append(val_loss)
-            if rank == 0:
-                val_loss = torch.mean(torch.stack(val_losses))
-                metric = {"val/loss": val_loss.detach().item()}
-                tracking.log(data=metric, step=global_step)
 
             if self.config.trainer.policy_eval and self.config.model.lora_rank == 0:
                 actor_wg = HFWrapperWg(self.config, self.tokenizer, module=self.fsdp_model)
                 self.proxy.set_actor_wg(actor_wg)
-                rollouts = self.proxy.rollout()
-
+                rollouts = self.proxy.rollout()    
+            
             if rank == 0:
+                val_loss = torch.mean(torch.stack(val_losses))
+                metric = {"val/loss": val_loss.detach().item()}
+                tracking.log(data=metric, step=global_step)
                 tracking.log(data=rollouts.meta_info['metrics'], step=global_step)
             
             torch.distributed.barrier()
@@ -548,6 +555,9 @@ def main(config):
     trainer = FSDPSFTTrainer(config=config, device_mesh=device_mesh, ulysses_device_mesh=ulysses_device_mesh, tokenizer=tokenizer, train_dataset=train_dataset, val_dataset=val_dataset)
 
     trainer.fit()
+
+    torch.distributed.barrier()
+    torch.distributed.destroy_process_group()
 
 
 def create_sft_dataset(data_paths, data_config, tokenizer):
