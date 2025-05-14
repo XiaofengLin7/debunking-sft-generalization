@@ -71,8 +71,8 @@ es_manager:
       tags: ["LargerSokoban"]
       n_groups: [8] # If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
   val:
-    env_groups: 2 # 41 for pick_n_place and pick_two_obj_and_place
+    env_groups: 41 # 41 for pick_n_place and pick_two_obj_and_place
     group_size: 1 # should be set to 1 because val temperature is set to 0 and same prompt leads to same output
     env_configs:
       tags: ["ALFWorld"]
-      n_groups: [2] # TODO: If not set, all env names divide nums equally. Under the same group, the env config
+      n_groups: [41] # TODO: If not set, all env names divide nums equally. Under the same group, the env config

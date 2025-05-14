@@ -95,6 +95,7 @@ class EnvStateManager:
             print("Number of game files:", len(game_files))
             for entry, idx in tqdm(zip(envs, range(len(envs))), total=len(envs), desc="Resetting ALFWorld envs"):
                 entry['env'].reset_to_game_file(game_files[idx])
+                entry['status'] = EnvStatus(seed=seed)
         else:
             seeds = _expand_seed(seed)
             for seed, entry in zip(seeds, envs):

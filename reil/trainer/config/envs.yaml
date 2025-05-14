@@ -26,6 +26,6 @@ custom_envs:
     env_type: alfworld
     max_actions_per_traj: 30
     env_config: 
-      config_path: "/projectnb/replearn/xfl/REIL/thirdparty/alfworld/configs/base_config.yaml"
+      config_path: "/projectnb/replearn/xfl/REIL/reil/env/alfworld/base_config.yaml"
       train_eval: "eval_out_of_distribution"
     
