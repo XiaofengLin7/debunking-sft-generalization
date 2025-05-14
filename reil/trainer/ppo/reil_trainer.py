@@ -55,6 +55,7 @@ from verl.utils.torch_functional import masked_mean
 from collections import defaultdict
 # from ragen.llm_agent.generation import LLMGenerationManager, GenerationConfig
 from reil.trainer.llm_agent.generation import ReilGenerationManager, GenerationConfig
+from reil.trainer.llm_agent.agent_proxy import LLMAgentProxy
 WorkerType = Type[Worker]
 
 @contextmanager
@@ -75,8 +76,7 @@ class ReilPPOTrainer(RayPPOTrainer):
                 processor=None,
                 reward_fn=None,
                 val_reward_fn=None,
-                val_env=None,
-                env_class=None):
+                ):
         super().__init__(config=config, 
                          tokenizer=tokenizer, 
                          role_worker_mapping=role_worker_mapping, 
@@ -88,8 +88,10 @@ class ReilPPOTrainer(RayPPOTrainer):
 
         # assert torch.cuda.is_available(), 'cuda must be available on driver'
 
-        self.val_env = val_env
-        self.env_class = env_class
+
+    def init_agent_proxy(self):
+        self.agent_proxy = LLMAgentProxy(self.config, self.actor_rollout_wg, self.tokenizer)
+
     def _create_dataloader(self):
         # TODO: we have to make sure the batch size is divisible by the dp size
         self.train_dataset = RLHFDataset(parquet_files=self.config.data.train_files,
@@ -142,21 +144,22 @@ class ReilPPOTrainer(RayPPOTrainer):
             shuffle=True,
             drop_last=False,
             collate_fn=collate_fn)
-        if self.config.trainer.is_rl_validation:
-            self.val_env_dataset = RLHFDataset(parquet_files=self.config.data.val_env_files,
-                                       tokenizer=self.tokenizer,
-                                       prompt_key=self.config.data.prompt_key,
-                                       max_prompt_length=self.config.data.max_prompt_length,
-                                       filter_prompts=True,
-                                       return_raw_chat=self.config.data.get('return_raw_chat', False),
-                                       truncation='error')
         
-            self.val_env_dataloader = StatefulDataLoader(dataset=self.val_env_dataset,
-                                             batch_size=self.config.data.val_env_batch_size,
-                                             num_workers=8,
-                                             shuffle=True,
-                                             drop_last=False,
-                                             collate_fn=collate_fn)
+        # if self.config.trainer.policy_eval:
+        #     self.val_env_dataset = RLHFDataset(parquet_files=self.config.data.val_env_files,
+        #                                tokenizer=self.tokenizer,
+        #                                prompt_key=self.config.data.prompt_key,
+        #                                max_prompt_length=self.config.data.max_prompt_length,
+        #                                filter_prompts=True,
+        #                                return_raw_chat=self.config.data.get('return_raw_chat', False),
+        #                                truncation='error')
+        
+        #     self.val_env_dataloader = StatefulDataLoader(dataset=self.val_env_dataset,
+        #                                      batch_size=self.config.data.val_env_batch_size,
+        #                                      num_workers=8,
+        #                                      shuffle=True,
+        #                                      drop_last=False,
+        #                                      collate_fn=collate_fn)
 
         assert len(self.train_dataloader) >= 1
         assert len(
@@ -180,149 +183,10 @@ class ReilPPOTrainer(RayPPOTrainer):
             self.config.critic.optim.total_training_steps = total_training_steps
 
             
-    def _validate_on_env(self, logger):
-        """
-        The training loop of PPO with global metric computation.
-        Accumulates metrics across all batches before computing final statistics.
-        """
-        import torch
-        # Initialize global metric storage
-        global_token_scores = []
-        global_metrics = {}
-        metrics = defaultdict(list)
+    def _validate_on_env(self):
+        rollouts = self.agent_proxy.rollout()
+        return rollouts.meta_info['metrics']
 
-        # gen_config = GenerationConfig(
-        #     max_turns=self.config.max_turns,
-        #     max_start_length=self.config.data.max_start_length,
-        #     max_prompt_length=self.config.data.max_prompt_length,
-        #     max_response_length=self.config.data.max_response_length,
-        #     max_obs_length=self.config.data.max_obs_length,
-        #     logging=self.config.logging,
-        #     num_gpus=self.config.trainer.n_gpus_per_node,
-        #     no_think_rl=self.config.algorithm.no_think_rl,
-        #     state_masking=self.config.actor_rollout_ref.actor.state_masking,
-        #     start_state_marker=self.config.algorithm.state_masking.start_state_marker,
-        #     end_state_marker=self.config.algorithm.state_masking.end_state_marker,
-        # )
-
-        # # Agent config preparation
-        # generation_manager = LLMGenerationManager(
-        #     tokenizer=self.tokenizer,
-        #     actor_rollout_wg=self.actor_rollout_wg,
-        #     env_class=self.env_class,
-        #     config=gen_config,
-        #     logger = logger,
-        #     is_validation = True,
-        # )
-        gen_config = GenerationConfig(
-            max_turns=self.config.max_turns,
-            max_start_length=self.config.data.max_start_length,
-            max_prompt_length=self.config.data.max_prompt_length,
-            max_response_length=self.config.data.max_response_length,
-            max_obs_length=self.config.data.max_obs_length,
-            logging=self.config.logging,
-            num_gpus=self.config.trainer.n_gpus_per_node,
-            no_think_rl=self.config.algorithm.no_think_rl,
-            append_obs=self.config.algorithm.append_obs
-        )
-        generation_manager = ReilGenerationManager(
-            tokenizer=self.tokenizer,
-            actor_rollout_wg=self.actor_rollout_wg,
-            env_class=self.env_class,
-            config=gen_config,
-            logger=logger,
-            is_validation=True
-        )
-        envs = [self.val_env.copy() for _ in range(self.config.data.val_env_batch_size)] # do not repeat
-        # envs = [self.val_env.copy() for _ in range(self.config.data.val_batch_size * self.config.actor_rollout_ref.rollout.n_agent)]
-        val_global_steps = 1
-
-        for batch_dict in self.val_env_dataloader:
-            timing_raw = {}
-            test_batch: DataProto = DataProto.from_single_dict(batch_dict)
-            # test_batch = test_batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n_agent, interleave=True)
-
-            env_seeds = [i['index'] for i in test_batch.non_tensor_batch['extra_info']]
-            print("env_seeds:", env_seeds)
-            for env, seed in zip(envs, env_seeds):
-                env.reset(seed=seed)
-            
-            test_gen_batch = test_batch.pop(batch_keys=['input_ids', 'attention_mask', 'position_ids'])
-            test_gen_batch.meta_info = {
-                'eos_token_id': self.tokenizer.eos_token_id,
-                'pad_token_id': self.tokenizer.pad_token_id,
-                'recompute_log_prob': False,
-                'do_sample': False,
-                'validate': True,
-            }
-            with _timer('step', timing_raw):
-                first_input_ids = test_gen_batch.batch['input_ids'][:, -gen_config.max_start_length:].clone()
-                output_dir = (f"{self.config.logging.log_image_dir}/"
-                                f"{self.config.trainer.experiment_name}/"
-                                f"validation_{self.global_steps}/"
-                                f"step_{val_global_steps}")
-                with _timer('gen', timing_raw):
-                    final_gen_batch_output = generation_manager.run_llm_loop(
-                        gen_batch=test_gen_batch,
-                        envs=envs,
-                        initial_input_ids=first_input_ids,
-                        output_dir=output_dir,
-                        global_steps=self.global_steps,
-                    )
-                # with torch.no_grad():
-                #     output = self.actor_rollout_wg.compute_log_prob(final_gen_batch_output)
-                #     final_gen_batch_output = final_gen_batch_output.union(output)
-
-                test_batch.non_tensor_batch['reward'] = np.array([0 for _ in range(len(envs))], dtype=object)
-                for idx, env in enumerate(envs):
-                    test_batch.non_tensor_batch['reward'][idx] = env.reward
-                
-                test_batch.non_tensor_batch['total_env'] = np.array([1 for _ in range(len(envs))], dtype=object)
-                test_batch.non_tensor_batch['finished_env'] = np.array([0 for _ in range(len(envs))], dtype=object)
-                test_batch.non_tensor_batch['success_env'] = np.array([0 for _ in range(len(envs))], dtype=object)
-                test_batch.non_tensor_batch['traj_length'] = np.array([0 for _ in range(len(envs))], dtype=object)
-                test_batch.non_tensor_batch['valid_action'] = np.array([0 for _ in range(len(envs))], dtype=object)
-                test_batch.non_tensor_batch['effective_action'] = np.array([0 for _ in range(len(envs))], dtype=object)
-                test_batch.non_tensor_batch['effective_action_ratio'] = np.array([0 for _ in range(len(envs))], dtype=object)
-                for idx, env in enumerate(envs):
-                    test_batch.non_tensor_batch['finished_env'][idx] = int(env.finished())
-                    test_batch.non_tensor_batch['success_env'][idx] = int(env.success())
-                    tracking_vars = env.get_tracking_variables()
-                    test_batch.non_tensor_batch['traj_length'][idx] = len(tracking_vars['actions'])
-                    test_batch.non_tensor_batch['valid_action'][idx] = sum(1 for x in tracking_vars['actions_valid'] if x is not None)
-                    test_batch.non_tensor_batch['effective_action'][idx] = sum(1 for x in tracking_vars['actions_effective'] if x is not None)
-                    test_batch.non_tensor_batch['effective_action_ratio'][idx] = sum(1 for x in tracking_vars['actions_effective'] if x is not None) / len(tracking_vars['actions'])
-
-                # action metrics
-                metrics['total_env'].append(test_batch.non_tensor_batch['total_env'])
-                metrics['finished_env'].append(test_batch.non_tensor_batch['finished_env'])
-                metrics['success_env'].append(test_batch.non_tensor_batch['success_env'])
-                metrics['traj_length'].append(test_batch.non_tensor_batch['traj_length'])
-                metrics['valid_action'].append(test_batch.non_tensor_batch['valid_action'])
-                metrics['effective_action'].append(test_batch.non_tensor_batch['effective_action'])
-                metrics['effective_action_ratio'].append(test_batch.non_tensor_batch['effective_action_ratio'])
-
-                # Accumulate batch metrics into global storage
-                global_token_scores.append(test_batch.non_tensor_batch['reward'])
-
-
-        global_scores = np.concatenate(global_token_scores, axis=0)
-        global_metrics = {
-            'global_score/mean': float(global_scores.mean()),
-            'global_score/max': float(global_scores.max()),
-            'global_score/min': float(global_scores.min()),
-            'global_score/std': float(global_scores.std()),
-            'validate_metric/total_env': int(np.array(metrics['total_env'], dtype=np.int16).sum()),
-            'validate_metric/finished_env': int(np.array(metrics['finished_env'], dtype=np.int16).sum()),
-            'validate_metric/success_env': int(np.array(metrics['success_env'], dtype=np.int16).sum()),
-            'validate_metric/traj_length': float(np.array(metrics['traj_length'], dtype=np.int16).mean()),
-            'validate_metric/valid_action': float(np.array(metrics['valid_action'], dtype=np.int16).mean()),
-            'validate_metric/effective_action': float(np.array(metrics['effective_action'], dtype=np.int16).mean()),
-            'validate_metric/effective_action_ratio': float(np.array(metrics['effective_action_ratio'], dtype=np.float32).mean()),
-        }
-        print("global_metrics", global_metrics)
-
-        return global_metrics
     
     def fit(self):
         """
@@ -349,8 +213,8 @@ class ReilPPOTrainer(RayPPOTrainer):
             val_metrics = self._validate()
             pprint(f'Initial validation metrics: {val_metrics}')
             logger.log(data=val_metrics, step=self.global_steps)
-            if self.config.trainer.is_rl_validation:
-                val_env_metrics = self._validate_on_env(logger)
+            if self.config.trainer.policy_eval:
+                val_env_metrics = self._validate_on_env()
                 pprint(f'Initial validation metrics on envs: {val_env_metrics}')
                 logger.log(data=val_env_metrics, step=self.global_steps)
 
@@ -488,14 +352,15 @@ class ReilPPOTrainer(RayPPOTrainer):
                         (is_last_step or  self.global_steps % self.config.trainer.test_freq == 0):
                         with _timer('testing', timing_raw):
                             val_metrics: dict = self._validate()
-                            if self.config.trainer.is_rl_validation:
-                                val_env_metrics = self._validate_on_env(logger)
+                            if self.config.trainer.policy_eval:
+                                with _timer('policy_eval', timing_raw):
+                                    val_env_metrics = self._validate_on_env()
                             if is_last_step:
                                 last_val_metrics = val_metrics
-                                if self.config.trainer.is_rl_validation:
+                                if self.config.trainer.policy_eval:
                                     last_val_env_metrics = val_env_metrics
                         metrics.update(val_metrics)
-                        if self.config.trainer.is_rl_validation:
+                        if self.config.trainer.policy_eval:
                             metrics.update(val_env_metrics)
 
                     if self.config.trainer.save_freq > 0 and ( is_last_step or \
@@ -515,7 +380,7 @@ class ReilPPOTrainer(RayPPOTrainer):
                 logger.log(data=metrics, step=self.global_steps)
                 if is_last_step:
                     pprint(f'Final validation metrics: {last_val_metrics}')
-                    if self.config.trainer.is_rl_validation:
+                    if self.config.trainer.policy_eval:
                         pprint(f'Final validation metrics on envs: {last_val_env_metrics}')
                     progress_bar.close()
                     return

@@ -19,13 +19,13 @@ from reil.trainer.ppo.reil_trainer import ReilPPOTrainer
 import os
 import ray
 import hydra
-from ragen.env import SokobanEnv
-from reil.env.sokoban.env import SokobanEnvReil
-from reil.utils.env import get_train_val_env
-ENV_CLASS_MAPPING = {
-    'sokoban': SokobanEnv,
-    'sokoban_reil': SokobanEnvReil,
-}
+# from ragen.env import SokobanEnv
+# from reil.env.sokoban.env import SokobanEnvReil
+# from reil.utils.env import get_train_val_env
+# ENV_CLASS_MAPPING = {
+#     'sokoban': SokobanEnv,
+#     'sokoban_reil': SokobanEnvReil,
+# }
 
 def get_custom_reward_fn(config):
     import importlib.util, os
@@ -90,7 +90,6 @@ class TaskRunner:
         pprint(OmegaConf.to_container(config, resolve=True))  # resolve=True will eval symbol values
         OmegaConf.resolve(config)
 
-        env_class = ENV_CLASS_MAPPING[config.env.name]
         # download the checkpoint from hdfs
         local_path = copy_to_local(config.actor_rollout_ref.model.path)
 
@@ -178,10 +177,6 @@ class TaskRunner:
         #                         ray_worker_group_cls=ray_worker_group_cls,
         #                         reward_fn=reward_fn,
         #                         val_reward_fn=val_reward_fn)
-        env, val_env = get_train_val_env(env_class, config)
-        if val_env is None:
-            val_env = env
-        # breakpoint()
         trainer = ReilPPOTrainer(config=config,
                                 tokenizer=tokenizer,
                                 processor=processor,
@@ -189,10 +184,9 @@ class TaskRunner:
                                 resource_pool_manager=resource_pool_manager,
                                 ray_worker_group_cls=ray_worker_group_cls,
                                 reward_fn=reward_fn,
-                                val_reward_fn=val_reward_fn,
-                                val_env=val_env,
-                                env_class=env_class)
+                                val_reward_fn=val_reward_fn)
         trainer.init_workers()
+        trainer.init_agent_proxy()
         trainer.fit()
 
 
