@@ -10,6 +10,10 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from verl import DataProto
 from verl.workers.rollout.hf_rollout import HFRollout
 from torch import nn
+from reil.trainer.llm_agent.es_manager import EnvStateManager
+from reil.trainer.llm_agent.ctx_manager import NaiveContextManager
+import time
+from tqdm import tqdm
 
 class Config:
 	def __init__(self, **kwargs):
@@ -20,10 +24,11 @@ class Config:
 		return getattr(self, key, default)
 
 class VllmWrapperWg: # Thi is a developing class for eval and test
-	def __init__(self, config, tokenizer):
+	def __init__(self, config, tokenizer, model_name: Union[str, None]=None):
+		if model_name is None:
+			model_name = config.actor_rollout_ref.model.path
 		self.config = config
 		self.tokenizer = tokenizer
-		model_name = config.actor_rollout_ref.model.path
 		ro_config = config.actor_rollout_ref.rollout
 		self.llm = LLM(
 			model_name,
@@ -59,7 +64,7 @@ class VllmWrapperWg: # Thi is a developing class for eval and test
 		input_texts = self.tokenizer.batch_decode(input_ids, skip_special_tokens=False)
 		input_texts = [i.replace("<|endoftext|>", "") for i in input_texts]
 
-		outputs = self.llm.generate(input_texts, sampling_params=self.sampling_params)
+		outputs = self.llm.generate(input_texts, sampling_params=self.sampling_params, use_tqdm=False)
 		texts = [output.outputs[0].text for output in outputs] 
 		lm_outputs = DataProto()
 		lm_outputs.non_tensor_batch = {
@@ -114,6 +119,8 @@ class LLMAgentProxy:
 		self.config = config
 		self.actor_wg = actor_rollout_wg
 		self.tokenizer = tokenizer
+		self.val_ctx_manager = NaiveContextManager(config, tokenizer, processor=None, mode="val")
+		self.val_es_manager = EnvStateManager(config, mode="val")
 
 	def generate_sequences(self, lm_inputs: DataProto):
 		# TODO: add kv cache both for the vllm wrapper here and for verl vllm.
@@ -129,3 +136,32 @@ class LLMAgentProxy:
 			raise ValueError(f"Unsupported actor worker type: {type(self.actor_wg)}")
 
 		return lm_outputs
+	
+	def set_actor_wg(self, actor_wg):
+		self.actor_wg = actor_wg
+	
+	def rollout(self):
+		start_time = time.time()
+		env_outputs = self.val_es_manager.reset()
+		end_time = time.time()
+		print(f"Loading envs takes: {end_time - start_time} seconds")
+		meta_info = {
+			'eos_token_id': self.tokenizer.eos_token_id,
+			'pad_token_id': self.tokenizer.pad_token_id,
+			'recompute_log_prob': False,
+			'do_sample': False,
+			'validate': True,
+		}
+    
+		for _ in tqdm(range(self.config.agent_proxy.max_turn), desc="Agent turns"):
+			lm_inputs: DataProto = self.val_ctx_manager.get_lm_inputs(env_outputs, prepare_for_update=False)
+			lm_inputs.meta_info = meta_info 
+			lm_outputs: DataProto = self.generate_sequences(lm_inputs)
+			env_inputs: List[Dict] = self.val_ctx_manager.get_env_inputs(lm_outputs)
+			env_outputs: List[Dict] = self.val_es_manager.step(env_inputs)
+			if len(env_outputs) == 0: # all finished
+				break
+		rollout_states = self.val_es_manager.get_rollout_states() 
+		rollouts = self.val_ctx_manager.formulate_rollouts(rollout_states)
+		# self.tokenizer.batch_decode(rollouts.batch['input_ids'], skip_special_tokens=False) # see all the trajectories
+		return rollouts

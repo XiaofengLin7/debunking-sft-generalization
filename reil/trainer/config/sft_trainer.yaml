@@ -1,3 +1,9 @@
+defaults:
+  - reil_trainer
+  - envs
+  - evaluation
+  - _self_
+
 data:
   train_batch_size: 256
   micro_batch_size: null # will be deprecated, use micro_batch_size_per_gpu
@@ -22,11 +28,12 @@ model:
     offload_params: False
   external_lib: null
   enable_gradient_checkpointing: False
-  trust_remote_code: False
+  trust_remote_code: True
   lora_rank: 0  # Set to positive value to enable LoRA (e.g., 32)
   lora_alpha: 16  # LoRA scaling factor
   target_modules: all-linear  # Target modules for LoRA adaptation
   use_liger: False
+
 optim:
   lr: 1e-5
   betas: [0.9, 0.95]
@@ -45,5 +52,5 @@ trainer:
   total_training_steps: null
   logger: ['console', 'wandb']
   seed: 1
-  use_val_save: True
+  policy_eval: True
 

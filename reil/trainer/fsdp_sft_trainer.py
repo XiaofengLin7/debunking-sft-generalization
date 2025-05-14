@@ -56,6 +56,7 @@ from verl.utils.ulysses import (
     ulysses_pad_and_slice_inputs,
 )
 from verl.workers.sharding_manager.fsdp_ulysses import FSDPUlyssesShardingManager
+from reil.trainer.llm_agent.agent_proxy import VllmWrapperWg, LLMAgentProxy, HFWrapperWg
 
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv("VERL_SFT_LOGGING_LEVEL", "WARN"))
@@ -105,10 +106,12 @@ class FSDPSFTTrainer:
         # build model
         self._build_model_optimizer()
 
-        self.init_agent_proxy()
+        
         # TODO: add checkpoint manager
         if self.device_mesh.get_rank() == 0:
             print(self.config)
+            
+        self.init_agent_proxy()
 
     def _normalize_config_bsz(self):
         dp_size = self.device_mesh.size(0) if not self.ulysses_device_mesh else self.ulysses_device_mesh.size(0)
@@ -277,7 +280,10 @@ class FSDPSFTTrainer:
             raise ValueError(f"Unknown lr scheduler: {self.config.optim.lr_scheduler}")
 
     def init_agent_proxy(self):
-        pass
+        tokenizer = self.tokenizer
+        config = self.config
+        actor_wg = HFWrapperWg(config, tokenizer, module=self.model)
+        self.proxy = LLMAgentProxy(config, actor_wg, tokenizer)
 
     def _compute_loss_and_backward(self, batch, do_backward=True):
         """Compute loss with optional sequence parallelism and remove padding features"""
@@ -507,10 +513,21 @@ class FSDPSFTTrainer:
                 val_loss = torch.mean(torch.stack(val_losses))
                 metric = {"val/loss": val_loss.detach().item()}
                 tracking.log(data=metric, step=global_step)
+
+            if self.config.trainer.policy_eval and self.config.model.lora_rank == 0:
+                actor_wg = HFWrapperWg(self.config, self.tokenizer, module=self.fsdp_model)
+                self.proxy.set_actor_wg(actor_wg)
+                rollouts = self.proxy.rollout()
+
+            if rank == 0:
+                tracking.log(data=rollouts.meta_info['metrics'], step=global_step)
+            
             torch.distributed.barrier()
 
             # save checkpoint
             self.save_checkpoint(step=global_step)
+
+
 
 
 @hydra.main(config_path="config", config_name="sft_trainer", version_base=None)

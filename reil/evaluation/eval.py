@@ -18,9 +18,8 @@ def run_eval(config):
     # os.environ["CUDA_VISIBLE_DEVICES"] = "3"
     os.environ['ALFWORLD_DATA'] = "/projectnb/replearn/xfl/Retriever/src/envs/alf_world/data_storage"
     tokenizer = AutoTokenizer.from_pretrained(config.actor_rollout_ref.model.path)
-    # actor_wg = VllmWrapperWg(config, tokenizer)
-    actor_wg = HFWrapperWg(module=None, config=config, tokenizer=tokenizer)
-    # actor_wg = HFWrapperWg_vllm(module=None, config=config, tokenizer=tokenizer)
+    actor_wg = VllmWrapperWg(config, tokenizer)
+    # actor_wg = HFWrapperWg(module=None, config=config, tokenizer=tokenizer)
     proxy = LLMAgentProxy(config, actor_wg, tokenizer)
     es_manager = EnvStateManager(config, mode="val")
     ctx_manager = NaiveContextManager(config, tokenizer, processor=None, mode="val")
@@ -38,6 +37,7 @@ def run_eval(config):
     }
     
     start_time = time.time()
+    # rollouts = proxy.rollout()
     for i in tqdm(range(config.agent_proxy.max_turn)):
         lm_inputs: DataProto = ctx_manager.get_lm_inputs(env_outputs, prepare_for_update=False)
         lm_inputs.meta_info = meta_info 
