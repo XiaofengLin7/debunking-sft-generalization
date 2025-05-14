@@ -13,6 +13,8 @@ from torch import nn
 from reil.trainer.llm_agent.es_manager import EnvStateManager
 from reil.trainer.llm_agent.ctx_manager import NaiveContextManager
 import time
+from tqdm import tqdm
+
 class Config:
 	def __init__(self, **kwargs):
 		for key, value in kwargs.items():
@@ -135,6 +137,9 @@ class LLMAgentProxy:
 
 		return lm_outputs
 	
+	def set_actor_wg(self, actor_wg):
+		self.actor_wg = actor_wg
+	
 	def rollout(self):
 		start_time = time.time()
 		env_outputs = self.val_es_manager.reset()
@@ -148,9 +153,9 @@ class LLMAgentProxy:
 			'validate': True,
 		}
     
-		for _ in range(self.config.agent_proxy.max_turn):
+		for _ in tqdm(range(self.config.agent_proxy.max_turn), desc="Agent turns"):
 			lm_inputs: DataProto = self.val_ctx_manager.get_lm_inputs(env_outputs, prepare_for_update=False)
-			lm_inputs.meta_info = meta_info # TODO: setup vllm early stop when max length is reached. make sure this can be done
+			lm_inputs.meta_info = meta_info 
 			lm_outputs: DataProto = self.generate_sequences(lm_inputs)
 			env_inputs: List[Dict] = self.val_ctx_manager.get_env_inputs(lm_outputs)
 			env_outputs: List[Dict] = self.val_es_manager.step(env_inputs)
