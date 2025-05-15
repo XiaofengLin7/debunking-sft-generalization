@@ -58,7 +58,8 @@ class CheckpointEvaluator:
                 'TOKENIZERS_PARALLELISM': 'true',
                 'NCCL_DEBUG': 'WARN',
                 'VLLM_LOGGING_LEVEL': 'WARN',
-                'VLLM_ATTENTION_BACKEND': 'XFORMERS'
+                'VLLM_ATTENTION_BACKEND': 'XFORMERS',
+                
             }
         })
             
@@ -97,6 +98,21 @@ class CheckpointEvaluator:
         if checkpoint_path:
             print(f"Loading checkpoint from {checkpoint_path}")
             self.actor_rollout_wg.load_checkpoint(checkpoint_path)
+    
+    def generate_sequences(self, lm_inputs: DataProto):
+        """
+        Generate sequences using the actor rollout worker group.
+        """
+        if isinstance(self.actor_rollout_wg, RayWorkerGroup):
+            padded_lm_inputs, pad_size = pad_dataproto_to_divisor(lm_inputs, self.actor_rollout_wg.world_size)
+            padded_lm_outputs = self.actor_rollout_wg.generate_sequences(padded_lm_inputs)
+            lm_outputs = unpad_dataproto(padded_lm_outputs, pad_size=pad_size)
+            lm_outputs.meta_info = lm_inputs.meta_info
+            lm_outputs.non_tensor_batch = lm_inputs.non_tensor_batch
+        else:
+            raise ValueError(f"Unsupported actor worker type: {type(self.actor_rollout_wg)}")
+
+        return lm_outputs
 
     def evaluate_checkpoint(self, checkpoint_path: Optional[str] = None) -> Dict:
         """Evaluate a single checkpoint"""
@@ -126,15 +142,8 @@ class CheckpointEvaluator:
             # Get language model inputs
             lm_inputs: DataProto = self.ctx_manager.get_lm_inputs(env_outputs, prepare_for_update=False)
             lm_inputs.meta_info = meta_info
-            
             # Generate sequences
-            padded_lm_inputs, pad_size = pad_dataproto_to_divisor(lm_inputs, self.actor_rollout_wg.world_size)
-            lm_outputs: DataProto = self.actor_rollout_wg.generate_sequences(padded_lm_inputs)
-            lm_outputs = unpad_dataproto(lm_outputs, pad_size)
-            
-            # Preserve meta info and non-tensor batch data
-            lm_outputs.meta_info = meta_info
-            lm_outputs.non_tensor_batch = lm_inputs.non_tensor_batch
+            lm_outputs: DataProto = self.generate_sequences(lm_inputs)
             
             # Process environment inputs and outputs
             env_inputs: List[Dict] = self.ctx_manager.get_env_inputs(lm_outputs)

@@ -372,7 +372,7 @@ class NaiveContextManager(ContextManager):
             text = env_output['history'][-1]['state']
             llm_input_texts.append(text)
 
-        inputs = self.tokenizer(llm_input_texts, padding='longest', return_tensors='pt') # do not truncate here. Process later at TODO
+        inputs = self.tokenizer(llm_input_texts, padding_side='left', padding='longest', return_tensors='pt') # do not truncate here. Process later at TODO
         input_ids, attention_mask = inputs.input_ids, inputs.attention_mask
         position_ids = attention_mask.cumsum(dim=-1) # Left-padding, might need to fix this
 
