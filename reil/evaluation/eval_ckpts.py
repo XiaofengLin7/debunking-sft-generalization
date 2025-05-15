@@ -53,7 +53,14 @@ class CheckpointEvaluator:
         
         # Initialize Ray
         if not ray.is_initialized():
-            ray.init()
+            ray.init(runtime_env={
+            'env_vars': {
+                'TOKENIZERS_PARALLELISM': 'true',
+                'NCCL_DEBUG': 'WARN',
+                'VLLM_LOGGING_LEVEL': 'WARN',
+                'VLLM_ATTENTION_BACKEND': 'XFORMERS'
+            }
+        })
             
         # Initialize logger
         self.logger = Tracking(
@@ -63,8 +70,8 @@ class CheckpointEvaluator:
             config=OmegaConf.to_container(config, resolve=True)
         )
 
-    def _init_workers(self, checkpoint_path: Optional[str] = None):
-        """Initialize resource pools and worker groups with optional checkpoint loading"""
+    def _init_workers(self):
+        """Initialize resource pools and worker groups"""
         self.resource_pool_manager.create_resource_pool()
         
         # Create actor-rollout worker group
@@ -75,24 +82,28 @@ class CheckpointEvaluator:
             role='actor_rollout'
         )
         
-        # Create worker group
-        worker_dict_cls = create_colocated_worker_cls(class_dict={'actor_rollout': actor_rollout_cls})
+        # Create worker group with proper initialization
+        # worker_dict_cls = create_colocated_worker_cls(class_dict={'actor_rollout': actor_rollout_cls})
         self.actor_rollout_wg = RayWorkerGroup(
             resource_pool=resource_pool,
-            ray_cls_with_init=worker_dict_cls
-        ).spawn(prefix_set={'actor_rollout'})['actor_rollout']
+            ray_cls_with_init=actor_rollout_cls)
+        # ).spawn(prefix_set={'actor_rollout'})['actor_rollout']
         
-        # Initialize the model
+        # Initialize the model first
         self.actor_rollout_wg.init_model()
-        
-        # Load checkpoint if provided
+
+    def _load_checkpoint(self, checkpoint_path: str):
+        """Load checkpoint into initialized workers"""
         if checkpoint_path:
+            print(f"Loading checkpoint from {checkpoint_path}")
             self.actor_rollout_wg.load_checkpoint(checkpoint_path)
 
     def evaluate_checkpoint(self, checkpoint_path: Optional[str] = None) -> Dict:
         """Evaluate a single checkpoint"""
-        # Initialize workers with checkpoint
-        self._init_workers(checkpoint_path)
+        # Initialize workers
+        # Load checkpoint if provided
+        if checkpoint_path:
+            self._load_checkpoint(checkpoint_path)
         
         start_time = time.time()
         
@@ -105,7 +116,7 @@ class CheckpointEvaluator:
             'eos_token_id': self.tokenizer.eos_token_id,
             'pad_token_id': self.tokenizer.pad_token_id,
             'recompute_log_prob': False,
-            'do_sample': False,
+            'do_sample': self.config.actor_rollout_ref.rollout.val_kwargs.do_sample,
             'validate': True,
         }
         
@@ -115,13 +126,16 @@ class CheckpointEvaluator:
             # Get language model inputs
             lm_inputs: DataProto = self.ctx_manager.get_lm_inputs(env_outputs, prepare_for_update=False)
             lm_inputs.meta_info = meta_info
-            breakpoint()
+            
             # Generate sequences
             padded_lm_inputs, pad_size = pad_dataproto_to_divisor(lm_inputs, self.actor_rollout_wg.world_size)
             lm_outputs: DataProto = self.actor_rollout_wg.generate_sequences(padded_lm_inputs)
             lm_outputs = unpad_dataproto(lm_outputs, pad_size)
-            lm_outputs.meta_info = lm_inputs.meta_info
+            
+            # Preserve meta info and non-tensor batch data
+            lm_outputs.meta_info = meta_info
             lm_outputs.non_tensor_batch = lm_inputs.non_tensor_batch
+            
             # Process environment inputs and outputs
             env_inputs: List[Dict] = self.ctx_manager.get_env_inputs(lm_outputs)
             env_outputs: List[Dict] = self.es_manager.step(env_inputs)
@@ -135,10 +149,7 @@ class CheckpointEvaluator:
         rollout_states = self.es_manager.get_rollout_states()
         rollouts = self.ctx_manager.formulate_rollouts(rollout_states)
         
-        # Clean up Ray resources
-        ray.shutdown()
-        
-        return rollouts.meta_info
+        return rollouts.meta_info['metrics']
 
     def evaluate_checkpoints(self, checkpoint_dir: str):
         """Evaluate multiple checkpoints in a directory"""
@@ -175,10 +186,15 @@ class CheckpointEvaluator:
             print(f"Checkpoint {step} metrics:")
             pprint(metrics)
 
+    def close(self):
+        ray.shutdown()
+
 @hydra.main(config_path="../trainer/config", config_name="evaluation.yaml")
 def main(config):
     evaluator = CheckpointEvaluator(config)
+    evaluator._init_workers()
     evaluator.evaluate_checkpoints(config.evaluator.checkpoint_dir)
+    evaluator.close()
 
 if __name__ == "__main__":
     main() 
