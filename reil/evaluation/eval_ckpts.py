@@ -16,6 +16,11 @@ from reil.trainer.llm_agent.agent_proxy import VllmWrapperWg, HFWrapperWg, LLMAg
 from reil.trainer.llm_agent.es_manager import EnvStateManager
 from reil.trainer.llm_agent.ctx_manager import NaiveContextManager
 from verl.utils.checkpoint.checkpoint_manager import find_latest_ckpt_path
+from verl.trainer.ppo.ray_trainer import ResourcePoolManager
+from verl.utils.tracking import Tracking
+from omegaconf import OmegaConf
+from verl.workers.fsdp_workers import ActorRolloutRefWorker
+from verl.protocol import pad_dataproto_to_divisor, unpad_dataproto
 
 class Role(Enum):
     """
@@ -25,66 +30,21 @@ class Role(Enum):
     Rollout = 1
     ActorRollout = 2
 
-@dataclass
-class ResourcePoolManager:
-    """
-    Resource pool manager for evaluation, similar to ray_trainer.py
-    """
-    resource_pool_spec: dict[str, list[int]]
-    mapping: dict[Role, str]
-    resource_pool_dict: dict[str, RayResourcePool] = field(default_factory=dict)
-
-    def create_resource_pool(self):
-        for resource_pool_name, process_on_nodes in self.resource_pool_spec.items():
-            resource_pool = RayResourcePool(
-                process_on_nodes=process_on_nodes,
-                use_gpu=True,
-                max_colocate_count=1,
-                name_prefix=resource_pool_name
-            )
-            self.resource_pool_dict[resource_pool_name] = resource_pool
-        self._check_resource_available()
-
-    def get_resource_pool(self, role: Role) -> RayResourcePool:
-        return self.resource_pool_dict[self.mapping[role]]
-
-    def get_n_gpus(self) -> int:
-        return sum([n_gpus for process_on_nodes in self.resource_pool_spec.values() for n_gpus in process_on_nodes])
-
-    def _check_resource_available(self):
-        node_available_resources = ray.state.available_resources_per_node()
-        node_available_gpus = {node: node_info.get('GPU', 0) for node, node_info in node_available_resources.items()}
-
-        total_available_gpus = sum(node_available_gpus.values())
-        total_required_gpus = sum(
-            [n_gpus for process_on_nodes in self.resource_pool_spec.values() for n_gpus in process_on_nodes])
-        
-        if total_available_gpus < total_required_gpus:
-            raise ValueError(
-                f"Total available GPUs {total_available_gpus} is less than total desired GPUs {total_required_gpus}")
-
-        for resource_pool_name, process_on_nodes in self.resource_pool_spec.items():
-            num_gpus, num_nodes = process_on_nodes[0], len(process_on_nodes)
-            for node, available_gpus in node_available_gpus.items():
-                if available_gpus >= num_gpus:
-                    node_available_gpus[node] -= num_gpus
-                    num_nodes -= 1
-                    if num_nodes == 0:
-                        break
-            if num_nodes > 0:
-                raise ValueError(
-                    f"Resource pool {resource_pool_name}: {num_gpus}*{num_nodes} cannot be satisfied in this ray cluster"
-                )
-
 class CheckpointEvaluator:
     def __init__(self, config):
         self.config = config
         self.tokenizer = AutoTokenizer.from_pretrained(config.actor_rollout_ref.model.path)
-        
+        self.role_worker_mapping = {
+            Role.ActorRollout: ray.remote(ActorRolloutRefWorker),
+        }
+        global_pool_id = 'global_pool'
+        resource_pool_spec = {
+            global_pool_id: [config.evaluator.n_gpus_per_node] * config.evaluator.nnodes,
+        }
         # Initialize resource pool manager
         self.resource_pool_manager = ResourcePoolManager(
-            resource_pool_spec=config.resource_pool_spec,
-            mapping={Role.ActorRollout: "actor_rollout"}
+            resource_pool_spec=resource_pool_spec,
+            mapping={Role.ActorRollout: global_pool_id}
         )
         
         # Initialize environment and context managers
@@ -95,13 +55,13 @@ class CheckpointEvaluator:
         if not ray.is_initialized():
             ray.init()
             
-        # Initialize wandb if enabled
-        if config.get('wandb', {}).get('enabled', False):
-            wandb.init(
-                project=config.wandb.project,
-                name=config.wandb.name,
-                config=config
-            )
+        # Initialize logger
+        self.logger = Tracking(
+            project_name=config.evaluator.project_name,
+            experiment_name=config.evaluator.experiment_name,
+            default_backend=config.evaluator.logger,
+            config=OmegaConf.to_container(config, resolve=True)
+        )
 
     def _init_workers(self, checkpoint_path: Optional[str] = None):
         """Initialize resource pools and worker groups with optional checkpoint loading"""
@@ -110,13 +70,13 @@ class CheckpointEvaluator:
         # Create actor-rollout worker group
         resource_pool = self.resource_pool_manager.get_resource_pool(Role.ActorRollout)
         actor_rollout_cls = RayClassWithInitArgs(
-            cls=VllmWrapperWg,
+            cls=self.role_worker_mapping[Role.ActorRollout],
             config=self.config.actor_rollout_ref,
             role='actor_rollout'
         )
         
         # Create worker group
-        worker_dict_cls = create_colocated_worker_cls({'actor_rollout': actor_rollout_cls})
+        worker_dict_cls = create_colocated_worker_cls(class_dict={'actor_rollout': actor_rollout_cls})
         self.actor_rollout_wg = RayWorkerGroup(
             resource_pool=resource_pool,
             ray_cls_with_init=worker_dict_cls
@@ -155,10 +115,13 @@ class CheckpointEvaluator:
             # Get language model inputs
             lm_inputs: DataProto = self.ctx_manager.get_lm_inputs(env_outputs, prepare_for_update=False)
             lm_inputs.meta_info = meta_info
-            
+            breakpoint()
             # Generate sequences
-            lm_outputs: DataProto = self.actor_rollout_wg.generate_sequences(lm_inputs)
-            
+            padded_lm_inputs, pad_size = pad_dataproto_to_divisor(lm_inputs, self.actor_rollout_wg.world_size)
+            lm_outputs: DataProto = self.actor_rollout_wg.generate_sequences(padded_lm_inputs)
+            lm_outputs = unpad_dataproto(lm_outputs, pad_size)
+            lm_outputs.meta_info = lm_inputs.meta_info
+            lm_outputs.non_tensor_batch = lm_inputs.non_tensor_batch
             # Process environment inputs and outputs
             env_inputs: List[Dict] = self.ctx_manager.get_env_inputs(lm_outputs)
             env_outputs: List[Dict] = self.es_manager.step(env_inputs)
@@ -206,12 +169,8 @@ class CheckpointEvaluator:
             # Evaluate checkpoint
             metrics = self.evaluate_checkpoint(str(actor_ckpt_path))
             
-            # Log metrics
-            if self.config.get('wandb', {}).get('enabled', False):
-                wandb.log({
-                    **metrics,
-                    'checkpoint_step': step
-                })
+            # Log metrics using Tracking
+            self.logger.log(data=metrics, step=step)
             
             print(f"Checkpoint {step} metrics:")
             pprint(metrics)
@@ -219,7 +178,7 @@ class CheckpointEvaluator:
 @hydra.main(config_path="../trainer/config", config_name="evaluation.yaml")
 def main(config):
     evaluator = CheckpointEvaluator(config)
-    evaluator.evaluate_checkpoints(config.checkpoint_dir)
+    evaluator.evaluate_checkpoints(config.evaluator.checkpoint_dir)
 
 if __name__ == "__main__":
     main() 

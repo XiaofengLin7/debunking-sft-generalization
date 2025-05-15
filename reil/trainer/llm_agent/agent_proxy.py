@@ -152,7 +152,6 @@ class LLMAgentProxy:
 			'do_sample': False,
 			'validate': True,
 		}
-    
 		for _ in tqdm(range(self.config.agent_proxy.max_turn), desc="Agent turns"):
 			lm_inputs: DataProto = self.val_ctx_manager.get_lm_inputs(env_outputs, prepare_for_update=False)
 			lm_inputs.meta_info = meta_info 
@@ -163,5 +162,4 @@ class LLMAgentProxy:
 				break
 		rollout_states = self.val_es_manager.get_rollout_states() 
 		rollouts = self.val_ctx_manager.formulate_rollouts(rollout_states)
-		# self.tokenizer.batch_decode(rollouts.batch['input_ids'], skip_special_tokens=False) # see all the trajectories
 		return rollouts
