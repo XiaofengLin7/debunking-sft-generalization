@@ -21,6 +21,7 @@ from verl.utils.tracking import Tracking
 from omegaconf import OmegaConf
 from verl.workers.fsdp_workers import ActorRolloutRefWorker
 from verl.protocol import pad_dataproto_to_divisor, unpad_dataproto
+import torch
 
 class Role(Enum):
     """
@@ -48,6 +49,7 @@ class CheckpointEvaluator:
         self._init_checkpoint_dirs()
         
         self.init_checkpoint_type()
+
         if self.is_fsdp:
             self.role_worker_mapping = {
                 Role.ActorRollout: ray.remote(ActorRolloutRefWorker),
@@ -105,9 +107,21 @@ class CheckpointEvaluator:
         else:
             print("Using HuggingFace checkpoint")
 
+    def cleanup_llm(self):
+        """Clean up LLM instance and free GPU memory"""
+        if hasattr(self, 'actor_rollout_wg'):
+            if isinstance(self.actor_rollout_wg, VllmWrapperWg):
+                if hasattr(self.actor_rollout_wg, 'llm'):
+                    # Delete the LLM instance
+                    del self.actor_rollout_wg.llm
+            elif isinstance(self.actor_rollout_wg, HFWrapperWg):
+                if hasattr(self.actor_rollout_wg, 'llm') and hasattr(self.actor_rollout_wg.llm, 'module'):
+                    # Move model to CPU and delete
+                    del self.actor_rollout_wg.llm.module
 
+            torch.cuda.empty_cache()
 
-    def _init_workers(self):
+    def init_workers(self):
         """Initialize resource pools and worker groups"""
         if self.is_fsdp:
             self.resource_pool_manager.create_resource_pool()
@@ -130,12 +144,13 @@ class CheckpointEvaluator:
             # Initialize the model first
             self.actor_rollout_wg.init_model()
         else:
-            pass
+            self.actor_rollout_wg = VllmWrapperWg(self.config, self.tokenizer)
 
 
-    def _load_checkpoint(self, checkpoint_path: str):
+    def load_checkpoint(self, checkpoint_path: str):
         """Load checkpoint into initialized workers"""
         if checkpoint_path:
+            self.cleanup_llm()
             print(f"Loading checkpoint from {checkpoint_path}")
             self.actor_rollout_wg.load_checkpoint(checkpoint_path)
     
@@ -149,6 +164,8 @@ class CheckpointEvaluator:
             lm_outputs = unpad_dataproto(padded_lm_outputs, pad_size=pad_size)
             lm_outputs.meta_info = lm_inputs.meta_info
             lm_outputs.non_tensor_batch = lm_inputs.non_tensor_batch
+        elif isinstance(self.actor_rollout_wg, (HFWrapperWg, VllmWrapperWg)):
+            lm_outputs = self.actor_rollout_wg.generate_sequences(lm_inputs)
         else:
             raise ValueError(f"Unsupported actor worker type: {type(self.actor_rollout_wg)}")
 
@@ -159,7 +176,7 @@ class CheckpointEvaluator:
         # Initialize workers
         # Load checkpoint if provided
         if checkpoint_path:
-            self._load_checkpoint(checkpoint_path)
+            self.load_checkpoint(checkpoint_path)
         
         start_time = time.time()
         
@@ -225,9 +242,13 @@ class CheckpointEvaluator:
             print(f"\nEvaluating checkpoint at step {step}")
             
             # Get actor checkpoint path
-            actor_ckpt_path = ckpt_dir / "actor"
+            if self.is_fsdp:
+                actor_ckpt_path = ckpt_dir / "actor"
+            else:
+                actor_ckpt_path = ckpt_dir
+
             if not actor_ckpt_path.exists():
-                print(f"Skipping {ckpt_dir} - no actor checkpoint found")
+                print(f"Skipping {ckpt_dir} - no checkpoint found")
                 continue
             
             # Evaluate checkpoint
@@ -243,12 +264,13 @@ class CheckpointEvaluator:
         if self.is_fsdp:
             ray.shutdown()
         else:
-            pass
+            self.cleanup_llm()
+            torch.distributed.barrier()
 
 @hydra.main(config_path="../trainer/config", config_name="evaluation.yaml")
 def main(config):
     evaluator = CheckpointEvaluator(config)
-    evaluator._init_workers()
+    evaluator.init_workers()
     evaluator.evaluate_checkpoints(config.evaluator.checkpoint_dir)
     evaluator.close()
 

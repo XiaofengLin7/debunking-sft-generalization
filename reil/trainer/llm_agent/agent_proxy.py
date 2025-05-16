@@ -24,14 +24,40 @@ class Config:
 		return getattr(self, key, default)
 
 class VllmWrapperWg: # Thi is a developing class for eval and test
-	def __init__(self, config, tokenizer, model_name: Union[str, None]=None):
-		if model_name is None:
-			model_name = config.actor_rollout_ref.model.path
+	def __init__(self, config, tokenizer, model_path: Union[str, None]=None):
+		if model_path is None:
+			model_path = config.actor_rollout_ref.model.path
 		self.config = config
 		self.tokenizer = tokenizer
 		ro_config = config.actor_rollout_ref.rollout
 		self.llm = LLM(
-			model_name,
+			model_path,
+            # tensor_parallel_size=ro_config.tensor_model_parallel_size,
+            dtype=ro_config.dtype,
+            enforce_eager=ro_config.enforce_eager,
+            gpu_memory_utilization=ro_config.gpu_memory_utilization,
+            disable_custom_all_reduce=True,
+            skip_tokenizer_init=False,
+            max_model_len=ro_config.max_model_len,
+            disable_log_stats=ro_config.disable_log_stats,
+            max_num_batched_tokens=ro_config.max_num_batched_tokens,
+            enable_chunked_prefill=ro_config.enable_chunked_prefill,
+            enable_prefix_caching=True,
+			tensor_parallel_size=config.evaluator.n_gpus_per_node,
+		)
+		self.sampling_params = SamplingParams(
+			max_tokens=ro_config.response_length,
+			temperature=ro_config.val_kwargs.temperature,
+			top_p=ro_config.val_kwargs.top_p,
+			top_k=ro_config.val_kwargs.top_k,
+			# min_p=0.1,
+		)
+
+	def load_checkpoint(self, checkpoint_path: str):
+
+		ro_config = self.config.actor_rollout_ref.rollout
+		self.llm = LLM(
+			checkpoint_path,
             tensor_parallel_size=ro_config.tensor_model_parallel_size,
             dtype=ro_config.dtype,
             enforce_eager=ro_config.enforce_eager,
@@ -43,13 +69,6 @@ class VllmWrapperWg: # Thi is a developing class for eval and test
             max_num_batched_tokens=ro_config.max_num_batched_tokens,
             enable_chunked_prefill=ro_config.enable_chunked_prefill,
             enable_prefix_caching=True,
-		)
-		self.sampling_params = SamplingParams(
-			max_tokens=ro_config.response_length,
-			temperature=ro_config.val_kwargs.temperature,
-			top_p=ro_config.val_kwargs.top_p,
-			top_k=ro_config.val_kwargs.top_k,
-			# min_p=0.1,
 		)
 
 	def generate_sequences(self, lm_inputs: DataProto):
