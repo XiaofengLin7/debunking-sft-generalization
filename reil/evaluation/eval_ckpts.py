@@ -6,7 +6,7 @@ from typing import List, Dict, Optional
 from tqdm import tqdm
 from pprint import pprint
 from pathlib import Path
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, AutoModelForCausalLM
 from dataclasses import dataclass, field
 from enum import Enum
 from verl import DataProto
@@ -34,35 +34,9 @@ class CheckpointEvaluator:
     def __init__(self, config):
         self.config = config
         self.tokenizer = AutoTokenizer.from_pretrained(config.actor_rollout_ref.model.path)
-        self.role_worker_mapping = {
-            Role.ActorRollout: ray.remote(ActorRolloutRefWorker),
-        }
-        global_pool_id = 'global_pool'
-        resource_pool_spec = {
-            global_pool_id: [config.evaluator.n_gpus_per_node] * config.evaluator.nnodes,
-        }
-        # Initialize resource pool manager
-        self.resource_pool_manager = ResourcePoolManager(
-            resource_pool_spec=resource_pool_spec,
-            mapping={Role.ActorRollout: global_pool_id}
-        )
-        
         # Initialize environment and context managers
         self.es_manager = EnvStateManager(config, mode="val")
         self.ctx_manager = NaiveContextManager(config, self.tokenizer, processor=None, mode="val")
-        
-        # Initialize Ray
-        if not ray.is_initialized():
-            ray.init(runtime_env={
-            'env_vars': {
-                'TOKENIZERS_PARALLELISM': 'true',
-                'NCCL_DEBUG': 'WARN',
-                'VLLM_LOGGING_LEVEL': 'WARN',
-                'VLLM_ATTENTION_BACKEND': 'XFORMERS',
-                
-            }
-        })
-            
         # Initialize logger
         self.logger = Tracking(
             project_name=config.evaluator.project_name,
@@ -71,27 +45,93 @@ class CheckpointEvaluator:
             config=OmegaConf.to_container(config, resolve=True)
         )
 
+        self._init_checkpoint_dirs()
+        
+        self.init_checkpoint_type()
+        if self.is_fsdp:
+            self.role_worker_mapping = {
+                Role.ActorRollout: ray.remote(ActorRolloutRefWorker),
+            }
+            global_pool_id = 'global_pool'
+            resource_pool_spec = {
+                global_pool_id: [config.evaluator.n_gpus_per_node] * config.evaluator.nnodes,
+            }
+            # Initialize resource pool manager
+            self.resource_pool_manager = ResourcePoolManager(
+                resource_pool_spec=resource_pool_spec,
+                mapping={Role.ActorRollout: global_pool_id}
+            )
+            
+            # Initialize Ray
+            if not ray.is_initialized():
+                ray.init(runtime_env={
+                'env_vars': {
+                    'TOKENIZERS_PARALLELISM': 'true',
+                    'NCCL_DEBUG': 'WARN',
+                    'VLLM_LOGGING_LEVEL': 'WARN',
+                    'VLLM_ATTENTION_BACKEND': 'XFORMERS',
+                    
+                }
+            })
+            
+    def _init_checkpoint_dirs(self):
+        """Initialize checkpoint directories for evaluation"""
+        # Get checkpoint directory from config
+        checkpoint_dir = Path(self.config.evaluator.checkpoint_dir)
+            
+        # Find all checkpoint directories
+        self.checkpoint_dirs = sorted([
+            d for d in checkpoint_dir.glob("global_step_*")
+            if d.is_dir()
+        ], key=lambda x: int(x.name.split('_')[-1]))
+        
+        if not self.checkpoint_dirs:
+            raise ValueError(f"No checkpoints found in {checkpoint_dir}")
+        
+        print("Checkpoint directories found:")
+        for d in self.checkpoint_dirs:
+            print(f"  {d}")
+
+        print(f"Found {len(self.checkpoint_dirs)} checkpoints to evaluate")   
+
+    def init_checkpoint_type(self):
+        """
+        Determine the checkpoint format by checking for the presence of an actor directory.
+        Sets self.is_fsdp to True for FSDP format, False for HuggingFace format.
+        """
+        self.is_fsdp = (self.checkpoint_dirs[0] / "actor").exists()
+        if self.is_fsdp:
+            print("Using FSDP checkpoint")
+        else:
+            print("Using HuggingFace checkpoint")
+
+
+
     def _init_workers(self):
         """Initialize resource pools and worker groups"""
-        self.resource_pool_manager.create_resource_pool()
-        
-        # Create actor-rollout worker group
-        resource_pool = self.resource_pool_manager.get_resource_pool(Role.ActorRollout)
-        actor_rollout_cls = RayClassWithInitArgs(
-            cls=self.role_worker_mapping[Role.ActorRollout],
-            config=self.config.actor_rollout_ref,
-            role='actor_rollout'
-        )
-        
-        # Create worker group with proper initialization
-        # worker_dict_cls = create_colocated_worker_cls(class_dict={'actor_rollout': actor_rollout_cls})
-        self.actor_rollout_wg = RayWorkerGroup(
-            resource_pool=resource_pool,
-            ray_cls_with_init=actor_rollout_cls)
-        # ).spawn(prefix_set={'actor_rollout'})['actor_rollout']
-        
-        # Initialize the model first
-        self.actor_rollout_wg.init_model()
+        if self.is_fsdp:
+            self.resource_pool_manager.create_resource_pool()
+            
+            # Create actor-rollout worker group
+            resource_pool = self.resource_pool_manager.get_resource_pool(Role.ActorRollout)
+            actor_rollout_cls = RayClassWithInitArgs(
+                cls=self.role_worker_mapping[Role.ActorRollout],
+                config=self.config.actor_rollout_ref,
+                role='actor_rollout'
+            )
+            
+            # Create worker group with proper initialization
+            # worker_dict_cls = create_colocated_worker_cls(class_dict={'actor_rollout': actor_rollout_cls})
+            self.actor_rollout_wg = RayWorkerGroup(
+                resource_pool=resource_pool,
+                ray_cls_with_init=actor_rollout_cls)
+            # ).spawn(prefix_set={'actor_rollout'})['actor_rollout']
+            
+            # Initialize the model first
+            self.actor_rollout_wg.init_model()
+        else:
+            pass
+
 
     def _load_checkpoint(self, checkpoint_path: str):
         """Load checkpoint into initialized workers"""
@@ -200,7 +240,10 @@ class CheckpointEvaluator:
             pprint(metrics)
 
     def close(self):
-        ray.shutdown()
+        if self.is_fsdp:
+            ray.shutdown()
+        else:
+            pass
 
 @hydra.main(config_path="../trainer/config", config_name="evaluation.yaml")
 def main(config):
