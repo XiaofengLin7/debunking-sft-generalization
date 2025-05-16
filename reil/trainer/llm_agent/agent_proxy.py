@@ -32,7 +32,7 @@ class VllmWrapperWg: # Thi is a developing class for eval and test
 		ro_config = config.actor_rollout_ref.rollout
 		self.llm = LLM(
 			model_path,
-            # tensor_parallel_size=ro_config.tensor_model_parallel_size,
+            tensor_parallel_size=ro_config.tensor_model_parallel_size,
             dtype=ro_config.dtype,
             enforce_eager=ro_config.enforce_eager,
             gpu_memory_utilization=ro_config.gpu_memory_utilization,
@@ -43,7 +43,7 @@ class VllmWrapperWg: # Thi is a developing class for eval and test
             max_num_batched_tokens=ro_config.max_num_batched_tokens,
             enable_chunked_prefill=ro_config.enable_chunked_prefill,
             enable_prefix_caching=True,
-			tensor_parallel_size=config.evaluator.n_gpus_per_node,
+			# tensor_parallel_size=config.evaluator.n_gpus_per_node,
 		)
 		self.sampling_params = SamplingParams(
 			max_tokens=ro_config.response_length,
