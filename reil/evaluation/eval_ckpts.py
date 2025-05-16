@@ -168,12 +168,16 @@ class CheckpointEvaluator:
         checkpoint_dirs = sorted([
             d for d in checkpoint_dir.glob("global_step_*")
             if d.is_dir()
-        ])
+        ], key=lambda x: int(x.name.split('_')[-1]))
         
         if not checkpoint_dirs:
             raise ValueError(f"No checkpoints found in {checkpoint_dir}")
-        
-        print(f"Found {len(checkpoint_dirs)} checkpoints to evaluate")
+
+        print("Checkpoint directories found:")
+        for d in checkpoint_dirs:
+            print(f"  {d}")
+
+        print(f"Found {len(checkpoint_dirs)} checkpoints to evaluate")        
         
         # Evaluate each checkpoint
         for ckpt_dir in checkpoint_dirs:
