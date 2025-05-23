@@ -28,5 +28,6 @@ custom_envs:
     env_config: 
       config_path: "/projectnb/replearn/xfl/REIL/reil/env/alfworld/base_config.yaml"
       # train_eval: "eval_out_of_distribution"
-      train_eval: "eval_in_distribution"
+      # train_eval: "eval_in_distribution"
+      train_eval: "eval"
     
