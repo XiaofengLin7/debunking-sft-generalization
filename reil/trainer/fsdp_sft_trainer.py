@@ -494,7 +494,8 @@ class FSDPSFTTrainer:
                         val_data = TensorDict(val_data, batch_size=self.config.data.micro_batch_size_per_gpu).cuda(device=local_rank)
                         val_loss = self.validation_step(val_data)
                         val_losses.append(val_loss)
-                    if self.config.trainer.policy_eval and self.config.model.lora_rank == 0:
+                    # if self.config.trainer.policy_eval and self.config.model.lora_rank == 0:
+                    if self.config.trainer.policy_eval:
                         actor_wg = HFWrapperWg(self.config, self.tokenizer, module=self.fsdp_model)
                         self.proxy.set_actor_wg(actor_wg)
                         rollouts = self.proxy.rollout()
@@ -518,7 +519,8 @@ class FSDPSFTTrainer:
                 val_loss = self.validation_step(data)
                 val_losses.append(val_loss)
 
-            if self.config.trainer.policy_eval and self.config.model.lora_rank == 0:
+            # if self.config.trainer.policy_eval and self.config.model.lora_rank == 0:
+            if self.config.trainer.policy_eval:
                 actor_wg = HFWrapperWg(self.config, self.tokenizer, module=self.fsdp_model)
                 self.proxy.set_actor_wg(actor_wg)
                 rollouts = self.proxy.rollout()    
