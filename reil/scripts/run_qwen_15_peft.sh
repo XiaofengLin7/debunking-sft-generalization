@@ -7,9 +7,12 @@ set -x
 # Shift the arguments so $@ refers to the rest
 shift 2
 N_GPUS=4
-DATA_DIR="./data/alfworld_task_type/sft"
+
 BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
-EXPERIMENT_NAME="alfworld-1.5b-pick_n_place-sft-qwen-2.5-base-lora-32"
+# DATA_DIR="./data/alfworld_task_type/sft"
+# EXPERIMENT_NAME="alfworld-1.5b-pick_n_place-sft-lora-32-$(date +%m-%d)"
+DATA_DIR="./data/sokoban_one_horizon_large_envs/sft"
+EXPERIMENT_NAME="sokoban-1.5b-sft-lora-32-$(date +%m-%d)"
 
 torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
      -m reil.trainer.fsdp_sft_trainer \
@@ -32,6 +35,11 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
     trainer.logger="['console', 'wandb']" \
     trainer.total_epochs=30 \
     trainer.default_hdfs_dir=null $@ \
+    trainer.policy_eval=True \
+    es_manager.val.env_groups=512 \
+    es_manager.val.group_size=1 \
+    es_manager.val.env_configs.tags="['LargerSokoban','SimpleSokoban']" \
+    es_manager.val.env_configs.n_groups="[256,256]" \
     model.lora_rank=32\
     model.lora_alpha=16 \
     model.target_modules=all-linear 2>&1 | tee checkpoints/ds543/sft/${EXPERIMENT_NAME}_train.log
