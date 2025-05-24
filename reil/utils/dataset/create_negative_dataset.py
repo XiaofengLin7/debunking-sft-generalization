@@ -52,6 +52,7 @@ def sample_negative_action(pos_action: int):
     return random.choice([a for a in [1,2,3,4] if a != pos_action])
 
 def main():
+    random.seed(42)
     train_data = create_negative_data("./data/sokoban_one_horizon_large_envs/train.parquet")
     # test_data = convert_to_sft_data("./data/sokoban_one_horizon_large_envs/test.parquet")
     train_dataset = Dataset.from_list(train_data)

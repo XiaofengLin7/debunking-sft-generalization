@@ -114,16 +114,6 @@ class FSDPContrastiveTrainer(FSDPSFTTrainer):
             
         self.init_agent_proxy()
 
-    def _normalize_config_bsz(self):
-        dp_size = self.device_mesh.size(0) if not self.ulysses_device_mesh else self.ulysses_device_mesh.size(0)
-        if self.device_mesh.get_rank() == 0:
-            print(f"Normalize batch size by dp {dp_size}")
-
-        assert self.config.data.train_batch_size % dp_size == 0, f"Global batch size {self.config.data.train_batch_size} is not divisible by dp size {dp_size}"
-
-        self.config.data.train_batch_size //= dp_size
-
-        assert self.config.data.train_batch_size % self.config.data.micro_batch_size_per_gpu == 0
 
     def _build_dataloader(self, pos_train_dataset, neg_train_dataset, val_dataset):
         # build dataset
@@ -175,6 +165,123 @@ class FSDPContrastiveTrainer(FSDPSFTTrainer):
             drop_last=True,
         )
 
+    def _build_model_optimizer(self):
+        # TODO (zhangchi.usc1992):
+        # 1. support pretrain from random weights
+        # 2. support init directly from sharded weights
+        local_model_path = copy_to_local(src=self.config.model.partial_pretrain, verbose=True)
+
+        if self.config.model.get("external_lib", None) is not None:
+            # This is used to import external_lib into the huggingface systems
+            import importlib
+
+            importlib.import_module(self.config.model.external_lib)
+
+        log_gpu_memory_usage("Before model allocation", logger=logger)
+
+        trust_remote_code = self.config.model.trust_remote_code
+        # load config first
+        config = AutoConfig.from_pretrained(local_model_path, trust_remote_code=trust_remote_code)
+        if self.config.ulysses_sequence_parallel_size > 1:
+            assert self.use_remove_padding, "Sequence parallel is only supported when remove_padding is enabled"
+
+        # This may be very large
+        init_context = get_init_weight_context_manager(use_meta_tensor=not config.tie_word_embeddings, mesh=self.device_mesh)
+
+        with init_context():
+            self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
+                local_model_path,
+                config=config,
+                torch_dtype=torch.float32,
+                attn_implementation="flash_attention_2",
+                trust_remote_code=trust_remote_code,
+            )
+
+            if self.use_remove_padding or self.config.ulysses_sequence_parallel_size > 1:
+                from verl.models.transformers.monkey_patch import apply_monkey_patch
+
+                apply_monkey_patch(model=self.model, ulysses_sp_size=self.config.ulysses_sequence_parallel_size)
+
+            # Apply Liger kernel if use_liger is enabled
+            if self.config.model.get("use_liger", False):
+                from liger_kernel.transformers.monkey_patch import _apply_liger_kernel_to_instance
+
+                _apply_liger_kernel_to_instance(model=self.model)
+
+            if self.config.model.get("lora_rank", 0) > 0:
+                self.model.enable_input_require_grads()
+                # Convert config to regular Python types before creating PEFT model
+                lora_config = {
+                    "task_type": TaskType.CAUSAL_LM,
+                    "r": self.config.model.lora_rank,
+                    "lora_alpha": self.config.model.lora_alpha,
+                    "target_modules": convert_to_regular_types(self.config.model.target_modules),
+                    "bias": "none",
+                }
+                self.model = get_peft_model(self.model, LoraConfig(**lora_config))
+
+        if self.config.model.enable_gradient_checkpointing:
+            self.model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+
+        log_gpu_memory_usage("After model allocation", logger=logger)
+
+        mixed_precision = MixedPrecision(param_dtype=torch.bfloat16, reduce_dtype=torch.float32, buffer_dtype=torch.float32)
+
+        auto_wrap_policy = get_fsdp_wrap_policy(
+            self.model,
+            config=self.config.model.fsdp_config.wrap_policy,
+            is_lora=self.config.model.get("lora_rank", 0) > 0,
+        )
+        if self.device_mesh.get_rank() == 0:
+            print(auto_wrap_policy)
+
+        if not self.config.model.fsdp_config.cpu_offload:
+            cpu_offload = None
+        else:
+            cpu_offload = CPUOffload(offload_params=self.config.model.fsdp_config.offload_params)
+
+        self.fsdp_model = FSDP(
+            module=self.model,
+            auto_wrap_policy=auto_wrap_policy,
+            param_init_fn=init_fn,
+            sharding_strategy=ShardingStrategy.FULL_SHARD,
+            mixed_precision=mixed_precision,
+            device_mesh=self.device_mesh,
+            sync_module_states=True,
+            device_id=torch.cuda.current_device(),
+            cpu_offload=cpu_offload,
+            use_orig_params=False,
+        )
+
+        log_gpu_memory_usage("After FSDP wrapping", logger=logger)
+
+        self.optimizer = optim.AdamW(
+            self.fsdp_model.parameters(),
+            lr=self.config.optim.lr,
+            betas=self.config.optim.betas,
+            weight_decay=self.config.optim.weight_decay,
+        )
+
+        log_gpu_memory_usage("After initialize optimizer", logger=logger)
+
+        self.steps_per_epoch = len(self.pos_train_dataloader)
+        self.total_steps = self.steps_per_epoch * self.config.trainer.total_epochs
+
+        if self.device_mesh.get_rank() == 0:
+            print(f"Number of steps/epoch {self.steps_per_epoch}, number of epochs {self.config.trainer.total_epochs}, total number of steps {self.total_steps}")
+
+        num_warmup_steps = int(self.total_steps * self.config.optim.warmup_steps_ratio)
+
+        if not hasattr(self.config.optim, "lr_scheduler") or self.config.optim.lr_scheduler == "cosine":
+            self.lr_scheduler = get_cosine_schedule_with_warmup(optimizer=self.optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=self.total_steps)
+        # elif self.config.optim.lr_scheduler == "wsd":
+        #     self.lr_scheduler = get_wsd_schedule_with_warmup(optimizer=self.optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=self.total_steps)
+        else:
+            raise ValueError(f"Unknown lr scheduler: {self.config.optim.lr_scheduler}")
+        
+    def _compute_contrastive_loss_and_backward(self, pos_batch: TensorDict, neg_batch: TensorDict, do_backward=True):
+        pass
+        
     def training_step(self, pos_batch: TensorDict, neg_batch: TensorDict):
         self.fsdp_model.train()
 
@@ -188,13 +295,31 @@ class FSDPContrastiveTrainer(FSDPSFTTrainer):
         neg_micro_batches = neg_batch.split(self.config.data.micro_batch_size_per_gpu)
         n_micro_batches = len(pos_micro_batches)
         step_loss = 0
-        for micro_batch in pos_micro_batches:
-            loss = self._compute_loss_and_backward(batch=micro_batch) / n_micro_batches
-            step_loss += loss.item()
-        
-        for micro_batch in neg_micro_batches:
-            loss = self._compute_loss_and_backward(batch=micro_batch) / n_micro_batches
-            step_loss -= loss.item()
+
+        for k, (pos_mb, neg_mb) in enumerate(zip(pos_micro_batches, neg_micro_batches)):
+            # ------------------------------------------------------------
+            # 1. Forward passes (build two CE losses with graphs)
+            # ------------------------------------------------------------
+            loss_pos = self._compute_loss_and_backward(pos_mb, do_backward=False)
+            loss_neg = self._compute_loss_and_backward(neg_mb, do_backward=False)
+
+            # ------------------------------------------------------------
+            # 2. Margin + logistic loss for THIS pair
+            #    Divide by n_mb so the sum over pairs is an average
+            # ------------------------------------------------------------
+            gap      =  loss_pos - loss_neg
+            mb_loss  = torch.nn.functional.softplus(gap) / n_micro_batches
+
+            step_loss += mb_loss.item()
+            # ------------------------------------------------------------
+            # 3. Back‑prop right away, release the graph
+            # ------------------------------------------------------------
+            if k != n_micro_batches - 1:
+                with self.fsdp_model.no_sync():
+                    mb_loss.backward()
+            else:
+                mb_loss.backward()
+
 
         grad_norm = self.fsdp_model.clip_grad_norm_(max_norm=self.config.optim.clip_grad)
 
@@ -260,7 +385,7 @@ class FSDPContrastiveTrainer(FSDPSFTTrainer):
         global_step = 0
         # compute the total training steps.
         # the total training steps in SFT is mainly for early exit
-        total_training_steps = len(self.train_dataloader) * self.config.trainer.total_epochs
+        total_training_steps = len(self.pos_train_dataloader) * self.config.trainer.total_epochs
 
         if self.config.trainer.total_training_steps is not None:
             total_training_steps = self.config.trainer.total_training_steps
@@ -272,7 +397,8 @@ class FSDPContrastiveTrainer(FSDPSFTTrainer):
         # Currently, it blocks when uploading to hdfs. So very slow.
 
         for epoch in range(self.config.trainer.total_epochs):
-            self.train_sampler.set_epoch(epoch=epoch)
+            self.pos_train_sampler.set_epoch(epoch=epoch)
+            self.neg_train_sampler.set_epoch(epoch=epoch)
             for pos_data, neg_data in tqdm(
                 zip(self.pos_train_dataloader, self.neg_train_dataloader),
                 total=self.steps_per_epoch,
@@ -336,7 +462,8 @@ class FSDPContrastiveTrainer(FSDPSFTTrainer):
                 val_loss = torch.mean(torch.stack(val_losses))
                 metric = {"val/loss": val_loss.detach().item()}
                 tracking.log(data=metric, step=global_step)
-                tracking.log(data=rollouts.meta_info['metrics'], step=global_step)
+                if self.config.trainer.policy_eval:
+                    tracking.log(data=rollouts.meta_info['metrics'], step=global_step)
             
             torch.distributed.barrier()
 
@@ -346,7 +473,7 @@ class FSDPContrastiveTrainer(FSDPSFTTrainer):
 
 
 
-@hydra.main(config_path="config", config_name="sft_trainer", version_base=None)
+@hydra.main(config_path="config", config_name="contrastive_trainer", version_base=None)
 def main(config):
     local_rank, rank, world_size = initialize_global_process_group()
 
@@ -362,7 +489,7 @@ def main(config):
     neg_train_dataset = create_sft_dataset(config.data.neg_train_files, config.data, tokenizer)
     val_dataset = create_sft_dataset(config.data.val_files, config.data, tokenizer)
 
-    trainer = FSDPContrastiveTrainer(config=config, device_mesh=device_mesh, ulysses_device_mesh=ulysses_device_mesh, tokenizer=tokenizer, train_dataset=train_dataset, val_dataset=val_dataset)
+    trainer = FSDPContrastiveTrainer(config=config, device_mesh=device_mesh, ulysses_device_mesh=ulysses_device_mesh, tokenizer=tokenizer, pos_train_dataset=pos_train_dataset, neg_train_dataset=neg_train_dataset, val_dataset=val_dataset)
 
     trainer.fit()
 
