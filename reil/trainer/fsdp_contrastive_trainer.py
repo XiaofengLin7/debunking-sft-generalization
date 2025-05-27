@@ -295,7 +295,12 @@ class FSDPContrastiveTrainer(FSDPSFTTrainer):
         neg_micro_batches = neg_batch.split(self.config.data.micro_batch_size_per_gpu)
         n_micro_batches = len(pos_micro_batches)
         step_loss = 0
-
+        step_loss_pos = 0
+        step_loss_neg = 0
+        step_gap = 0
+        gamma = self.config.algorithm.contrastive_loss.gamma
+        ratio = self.config.algorithm.contrastive_loss.ratio
+        
         for k, (pos_mb, neg_mb) in enumerate(zip(pos_micro_batches, neg_micro_batches)):
             # ------------------------------------------------------------
             # 1. Forward passes (build two CE losses with graphs)
@@ -307,10 +312,13 @@ class FSDPContrastiveTrainer(FSDPSFTTrainer):
             # 2. Margin + logistic loss for THIS pair
             #    Divide by n_mb so the sum over pairs is an average
             # ------------------------------------------------------------
-            gap      =  loss_pos - loss_neg
+            gap      =  loss_pos - ratio * loss_neg + gamma
             mb_loss  = torch.nn.functional.softplus(gap) / n_micro_batches
 
-            step_loss += mb_loss.item()
+            step_loss += mb_loss.detach().item()
+            step_loss_pos += loss_pos.detach().item() / n_micro_batches
+            step_loss_neg += loss_neg.detach().item() / n_micro_batches
+            step_gap += (loss_pos.detach().item() - loss_neg.detach().item()) / n_micro_batches 
             # ------------------------------------------------------------
             # 3. Back‑prop right away, release the graph
             # ------------------------------------------------------------
@@ -343,7 +351,13 @@ class FSDPContrastiveTrainer(FSDPSFTTrainer):
 
         step_loss = torch.tensor(step_loss).cuda()
         torch.distributed.all_reduce(step_loss, op=torch.distributed.ReduceOp.AVG)
-        return {"train/loss": step_loss.detach().item(), "train/lr(1e-3)": lr * 1e3}
+        step_loss_pos = torch.tensor(step_loss_pos).cuda()
+        torch.distributed.all_reduce(step_loss_pos, op=torch.distributed.ReduceOp.AVG)
+        step_loss_neg = torch.tensor(step_loss_neg).cuda()
+        torch.distributed.all_reduce(step_loss_neg, op=torch.distributed.ReduceOp.AVG)
+        step_gap = torch.tensor(step_gap).cuda()
+        torch.distributed.all_reduce(step_gap, op=torch.distributed.ReduceOp.AVG)
+        return {"train/loss": step_loss.detach().item(), "train/loss_pos": step_loss_pos.detach().item(), "train/loss_neg": step_loss_neg.detach().item(), "train/gap": step_gap.detach().item(), "train/lr(1e-3)": lr * 1e3}
 
     def validation_step(self, batch: TensorDict):
         self.fsdp_model.eval()

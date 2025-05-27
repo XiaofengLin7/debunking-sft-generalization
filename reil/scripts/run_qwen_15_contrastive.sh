@@ -25,10 +25,10 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
     data.prompt_key=prompt \
     data.response_key=response \
     data.max_length=2048 \
-    data.train_batch_size=128 \
+    data.train_batch_size=256 \
     data.max_response_length=200 \
-    optim.lr=1e-5 \
-    data.micro_batch_size_per_gpu=4 \
+    optim.lr=1e-4 \
+    data.micro_batch_size_per_gpu=8 \
     model.partial_pretrain=$BASE_MODEL \
     model.fsdp_config.cpu_offload=False \
     ulysses_sequence_parallel_size=1 \
