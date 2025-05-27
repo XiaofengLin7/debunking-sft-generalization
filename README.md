@@ -29,6 +29,7 @@ git submodule update
 pip install -e thirdparty/verl --no-dependencies
 pip install -e thirdparty/ragen --no-dependencies
 pip install -e thirdparty/alfworld --no-dependencies
+pip install -e thirdparty/trl
 conda install -c "nvidia/label/cuda-12.1.0" cuda-toolkit -y
 export CUDA_HOME=$CONDA_PREFIX
 pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cu121

@@ -9,3 +9,6 @@
 	path = thirdparty/alfworld
 	url = git@github.com:XiaofengLin7/alfworld_vlm.git
 	branch = bugs/expert_tw
+[submodule "thirdparty/trl"]
+	path = thirdparty/trl
+	url = https://github.com/huggingface/trl.git
