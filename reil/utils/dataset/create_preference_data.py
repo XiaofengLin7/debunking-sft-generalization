@@ -1,5 +1,5 @@
 """
-Create negative dataset for contrastive learning for sokoban.
+Create preference dataset for DPO training.
 """
 
 import pandas as pd
@@ -12,7 +12,7 @@ qwen_response_template = """\
 </think> <answer> {action} </answer> <|im_end|>
 """
 
-def create_negative_data(data_file: str):
+def create_preference_data(data_file: str):
     df = pd.read_parquet(data_file)
     assert 'data_source' in df.columns, "data_source is required"
     assert 'prompt' in df.columns, "prompt is required"
@@ -37,10 +37,12 @@ def create_negative_data(data_file: str):
         action = row['reward_model']['ground_truth'][:]
         assert "sokoban" in row['data_source'], "Only sokoban data is supported"
         assert len(action) == 1, "action should be a list with one element"
-        
+        action_str = SokobanEnvReil.ACTION_LOOKUP[action[0]]
         negative_action = sample_negative_action(action[0])
+
         negative_action_str = SokobanEnvReil.ACTION_LOOKUP[negative_action]  
-        instance['response'] = qwen_response_template.format(action=negative_action_str)
+        instance['rejected'] = qwen_response_template.format(action=negative_action_str)
+        instance['chosen'] = qwen_response_template.format(action=action_str)
         instances.append(instance)
 
     return instances
@@ -52,15 +54,13 @@ def sample_negative_action(pos_action: int):
 
 def main():
     random.seed(42)
-    train_data = create_negative_data("./data/sokoban_one_horizon_large_envs/train.parquet")
-    # test_data = convert_to_sft_data("./data/sokoban_one_horizon_large_envs/test.parquet")
+    train_data = create_preference_data("./data/sokoban_one_horizon_large_envs/train.parquet")
     train_dataset = Dataset.from_list(train_data)
-    # test_dataset = Dataset.from_list(test_data)
-    train_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/constrastive/train_negative.parquet")
-    # test_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/test_negative.parquet")
-    
-    train_dataset.push_to_hub("Xiaofeng77/reil_sokoban_negative", split="train")
-    # test_dataset.push_to_hub("Xiaofeng77/reil_sokoban_negative", split="test")
+    train_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/dpo/train.parquet")
+
+    train_dataset.push_to_hub("Xiaofeng77/reil_sokoban_preference", split="train")
+
+
 
 if __name__ == "__main__":
     main()
