@@ -22,6 +22,8 @@ def main(config: DictConfig):
         gradient_accumulation_steps=config.gradient_accumulation_steps,
         max_grad_norm=config.max_grad_norm,
         beta=config.beta,
+        logging_steps=config.logging_steps,
+        save_steps=config.save_steps,
     )
     
     # Initialize trainer

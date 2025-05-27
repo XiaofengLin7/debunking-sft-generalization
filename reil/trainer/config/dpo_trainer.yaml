@@ -4,7 +4,7 @@ output_dir: "checkpoints/dpo_model"  # Directory to save model outputs
 
 # Dataset configuration
 dataset:
-  name: "trl-lib/ultrafeedback_binarized"  # Dataset name from HuggingFace
+  name: "Xiaofeng77/reil_sokoban_preference"
 
 # Training configuration
 learning_rate: 1e-4
@@ -15,7 +15,7 @@ max_grad_norm: 1.0
 beta: 0.1  # DPO temperature parameter
 
 # Optional configurations
-logging_steps: 10
+logging_steps: 1
 save_steps: 100
 eval_steps: 100
 warmup_steps: 100 
