@@ -80,13 +80,25 @@ class CheckpointEvaluator:
         """Initialize checkpoint directories for evaluation"""
         # Get checkpoint directory from config
         checkpoint_dir = Path(self.config.evaluator.checkpoint_dir)
-            
-        # Find all checkpoint directories
-        self.checkpoint_dirs = sorted([
-            d for d in checkpoint_dir.glob("global_step_*")
-            if d.is_dir()
-        ], key=lambda x: int(x.name.split('_')[-1]))
+        checkpoint_patterns = ["global_step_*", "checkpoint-*"]
+        found_pattern = None
         
+        for pattern in checkpoint_patterns:
+            if list(checkpoint_dir.glob(pattern)):
+                found_pattern = pattern
+                break
+                
+        if not found_pattern:
+            raise ValueError(f"No checkpoints found in {checkpoint_dir} with patterns {checkpoint_patterns}")
+            
+        print(f"Found checkpoints following pattern: {found_pattern}")
+        
+        # Use the appropriate pattern to find checkpoints
+        self.checkpoint_dirs = sorted([
+            d for d in checkpoint_dir.glob(found_pattern)
+            if d.is_dir()
+        ], key=lambda x: int(x.name.split('_')[-1] if found_pattern == "global_step_*" else x.name.split('-')[-1]))
+            
         if not self.checkpoint_dirs:
             raise ValueError(f"No checkpoints found in {checkpoint_dir}")
         
@@ -222,10 +234,25 @@ class CheckpointEvaluator:
         checkpoint_dir = Path(checkpoint_dir)
         
         # Find all checkpoint directories
+        # Check if checkpoints follow global_step_* or checkpoint-* pattern
+        checkpoint_patterns = ["global_step_*", "checkpoint-*"]
+        found_pattern = None
+        
+        for pattern in checkpoint_patterns:
+            if list(checkpoint_dir.glob(pattern)):
+                found_pattern = pattern
+                break
+                
+        if not found_pattern:
+            raise ValueError(f"No checkpoints found in {checkpoint_dir} with patterns {checkpoint_patterns}")
+            
+        print(f"Found checkpoints following pattern: {found_pattern}")
+        
+        # Use the appropriate pattern to find checkpoints
         checkpoint_dirs = sorted([
-            d for d in checkpoint_dir.glob("global_step_*")
+            d for d in checkpoint_dir.glob(found_pattern)
             if d.is_dir()
-        ], key=lambda x: int(x.name.split('_')[-1]))
+        ], key=lambda x: int(x.name.split('_')[-1] if found_pattern == "global_step_*" else x.name.split('-')[-1]))
         
         if not checkpoint_dirs:
             raise ValueError(f"No checkpoints found in {checkpoint_dir}")
@@ -238,7 +265,7 @@ class CheckpointEvaluator:
         
         # Evaluate each checkpoint
         for ckpt_dir in checkpoint_dirs:
-            step = int(ckpt_dir.name.split('_')[-1])
+            step = int(ckpt_dir.name.split('_')[-1] if found_pattern == "global_step_*" else ckpt_dir.name.split('-')[-1])
             print(f"\nEvaluating checkpoint at step {step}")
             
             # Get actor checkpoint path

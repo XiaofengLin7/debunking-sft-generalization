@@ -1,21 +1,37 @@
-# Model configuration
-model_path: "/usr3/graduate/xfl/lab/REIL/models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"  # Path to pretrained model
+defaults:
+  - evaluation
+  - _self_
+
+actor_rollout_ref:
+  model:
+    path: "/usr3/graduate/xfl/lab/REIL/models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
+
+
 output_dir: "checkpoints/dpo_model"  # Directory to save model outputs
 
 # Dataset configuration
 dataset:
   name: "Xiaofeng77/reil_sokoban_preference"
+  apply_chat_template: False
+
 
 # Training configuration
-learning_rate: 1e-4
-batch_size: 1
-num_epochs: 3
-gradient_accumulation_steps: 4
-max_grad_norm: 1.0
-beta: 0.1  # DPO temperature parameter
+dpo:
+  learning_rate: 1e-4
+  batch_size: 1
+  num_epochs: 3
+  gradient_accumulation_steps: 4
+  max_grad_norm: 1.0
+  beta: 0.1  # DPO temperature parameter
 
-# Optional configurations
-logging_steps: 1
-save_steps: 100
-eval_steps: 100
-warmup_steps: 100 
+  # Optional configurations
+  logging_steps: 1
+  save_steps: 100
+  eval_steps: 100
+
+
+
+evaluator:
+  experiment_name: "sokoban_dpo_1.5b"
+  policy_eval: True
+
