@@ -118,9 +118,9 @@ actor_rollout_ref:
       # sampling parameters for validation
       top_k: -1 # 0 for hf rollout, -1 for vllm rollout
       top_p: 1.0
-      temperature: 0
+      temperature: 0.5
       n: 1
-      do_sample: False # default eager for validation
+      do_sample: True # default eager for validation
 
 critic:
   rollout_n: ${actor_rollout_ref.rollout.n}

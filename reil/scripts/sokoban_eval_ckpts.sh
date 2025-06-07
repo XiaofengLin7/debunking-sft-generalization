@@ -9,13 +9,13 @@ export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"  # Base model path
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds543/REIL/sokoban-1.5b-0.0075beta-0.001kl-2025-05-01  # Directory containing checkpoints to evaluate
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds543/contrastive/sokoban-1.5b-contrastive-qwen-2.5-base-full-sft-05-26
-CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/dpo_model
+CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/sft/sokoban-1.5b-sft-qwen-2.5-base-full-sft-05-15
 CHECKPOINT_NAME=$(basename $CHECKPOINT_DIR)  # Extract the last segment of the path
 PROJECT_NAME="REIL"      # Project name for logging
 EXPERIMENT_NAME="eval_${CHECKPOINT_NAME}"    # Experiment name for logging
 
 # Evaluation settings
-N_GPUS=4                      # Number of GPUs per node
+N_GPUS=1                      # Number of GPUs per node
 
 # Print configuration
 echo "Running evaluation with the following configuration:"

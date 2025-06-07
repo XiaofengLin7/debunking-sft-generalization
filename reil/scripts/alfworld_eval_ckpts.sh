@@ -34,7 +34,9 @@ python -m reil.evaluation.eval_ckpts \
     evaluator.experiment_name=$EXPERIMENT_NAME \
     evaluator.n_gpus_per_node=$N_GPUS \
     evaluator.logger="['console', 'wandb']" \
+    evaluator.resume_step=45 \
     es_manager.val.env_groups=100 \
     es_manager.val.group_size=1 \
     es_manager.val.env_configs.tags=["ALFWorld"] \
     es_manager.val.env_configs.n_groups=[100] \
+    agent_proxy.max_turn=30 \

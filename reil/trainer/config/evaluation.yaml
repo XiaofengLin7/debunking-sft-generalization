@@ -26,7 +26,7 @@ evaluator:
   experiment_name: eval_ckpts
   logger: [ 'console', 'wandb' ]
   checkpoint_dir: /usr3/graduate/xfl/lab/REIL/checkpoints/ds543/REIL/sokoban-1.5b-0.0075beta-0.001kl-2025-05-01
-
+  resume_step: 0
 
 actor_rollout_ref:
   model:
@@ -102,9 +102,9 @@ actor_rollout_ref:
       # sampling parameters for validation
       top_k: -1 # 0 for hf rollout, -1 for vllm rollout
       top_p: 1.0
-      temperature: 0
+      temperature: 0.5
       n: 1
-      do_sample: False # default eager for validation
+      do_sample: True # default eager for validation
 
 es_manager:
   format_penalty: -0.1

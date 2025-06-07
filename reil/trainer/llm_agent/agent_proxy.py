@@ -14,6 +14,7 @@ from reil.trainer.llm_agent.es_manager import EnvStateManager
 from reil.trainer.llm_agent.ctx_manager import NaiveContextManager
 import time
 from tqdm import tqdm
+from pprint import pprint
 
 class Config:
 	def __init__(self, **kwargs):
@@ -107,8 +108,9 @@ class HFWrapperWg:
 			do_sample=config.actor_rollout_ref.rollout.do_sample,
 			temperature=config.actor_rollout_ref.rollout.val_kwargs.temperature,
 			top_p=config.actor_rollout_ref.rollout.val_kwargs.top_p,
-			top_k=config.actor_rollout_ref.rollout.val_kwargs.top_k
+			top_k=config.actor_rollout_ref.rollout.val_kwargs.top_k,
 		)
+		print(f"temperature: {HFRolloutConfig.temperature}")
 		self.llm = HFRollout(module, HFRolloutConfig)
 
 	def generate_sequences(self, lm_inputs: DataProto):
@@ -168,7 +170,7 @@ class LLMAgentProxy:
 			'eos_token_id': self.tokenizer.eos_token_id,
 			'pad_token_id': self.tokenizer.pad_token_id,
 			'recompute_log_prob': False,
-			'do_sample': False,
+			'do_sample': self.config.actor_rollout_ref.rollout.do_sample,
 			'validate': True,
 		}
 		for _ in tqdm(range(self.config.agent_proxy.max_turn), desc="Agent turns"):

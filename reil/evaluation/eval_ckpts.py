@@ -254,6 +254,12 @@ class CheckpointEvaluator:
             if d.is_dir()
         ], key=lambda x: int(x.name.split('_')[-1] if found_pattern == "global_step_*" else x.name.split('-')[-1]))
         
+        # Filter checkpoints based on resume_step if provided
+        if hasattr(self.config.evaluator, 'resume_step') and self.config.evaluator.resume_step > 0:
+            resume_step = self.config.evaluator.resume_step
+            checkpoint_dirs = [d for d in checkpoint_dirs if int(d.name.split('_')[-1] if found_pattern == "global_step_*" else d.name.split('-')[-1]) >= resume_step]
+            print(f"Resuming evaluation from step {resume_step}")
+
         if not checkpoint_dirs:
             raise ValueError(f"No checkpoints found in {checkpoint_dir}")
 
