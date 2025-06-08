@@ -188,6 +188,34 @@ def compute_score_with_action_sequence(solution_str, ground_truth, format_score=
                 
     return 0
 
+def compute_score_with_action_sequence_zero_format_score(solution_str, ground_truth, score=1.0, *args, **kwargs):
+    if "Assistant:" in solution_str:
+        processed_str = solution_str.split("Assistant:", 1)[1]
+    elif "<|im_start|>assistant" in solution_str:
+        processed_str = solution_str.split("<|im_start|>assistant", 1)[1]
+    else:
+        return 0
+    
+    format_correct = validate_response_structure(processed_str)
+    if not format_correct:
+        return 0
+    else:
+        final_answer, _ = extract_solution(processed_str)
+        if final_answer is None:
+            return 0
+        else:
+            action_sequence = convert_action_sequence(final_answer)
+            len_horizon = len(ground_truth)
+            if len(action_sequence) < len_horizon:
+                return 0
+            else:
+                if np.array_equal(action_sequence[:len_horizon], ground_truth):
+                    return score
+                elif len(action_sequence) == len_horizon and not any(action == 0 for action in action_sequence):
+                    return 0
+                
+    return 0
+
 def main():
     # solution_str = "Assistant: <answer>up</answer> <answer>right</answer> <answer>down</answer> <answer>left</answer>"
     # print(extract_solution(solution_str))
