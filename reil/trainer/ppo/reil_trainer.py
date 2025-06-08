@@ -330,7 +330,9 @@ class ReilPPOTrainer(RayPPOTrainer):
                                                   adv_estimator=self.config.algorithm.adv_estimator,
                                                   gamma=self.config.algorithm.gamma,
                                                   lam=self.config.algorithm.lam,
-                                                  num_repeat=self.config.actor_rollout_ref.rollout.n)
+                                                  num_repeat=self.config.actor_rollout_ref.rollout.n,
+                                                  advantage=self.config.algorithm.advantage,
+                                                  positive_advantage_weight=self.config.algorithm.positive_advantage_weight)
 
                     # update critic
                     if self.use_critic:
