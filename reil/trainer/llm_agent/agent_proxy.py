@@ -111,6 +111,7 @@ class HFWrapperWg:
 			top_k=config.actor_rollout_ref.rollout.val_kwargs.top_k,
 		)
 		print(f"temperature: {HFRolloutConfig.temperature}")
+		print(f"do_sample: {HFRolloutConfig.do_sample}")
 		self.llm = HFRollout(module, HFRolloutConfig)
 
 	def generate_sequences(self, lm_inputs: DataProto):

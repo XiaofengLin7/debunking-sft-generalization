@@ -75,7 +75,7 @@ def main():
                        help="Template prefix to use (default: qwen-instruct)")
     parser.add_argument("--train_size_each_instance", type=int, default=200, help="Number of train instances to generate (default: 200)")
     parser.add_argument("--test_size_each_instance", type=int, default=60, help="Number of test instances to generate (default: 60)")
-    parser.add_argument("--num_test_envs", type=int, default=200, help="Number of test environments(default: 200)")
+    # parser.add_argument("--num_test_envs", type=int, default=200, help="Number of test environments(default: 200)")
     parser.add_argument("--output", type=str, default='./data/sokoban_diverse', help="Output directory (default: ./data/sokoban_diverse)")
     # parser.add_argument("--is_push_to_hub", type=bool, default=True, help="Whether to push to hub (default: True)")
     parser.add_argument("--push_to_hub", action='store_true', help="Push to hub (default: False)")
@@ -167,16 +167,16 @@ def main():
                     obs, reward, done, info = env.step(action_sequence[0])
     
     # Create test instances for each test environment
-    test_env_instances = []
-    for seed_test_env in range(seed+args.train_size_each_instance+args.test_size_each_instance, seed+args.train_size_each_instance+args.test_size_each_instance+args.num_test_envs):
-        obs = test_envs[-1].reset(seed=seed_test_env)
-        instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE_SINGLE_ACTION.format(observation=obs))
-        test_env_instances.append(
-            {
-                'instruction': instruction,
-                'seed': seed_test_env
-            }
-        )
+    # test_env_instances = []
+    # for seed_test_env in range(seed+args.train_size_each_instance+args.test_size_each_instance, seed+args.train_size_each_instance+args.test_size_each_instance+args.num_test_envs):
+    #     obs = test_envs[-1].reset(seed=seed_test_env)
+    #     instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE_SINGLE_ACTION.format(observation=obs))
+    #     test_env_instances.append(
+    #         {
+    #             'instruction': instruction,
+    #             'seed': seed_test_env
+    #         }
+    #     )
 
     def _create_instance(idx, instance):
         prompt_formatted = instance['instruction']
@@ -204,7 +204,7 @@ def main():
     train_dataset = Dataset.from_list([_create_instance(i, train_instances[i]) for i in range(len(train_instances))])
     test_dataset = Dataset.from_list([_create_instance(i, test_instances[i]) for i in range(len(test_instances))])
     # test_env_dataset = Dataset.from_list([_create_test_env_instance(args.seed + i, test_env_instances[i-args.train_size_each_instance-args.test_size_each_instance]) for i in range(args.train_size_each_instance+args.test_size_each_instance, args.train_size_each_instance+args.test_size_each_instance+args.num_test_envs)])
-    test_env_dataset = Dataset.from_list([_create_test_env_instance(instance['seed'], instance) for instance in test_env_instances])
+    # test_env_dataset = Dataset.from_list([_create_test_env_instance(instance['seed'], instance) for instance in test_env_instances])
     def make_map_fn(split):
         def process_fn(example, idx):
             # Add split information to each example
@@ -226,13 +226,13 @@ def main():
     train_dataset.to_parquet(os.path.join(args.output, 'train.parquet'))
     test_dataset = test_dataset.map(function=make_map_fn('test'), with_indices=True)
     test_dataset.to_parquet(os.path.join(args.output, 'test.parquet'))
-    test_env_dataset = test_env_dataset.map(function=make_map_fn('test_env'), with_indices=True)
-    test_env_dataset.to_parquet(os.path.join(args.output, 'test_env.parquet'))
-    # push to hub
+    # test_env_dataset = test_env_dataset.map(function=make_map_fn('test_env'), with_indices=True)
+    # test_env_dataset.to_parquet(os.path.join(args.output, 'test_env.parquet'))
+    # push to hub   
     if args.push_to_hub:
         train_dataset.push_to_hub("Xiaofeng77/"+args.hf_name, split="train")
         test_dataset.push_to_hub("Xiaofeng77/"+args.hf_name, split="test")
-        test_env_dataset.push_to_hub("Xiaofeng77/"+args.hf_name, split="test_env")  
+        # test_env_dataset.push_to_hub("Xiaofeng77/"+args.hf_name, split="test_env")  
 
 if __name__ == "__main__":
     main()

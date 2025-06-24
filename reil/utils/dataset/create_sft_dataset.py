@@ -43,15 +43,15 @@ def convert_to_sft_data(data_file: str):
 
 
 def main():
-    train_instances = convert_to_sft_data("./data/alfworld_task_type/train.parquet")
-    test_instances = convert_to_sft_data("./data/alfworld_task_type/test.parquet")
+    train_instances = convert_to_sft_data("./data/small_sokoban/train.parquet")
+    test_instances = convert_to_sft_data("./data/small_sokoban/test.parquet")
     train_dataset = Dataset.from_list(train_instances)
     test_dataset = Dataset.from_list(test_instances)
-    train_dataset.to_parquet("./data/alfworld_task_type/sft/train.parquet")
-    test_dataset.to_parquet("./data/alfworld_task_type/sft/test.parquet")
+    train_dataset.to_parquet("./data/small_sokoban/sft/train.parquet")
+    test_dataset.to_parquet("./data/small_sokoban/sft/test.parquet")
 
-    train_dataset.push_to_hub("Xiaofeng77/reil_alfworld_pick_n_place_sft", split="train")
-    test_dataset.push_to_hub("Xiaofeng77/reil_alfworld_pick_n_place_sft", split="test")
+    train_dataset.push_to_hub("Xiaofeng77/reil_small_sokoban_sft", split="train")
+    test_dataset.push_to_hub("Xiaofeng77/reil_small_sokoban_sft", split="test")
     
 if __name__ == "__main__":
     main()

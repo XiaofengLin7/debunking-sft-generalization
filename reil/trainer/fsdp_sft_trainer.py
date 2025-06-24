@@ -519,22 +519,25 @@ class FSDPSFTTrainer:
                 val_loss = self.validation_step(data)
                 val_losses.append(val_loss)
 
-            # if self.config.trainer.policy_eval and self.config.model.lora_rank == 0:
-            if self.config.trainer.policy_eval:
-                actor_wg = HFWrapperWg(self.config, self.tokenizer, module=self.fsdp_model)
-                self.proxy.set_actor_wg(actor_wg)
-                rollouts = self.proxy.rollout()    
-            
             if rank == 0:
                 val_loss = torch.mean(torch.stack(val_losses))
                 metric = {"val/loss": val_loss.detach().item()}
                 tracking.log(data=metric, step=global_step)
-                tracking.log(data=rollouts.meta_info['metrics'], step=global_step)
+            
+            if global_step % self.config.trainer.test_freq == 0 and self.config.trainer.policy_eval:
+                actor_wg = HFWrapperWg(self.config, self.tokenizer, module=self.fsdp_model)
+                self.proxy.set_actor_wg(actor_wg)
+                rollouts = self.proxy.rollout()  
+
+                if rank == 0:
+                    tracking.log(data=rollouts.meta_info['metrics'], step=global_step)
+
             
             torch.distributed.barrier()
 
             # save checkpoint
-            self.save_checkpoint(step=global_step)
+            if global_step % self.config.trainer.save_freq == 0:
+                self.save_checkpoint(step=global_step)
 
 
 

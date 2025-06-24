@@ -21,7 +21,7 @@ EXPERIMENT_NAME="alfworld-1.5b-${BETA}beta-${KL_COEF}kl-pick_n_place_$(date +%m-
 # EXPERIMENT_NAME="alfworld-1.5b-${BETA}beta-${KL_COEF}kl-2025-04-28"
 # EXPERIMENT_NAME="1.5b-${BETA}beta-${KL_COEF}kl-2025-04-20"
 ROLLOUT_TP_SIZE=1
-N_GPUS=4
+N_GPUS=2
 export ALFWORLD_DATA="/projectnb/replearn/xfl/Retriever/src/envs/alf_world/data_storage"
 export VLLM_ATTENTION_BACKEND=XFORMERS
 
