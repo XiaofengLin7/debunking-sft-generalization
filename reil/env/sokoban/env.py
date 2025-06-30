@@ -37,6 +37,32 @@ All boxes placed: +10.0
 Decide the next action:\
 """
 
+CARDINAL_INSTRUCTION_TEMPLATE = """You are a Sokoban solver.
+
+Sokoban Quick Guide
+Goal: Push all boxes (X) onto targets (O).
+
+Symbols:
+# Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+
+Rules:
+1. Push boxes (can't pull).
+2. Avoid walls (#).
+
+Answers:
+<answer> North </answer> | <answer> West </answer> | <answer> South </answer> | <answer> East </answer>
+
+Rewards:
+Move: -0.1
+Box on target: +1.0
+All boxes placed: +10.0
+
+
+[Current Observation]:
+{observation}
+Decide the next action:\
+"""
+
 templates = {
     'qwen-instruct': '<|im_start|>user\n{prompt}\nAlways output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>\n<|im_start|>assistant\n<think>',
     'base': 'A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks briefly about the reasoning process in the mind and then provides the user with the answer.\nUser: {prompt}\nShow your work in <think> </think> tags. And return the final answer in <answer> </answer> tags, for example <think> [Thoughts] </think> <answer> 1 </answer>\nAssistant: \n<think>'
@@ -238,6 +264,82 @@ class SokobanEnvReil(SokobanEnv):
     def close(self):
         self.render_cache = None
         super(SokobanEnvReil, self).close()
+
+
+class SokobanEnvReilCardinal(SokobanEnvReil):
+    """
+    Variant of SokobanEnvReil with cardinal direction action space:
+    - 1: North (corresponds to Up in original)
+    - 2: West (corresponds to Left in original) 
+    - 3: South (corresponds to Down in original)
+    - 4: East (corresponds to Right in original)
+    """
+    
+    def __init__(self, config=None):
+        super().__init__(config)
+        # Override the ACTION_LOOKUP to use cardinal directions
+        self.ACTION_LOOKUP = {
+            0: "None",
+            1: "North",
+            2: "West", 
+            3: "South",
+            4: "East",
+        }
+    
+    def extract_action(self, text):
+        """
+        Extract action from text for cardinal directions.
+        - 0: Still (Invalid Action)
+        - 1: North
+        - 2: West
+        - 3: South
+        - 4: East
+        """
+        import re
+        DIRECTION_MAP = {"North": 1, "West": 2, "South": 3, "East": 4}
+        # Pattern to match cardinal directions or numbers
+        pattern = r'^\s*(([1-4])\s*\((north|west|south|east)\)|(north|west|south|east)|([1-4]))\s*$'
+        match = re.fullmatch(pattern, text.strip(), flags=re.IGNORECASE | re.X)
+        
+        if not match:
+            return self.INVALID_ACTION
+        
+        if match.group(2):   
+            return int(match.group(2))
+        elif match.group(4): 
+            return DIRECTION_MAP[match.group(4).capitalize()]
+        elif match.group(5): 
+            return int(match.group(5))
+        
+        return self.INVALID_ACTION
+    
+    def render(self, mode='complete'):
+        if mode == 'complete':
+            map = self.render(mode='tiny_rgb_array')
+            return templates[self.prefix].format(prompt=CARDINAL_INSTRUCTION_TEMPLATE.format(observation=map))
+        else:
+            return super().render(mode)
+    
+    
+    def copy(self):
+        new_self = SokobanEnvReilCardinal(
+            dim_room=self.dim_room,
+            max_steps=self.max_steps,
+            num_boxes=self.num_boxes,
+            search_depth=self.search_depth
+        )
+        new_self.room_fixed = self.room_fixed.copy()
+        new_self.room_state = self.room_state.copy()
+        new_self.box_mapping = self.box_mapping.copy()
+        new_self.action_sequence = self.action_sequence.copy()
+        new_self.player_position = self.player_position.copy()
+        new_self.reward = self.reward
+        new_self._valid_actions = copy.deepcopy(self._valid_actions)
+        return new_self
+    
+    def close(self):
+        self.render_cache = None
+        super(SokobanEnvReilCardinal, self).close()
     
 if __name__ == "__main__":
     env = SokobanEnvReil(dim_room=(6, 6), num_boxes=1, max_steps=100, search_depth=30, prefix='base')
