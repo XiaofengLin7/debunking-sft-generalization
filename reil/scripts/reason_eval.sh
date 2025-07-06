@@ -1,18 +1,8 @@
-BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
-DATASETS="Xiaofeng77/small_sokoban"
-OUTPUT_DIR="./results"
-NUM_GENERATION=10
-N_GPUS=1
+VERIFIER_PATH="./models/rlft/models--deepseek-ai--DeepSeek-R1-0528-Qwen3-8B/snapshots/6e8885a6ff5c1dc5201574c8fd700323f23c25fa"
+FILE_PATH="./results/small_sokoban-train-temp_1.0-top_p_1.0-top_k_-1.jsonl"
 BATCH_SIZE=256
 
 python -m reil.evaluation.reason_eval \
-    --model_path $BASE_MODEL \
-    --datasets $DATASETS \
-    --output_dir $OUTPUT_DIR \
-    --num_generation $NUM_GENERATION \
-    --num_gpus $N_GPUS \
-    --batch_size $BATCH_SIZE \
-    --temperature 1.0 \
-    --top_p 1.0 \
-    --top_k -1 \
-    --split "train"
+    --verifier_path $VERIFIER_PATH \
+    --file_path $FILE_PATH \
+    --batch_size $BATCH_SIZE
