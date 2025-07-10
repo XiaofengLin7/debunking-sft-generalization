@@ -4,7 +4,21 @@ import os
 from datasets import load_dataset
 from tqdm import tqdm
 import json
+from reil.utils.reward_score.sokoban import compute_score_with_action_sequence
 
+def extract_thought_n_answer(response):
+    if "Assistant:" in response:
+        processed_str = response.split("Assistant:", 1)[1]
+    elif "<|im_start|>assistant" in response:
+        processed_str = response.split("<|im_start|>assistant", 1)[1]
+    else:
+        return None, None
+    
+    thought = processed_str.split("<think>")[1].split("</think>")[0]
+    thought = "<think>" + thought + "</think>"
+    final_answer = processed_str.split("<answer>")[1].split("</answer>")[0]
+    final_answer = "<answer>" + final_answer + "</answer>"
+    return thought, final_answer
 
 
 def main():
@@ -87,6 +101,15 @@ def main():
                             "generation_id": k,
                         }
                         qa_pair["response"] = r[k]
+                        if "sokoban" in dataset_name.lower():
+                            qa_pair["score"] = compute_score_with_action_sequence(qa_pair["prompt"]+qa_pair["response"], a['ground_truth'])
+                            if qa_pair["score"] == 0:
+                                qa_pair["thought"] = None
+                                qa_pair["final_answer"] = None
+                                qa_pair["label"] = 0
+                            else:
+                                qa_pair["thought"], qa_pair["final_answer"] = extract_thought_n_answer(qa_pair["prompt"]+qa_pair["response"])
+                                qa_pair["label"] = 1 if qa_pair["score"] == 1 else 0
                         output_idx += 1
                         # if "math" in dataset_name.lower():
                         #     gold_answer = extract_answer_math(a)
