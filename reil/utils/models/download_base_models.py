@@ -3,7 +3,7 @@ import argparse
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_name", type=str, default="deepseek-ai/DeepSeek-R1-0528-Qwen3-8B")
+    parser.add_argument("--model_name", type=str, default="Qwen/Qwen2.5-Math-1.5B")
     parser.add_argument("--save_dir", type=str, default="./models/rlft")
     args = parser.parse_args()
 

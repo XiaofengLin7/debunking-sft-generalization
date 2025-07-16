@@ -22,7 +22,7 @@ git config --global user.email xfl199801@gmail.com
 ## Installation
 
 ```bash
-conda create -n reil python=3.9
+conda create -n reil python=3.10
 conda activate reil
 git submodule init
 git submodule update
