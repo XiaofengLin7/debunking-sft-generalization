@@ -23,3 +23,5 @@ gymnasium[toy-text]
 pyarrow>=15.0.0
 pylatexenc
 torchdata
+reasoning-gym
+datasets
