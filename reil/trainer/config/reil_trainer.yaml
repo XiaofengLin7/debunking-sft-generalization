@@ -4,11 +4,10 @@ defaults:
   - _self_
   
 data:
+  type: standard
   tokenizer: null
   train_files: ./data/sokoban/train.parquet
   val_files: ./data/sokoban/test.parquet
-  val_env_files: ./data/sokoban/test_env.parquet # for rl validation
-  val_env_batch_size: 16
   prompt_key: prompt
   reward_fn_key: data_source
   max_prompt_length: 512
@@ -23,6 +22,21 @@ data:
   image_key: images
   max_start_length: 512
   max_obs_length: 512
+  reasoning_gym:
+    max_prompt_length: 1024
+    developer_prompt: DeepSeekZero
+    train:
+      seed: 42
+      dataset_size: 4000
+
+
+    val:
+      seed: 42
+      dataset_size: 1000
+
+reward:
+  use_accuracy: True
+  
 
 
 actor_rollout_ref:
