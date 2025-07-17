@@ -55,7 +55,9 @@ from verl.utils.torch_functional import masked_mean
 from collections import defaultdict
 # from ragen.llm_agent.generation import LLMGenerationManager, GenerationConfig
 from reil.trainer.llm_agent.generation import ReilGenerationManager, GenerationConfig
-from reil.trainer.llm_agent.agent_proxy import LLMAgentProxy
+from reil.utils.dataset.rg_dataset import prepare_reasoning_gym_dataset
+from reasoning_gym.utils import extract_answer
+from reil.utils.reward_score.reward import reward_registry
 WorkerType = Type[Worker]
 
 @contextmanager
@@ -77,6 +79,61 @@ class ReilPPOTrainer(RayPPOTrainer):
                 reward_fn=None,
                 val_reward_fn=None,
                 ):
+        # determine if we are using reasoning gym
+        if config.data.type == 'reasoning_gym':
+            # construct dataset first
+            self.train_dataset, self.val_dataset = prepare_reasoning_gym_dataset(config.data.reasoning_gym, tokenizer)
+            # construct reward function
+            self.reward_functions = []
+            if hasattr(config, "reward") and hasattr(config.reward, "secondary_rewards"):
+                for func_config in config.reward.secondary_rewards:
+                    func_name = func_config.name
+                    scaling_factor = func_config.get("scaling_factor", 1.0)
+                    func = reward_registry.get(func_name)
+                    if func:
+                        # Store both function and its arguments
+                        self.reward_functions.append(
+                            {
+                                "function": func,
+                                "name": func_name,
+                                "scaling_factor": scaling_factor,
+                                "kwargs": func_config.get("kwargs", {}),
+                            }
+                        )
+
+            reward_fn = lambda data: self._score_output(data, num_examine=0)
+            val_reward_fn = lambda data: self._score_output(data, num_examine=1)
+        else:
+            # TODO: we have to make sure the batch size is divisible by the dp size
+            self.train_dataset = RLHFDataset(parquet_files=self.config.data.train_files,
+                                            tokenizer=self.tokenizer,
+                                            processor=self.processor,
+                                            prompt_key=self.config.data.prompt_key,
+                                            image_key=self.config.data.get('image_key', 'images'),
+                                            max_prompt_length=self.config.data.max_prompt_length,
+                                            filter_prompts=True,
+                                            return_raw_chat=self.config.data.get('return_raw_chat', False),
+                                            truncation=self.config.data.get('truncation', 'error'),
+                                            filter_overlong_prompts=self.config.data.filter_overlong_prompts)
+            
+            assert self.train_dataset.truncation == self.config.data.get(
+                'truncation', 'error'
+            ), f'dataset truncation {self.train_dataset.truncation} must be the same as config {self.config.data.get("truncation", "error")}'
+            
+            self.val_dataset = RLHFDataset(parquet_files=self.config.data.val_files,
+                                        tokenizer=self.tokenizer,
+                                        processor=self.processor,
+                                        prompt_key=self.config.data.prompt_key,
+                                        image_key=self.config.data.get('image_key', 'images'),
+                                        max_prompt_length=self.config.data.max_prompt_length,
+                                        filter_prompts=True,
+                                        return_raw_chat=self.config.data.get('return_raw_chat', False),
+                                        truncation=self.config.data.get('truncation', 'error'),
+                                        filter_overlong_prompts=self.config.data.filter_overlong_prompts)
+            assert self.val_dataset.truncation == self.config.data.get(
+                'truncation', 'error'
+            ), f'dataset truncation {self.val_dataset.truncation} must be the same as config {self.config.data.get("truncation", "error")}'
+            
         super().__init__(config=config, 
                          tokenizer=tokenizer, 
                          role_worker_mapping=role_worker_mapping, 
@@ -90,23 +147,11 @@ class ReilPPOTrainer(RayPPOTrainer):
 
 
     def init_agent_proxy(self):
-        self.agent_proxy = LLMAgentProxy(self.config, self.actor_rollout_wg, self.tokenizer)
+        if self.config.data.type != 'reasoning_gym':
+            from reil.trainer.llm_agent.agent_proxy import LLMAgentProxy
+            self.agent_proxy = LLMAgentProxy(self.config, self.actor_rollout_wg, self.tokenizer)
 
     def _create_dataloader(self):
-        # TODO: we have to make sure the batch size is divisible by the dp size
-        self.train_dataset = RLHFDataset(parquet_files=self.config.data.train_files,
-                                         tokenizer=self.tokenizer,
-                                         processor=self.processor,
-                                         prompt_key=self.config.data.prompt_key,
-                                         image_key=self.config.data.get('image_key', 'images'),
-                                         max_prompt_length=self.config.data.max_prompt_length,
-                                         filter_prompts=True,
-                                         return_raw_chat=self.config.data.get('return_raw_chat', False),
-                                         truncation=self.config.data.get('truncation', 'error'),
-                                         filter_overlong_prompts=self.config.data.filter_overlong_prompts)
-        assert self.train_dataset.truncation == self.config.data.get(
-            'truncation', 'error'
-        ), f'dataset truncation {self.train_dataset.truncation} must be the same as config {self.config.data.get("truncation", "error")}'
         # use sampler for better ckpt resume
         if self.config.data.shuffle:
             train_dataloader_generator = torch.Generator()
@@ -122,19 +167,6 @@ class ReilPPOTrainer(RayPPOTrainer):
                                                    collate_fn=collate_fn,
                                                    sampler=sampler)
 
-        self.val_dataset = RLHFDataset(parquet_files=self.config.data.val_files,
-                                       tokenizer=self.tokenizer,
-                                       processor=self.processor,
-                                       prompt_key=self.config.data.prompt_key,
-                                       image_key=self.config.data.get('image_key', 'images'),
-                                       max_prompt_length=self.config.data.max_prompt_length,
-                                       filter_prompts=True,
-                                       return_raw_chat=self.config.data.get('return_raw_chat', False),
-                                       truncation=self.config.data.get('truncation', 'error'),
-                                       filter_overlong_prompts=self.config.data.filter_overlong_prompts)
-        assert self.val_dataset.truncation == self.config.data.get(
-            'truncation', 'error'
-        ), f'dataset truncation {self.val_dataset.truncation} must be the same as config {self.config.data.get("truncation", "error")}'
         self.val_dataloader = StatefulDataLoader(
             dataset=self.val_dataset,
             # Validation datasets are sent to inference engines as a whole batch,
@@ -145,22 +177,6 @@ class ReilPPOTrainer(RayPPOTrainer):
             drop_last=False,
             collate_fn=collate_fn)
         
-        # if self.config.trainer.policy_eval:
-        #     self.val_env_dataset = RLHFDataset(parquet_files=self.config.data.val_env_files,
-        #                                tokenizer=self.tokenizer,
-        #                                prompt_key=self.config.data.prompt_key,
-        #                                max_prompt_length=self.config.data.max_prompt_length,
-        #                                filter_prompts=True,
-        #                                return_raw_chat=self.config.data.get('return_raw_chat', False),
-        #                                truncation='error')
-        
-        #     self.val_env_dataloader = StatefulDataLoader(dataset=self.val_env_dataset,
-        #                                      batch_size=self.config.data.val_env_batch_size,
-        #                                      num_workers=8,
-        #                                      shuffle=True,
-        #                                      drop_last=False,
-        #                                      collate_fn=collate_fn)
-
         assert len(self.train_dataloader) >= 1
         assert len(
             self.val_dataloader
@@ -187,6 +203,75 @@ class ReilPPOTrainer(RayPPOTrainer):
         rollouts = self.agent_proxy.rollout()
         return rollouts.meta_info['metrics']
 
+    def _score_output(self, data: DataProto, num_examine: int = 0) -> torch.Tensor:
+        reward_tensor = torch.zeros_like(data.batch["responses"], dtype=torch.float32)
+
+        num_printed = 0
+        for i in range(len(data)):
+            data_item = data[i]  # DataProtoItem
+
+            prompt_ids = data_item.batch["prompts"]  # tokenized prompts
+            prompt_length = prompt_ids.shape[-1]
+
+            valid_prompt_length = data_item.batch["attention_mask"][:prompt_length].sum()
+            valid_prompt_ids = prompt_ids[-valid_prompt_length:]
+
+            response_ids = data_item.batch["responses"]
+            valid_response_length = data_item.batch["attention_mask"][prompt_length:].sum()
+            valid_response_ids = response_ids[:valid_response_length]
+
+            # decode
+            prompt_str = self.tokenizer.decode(valid_prompt_ids)
+            response_str = self.tokenizer.decode(valid_response_ids)
+            sequences_str = prompt_str + response_str
+
+            index = data_item.non_tensor_batch["index"]
+            correctness_score = self._compute_correctness_score(
+                solution_str=response_str,
+                index=index,
+            )
+            if self.config.reward.use_accuracy:
+                reward_components = {"correctness": correctness_score}
+                total_reward = correctness_score
+            else:
+                reward_components = {}
+                total_reward = 0
+
+            for reward_fn in self.reward_functions:
+                func = reward_fn["function"]
+                name = reward_fn["name"]
+                scaling_factor = reward_fn["scaling_factor"]
+                kwargs = reward_fn["kwargs"]
+                if name == "cosine":
+                    is_correct = correctness_score == 1.0
+                    reward = func(response_str, scaling_factor, is_correct=is_correct, **kwargs)
+                elif name == "length":
+                    reward = func(response_str, scaling_factor, correctness_score=correctness_score, **kwargs)
+                else:
+                    reward = func(response_str, scaling_factor, **kwargs)
+                reward_components[name] = reward
+                total_reward += reward
+
+            reward_tensor[i, valid_response_length - 1] = total_reward
+
+            if num_printed < num_examine:
+                components = ", ".join([f"{k}={v:.2f}" for k, v in reward_components.items()])
+                print(f"(score={total_reward}, seq={sequences_str}, response={response_str})")
+                print(f"reward={total_reward:.2f} ({components})")
+                num_printed += 1
+
+        return reward_tensor
+
+    def _compute_correctness_score(self, solution_str: str, index: int) -> float:
+        found_answer = extract_answer(solution_str, tag_name="answer")
+        data = self.train_dataset.data
+
+        entry = data[index]
+        if self.train_dataset.experiment:
+            experiment = self.train_dataset.experiment
+            return experiment.score_answer_with_id(found_answer, entry["metadata"]["entry_id"])
+        else:
+            return data.score_answer(found_answer, entry=entry)
     
     def fit(self):
         """

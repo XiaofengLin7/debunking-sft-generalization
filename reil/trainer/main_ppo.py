@@ -160,23 +160,19 @@ class TaskRunner:
             reward_manager_cls = CompleteRewardManager
         else:
             raise NotImplementedError
+        
+        if config.data.type == 'reasoning_gym':
+            reward_fn = None
+            val_reward_fn = None
+        else:
+            compute_score = get_custom_reward_fn(config)
+            reward_fn = reward_manager_cls(tokenizer=tokenizer, num_examine=0, compute_score=compute_score)
 
-        compute_score = get_custom_reward_fn(config)
-        reward_fn = reward_manager_cls(tokenizer=tokenizer, num_examine=0, compute_score=compute_score)
-
-        # Note that we always use function-based RM for validation
-        val_reward_fn = reward_manager_cls(tokenizer=tokenizer, num_examine=1, compute_score=compute_score)
+            # Note that we always use function-based RM for validation
+            val_reward_fn = reward_manager_cls(tokenizer=tokenizer, num_examine=1, compute_score=compute_score)
 
         resource_pool_manager = ResourcePoolManager(resource_pool_spec=resource_pool_spec, mapping=mapping)
 
-        # trainer = RayPPOTrainer(config=config,
-        #                         tokenizer=tokenizer,
-        #                         processor=processor,
-        #                         role_worker_mapping=role_worker_mapping,
-        #                         resource_pool_manager=resource_pool_manager,
-        #                         ray_worker_group_cls=ray_worker_group_cls,
-        #                         reward_fn=reward_fn,
-        #                         val_reward_fn=val_reward_fn)
         trainer = ReilPPOTrainer(config=config,
                                 tokenizer=tokenizer,
                                 processor=processor,
