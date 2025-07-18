@@ -5,6 +5,7 @@ defaults:
   - _self_
 
 data:
+  type: standard
   train_batch_size: 256
   micro_batch_size: null # will be deprecated, use micro_batch_size_per_gpu
   micro_batch_size_per_gpu: 4  # this is also val batch size
@@ -19,6 +20,17 @@ data:
   custom_cls:
     path: null
     name: null
+  reasoning_gym:
+    max_length: 2048
+    developer_prompt: DeepSeekZero
+    train:
+      seed: 42
+      dataset_size: 4000
+
+    val:
+      seed: 42
+      dataset_size: 1000
+
 model:
   partial_pretrain: ~/models/gemma-1.1-7b-it
   fsdp_config:
@@ -42,6 +54,7 @@ optim:
   clip_grad: 1.0
 ulysses_sequence_parallel_size: 1
 use_remove_padding: False
+
 trainer:
   default_local_dir: /tmp/sft_model
   default_hdfs_dir: hdfs://tmp/experiments/gsm8k/gemma-1.1-7b-it/ # change the hdfs path here
