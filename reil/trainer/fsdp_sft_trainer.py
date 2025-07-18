@@ -56,8 +56,7 @@ from verl.utils.ulysses import (
     ulysses_pad_and_slice_inputs,
 )
 from verl.workers.sharding_manager.fsdp_ulysses import FSDPUlyssesShardingManager
-from reil.trainer.llm_agent.agent_proxy import LLMAgentProxy, HFWrapperWg
-
+from reil.utils.dataset.rg_dataset import prepare_reasoning_gym_sft_dataset
 
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv("VERL_SFT_LOGGING_LEVEL", "WARN"))
@@ -281,10 +280,13 @@ class FSDPSFTTrainer:
             raise ValueError(f"Unknown lr scheduler: {self.config.optim.lr_scheduler}")
 
     def init_agent_proxy(self):
-        tokenizer = self.tokenizer
-        config = self.config
-        actor_wg = HFWrapperWg(config, tokenizer, module=self.model)
-        self.proxy = LLMAgentProxy(config, actor_wg, tokenizer)
+        if self.config.data.type != 'reasoning_gym':
+            assert self.config.trainer.policy_eval==False, "Policy eval must be disabled for Reasoning Gym"
+            from reil.trainer.llm_agent.agent_proxy import LLMAgentProxy, HFWrapperWg
+            tokenizer = self.tokenizer
+            config = self.config
+            actor_wg = HFWrapperWg(config, tokenizer, module=self.model)
+            self.proxy = LLMAgentProxy(config, actor_wg, tokenizer)
 
     def _compute_loss_and_backward(self, batch, do_backward=True):
         """Compute loss with optional sequence parallelism and remove padding features"""
@@ -554,8 +556,11 @@ def main(config):
 
     local_model_path = copy_to_local(src=config.model.partial_pretrain, verbose=True)
     tokenizer = hf_tokenizer(local_model_path, trust_remote_code=config.model.trust_remote_code)
-    train_dataset = create_sft_dataset(config.data.train_files, config.data, tokenizer)
-    val_dataset = create_sft_dataset(config.data.val_files, config.data, tokenizer)
+    if config.data.type == 'reasoning_gym':
+        train_dataset, val_dataset = prepare_reasoning_gym_sft_dataset(config.data.reasoning_gym, tokenizer)
+    else:
+        train_dataset = create_sft_dataset(config.data.train_files, config.data, tokenizer)
+        val_dataset = create_sft_dataset(config.data.val_files, config.data, tokenizer)
 
     trainer = FSDPSFTTrainer(config=config, device_mesh=device_mesh, ulysses_device_mesh=ulysses_device_mesh, tokenizer=tokenizer, train_dataset=train_dataset, val_dataset=val_dataset)
 

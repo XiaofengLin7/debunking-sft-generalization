@@ -29,7 +29,6 @@ data:
       seed: 42
       dataset_size: 4000
 
-
     val:
       seed: 42
       dataset_size: 1000
