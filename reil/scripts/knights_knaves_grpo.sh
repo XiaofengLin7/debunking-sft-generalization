@@ -14,7 +14,7 @@ BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a26334
 BETA=0.005
 KL_COEF=0.001
 CONTEXT_LENGTH=1024
-EXPERIMENT_NAME="countdown-1.5b-${BETA}beta-${KL_COEF}kl-$(date +%m-%d)"
+EXPERIMENT_NAME="kk-1.5b-${BETA}beta-${KL_COEF}kl-$(date +%m-%d)"
 # EXPERIMENT_NAME="alfworld-1.5b-${BETA}beta-${KL_COEF}kl-pick_n_place_05-07"
 # EXPERIMENT_NAME="alfworld-1.5b-${BETA}beta-${KL_COEF}kl-2025-04-28"
 # EXPERIMENT_NAME="1.5b-${BETA}beta-${KL_COEF}kl-2025-04-20"
@@ -25,21 +25,15 @@ export VLLM_ATTENTION_BACKEND=XFORMERS
 
 python3 -m reil.trainer.main_ppo \
 data.type=reasoning_gym \
-+data.reasoning_gym.train.datasets.countdown.weight=1.0 \
-+data.reasoning_gym.train.datasets.countdown.config.min_numbers=4 \
-+data.reasoning_gym.train.datasets.countdown.config.max_numbers=4 \
-+data.reasoning_gym.train.datasets.countdown.config.min_value=1 \
-+data.reasoning_gym.train.datasets.countdown.config.max_value=100 \
-+data.reasoning_gym.train.datasets.countdown.config.min_target=100 \
-+data.reasoning_gym.val.datasets.countdown.weight=1.0 \
-+data.reasoning_gym.val.datasets.countdown.config.min_numbers=6 \
-+data.reasoning_gym.val.datasets.countdown.config.max_numbers=6 \
-+data.reasoning_gym.val.datasets.countdown.config.min_value=1 \
-+data.reasoning_gym.val.datasets.countdown.config.max_value=100 \
-+data.reasoning_gym.val.datasets.countdown.config.min_target=100 \
-+data.reasoning_gym.val.datasets.countdown.config.max_target=999 \
++data.reasoning_gym.train.datasets.knights_knaves.weight=1.0 \
++data.reasoning_gym.train.datasets.knights_knaves.config.n_people=2 \
++data.reasoning_gym.train.datasets.knights_knaves.config.depth_constraint=2 \
++data.reasoning_gym.train.datasets.knights_knaves.config.width_constraint=2 \
++data.reasoning_gym.val.datasets.knights_knaves.weight=1.0 \
++data.reasoning_gym.val.datasets.knights_knaves.config.n_people=4 \
++data.reasoning_gym.val.datasets.knights_knaves.config.depth_constraint=3 \
++data.reasoning_gym.val.datasets.knights_knaves.config.width_constraint=3 \
 data.train_batch_size=$BATCH_SIZE \
-data.val_batch_size=32 \
 data.max_prompt_length=1000 \
 data.max_response_length=$CONTEXT_LENGTH \
 algorithm.adv_estimator=grpo \
@@ -71,6 +65,6 @@ trainer.log_val_generations=4 \
 trainer.experiment_name=$EXPERIMENT_NAME \
 trainer.default_local_dir=checkpoints/ds543/REIL/${EXPERIMENT_NAME} \
 trainer.total_epochs=500 \
-trainer.policy_eval=False 2>&1 | tee countdown_1.5b.log
+trainer.policy_eval=False 2>&1 | tee kk_1.5b.log
 
 python data/dummy.py
