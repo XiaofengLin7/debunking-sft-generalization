@@ -57,6 +57,12 @@ from verl.utils.ulysses import (
 )
 from verl.workers.sharding_manager.fsdp_ulysses import FSDPUlyssesShardingManager
 from reil.utils.dataset.rg_dataset import prepare_reasoning_gym_sft_dataset
+# from reil.trainer.llm_agent.agent_proxy import HFWrapperWg
+from tensordict import TensorDict
+from typing import Dict, Any
+from verl import DataProto
+import numpy as np
+from verl.workers.rollout.hf_rollout import HFRollout
 
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv("VERL_SFT_LOGGING_LEVEL", "WARN"))
@@ -81,6 +87,13 @@ def convert_to_regular_types(obj):
         return {k: convert_to_regular_types(v) for k, v in obj.items()}
     return obj
 
+class Config:
+	def __init__(self, **kwargs):
+		for key, value in kwargs.items():
+			setattr(self, key, value)
+	
+	def get(self, key: str, default: Any = None) -> Any:
+		return getattr(self, key, default)
 
 class FSDPSFTTrainer:
     def __init__(self, config, device_mesh: DeviceMesh, ulysses_device_mesh: DeviceMesh, tokenizer, train_dataset: Dataset, val_dataset: Dataset):
@@ -112,6 +125,7 @@ class FSDPSFTTrainer:
             print(self.config)
             
         self.init_agent_proxy()
+        self.init_rollout()
 
     def _normalize_config_bsz(self):
         dp_size = self.device_mesh.size(0) if not self.ulysses_device_mesh else self.ulysses_device_mesh.size(0)
@@ -159,6 +173,7 @@ class FSDPSFTTrainer:
         self.val_dataloader = DataLoader(
             dataset=self.val_dataset,
             batch_size=config.data.micro_batch_size_per_gpu,
+            # batch_size=len(self.val_dataset),
             sampler=self.val_sampler,
             num_workers=8,
             pin_memory=True,
@@ -287,6 +302,18 @@ class FSDPSFTTrainer:
             config = self.config
             actor_wg = HFWrapperWg(config, tokenizer, module=self.model)
             self.proxy = LLMAgentProxy(config, actor_wg, tokenizer)
+
+    def init_rollout(self):
+        rollout_config = Config(
+            # micro_batch_size=self.config.data.micro_batch_size_per_gpu,
+            micro_batch_size=len(self.val_dataset),
+            response_length=self.config.actor_rollout_ref.rollout.response_length,
+            do_sample=self.config.actor_rollout_ref.rollout.do_sample,
+            temperature=self.config.actor_rollout_ref.rollout.val_kwargs.temperature,
+            top_p=self.config.actor_rollout_ref.rollout.val_kwargs.top_p,
+            top_k=self.config.actor_rollout_ref.rollout.val_kwargs.top_k,
+        )
+        self.rollout = HFRollout(self.model, rollout_config)
 
     def _compute_loss_and_backward(self, batch, do_backward=True):
         """Compute loss with optional sequence parallelism and remove padding features"""
@@ -483,7 +510,6 @@ class FSDPSFTTrainer:
 
                 data = TensorDict(data, batch_size=self.config.data.train_batch_size).cuda(device=local_rank)
 
-
                 metric = self.training_step(data)
                 if rank == 0:
                     tracking.log(data=metric, step=global_step)
@@ -496,6 +522,7 @@ class FSDPSFTTrainer:
                         val_data = TensorDict(val_data, batch_size=self.config.data.micro_batch_size_per_gpu).cuda(device=local_rank)
                         val_loss = self.validation_step(val_data)
                         val_losses.append(val_loss)
+
                     # if self.config.trainer.policy_eval and self.config.model.lora_rank == 0:
                     if self.config.trainer.policy_eval:
                         actor_wg = HFWrapperWg(self.config, self.tokenizer, module=self.fsdp_model)
@@ -506,7 +533,8 @@ class FSDPSFTTrainer:
                         avg_val_loss = torch.mean(torch.stack(val_losses))
                         metric = {"val/loss": avg_val_loss.detach().item()}
                         tracking.log(data=metric, step=global_step)
-                        tracking.log(data=rollouts.meta_info['metrics'], step=global_step)
+                        if self.config.trainer.policy_eval: 
+                            tracking.log(data=rollouts.meta_info['metrics'], step=global_step)
                     
                     torch.distributed.barrier()
 
@@ -519,7 +547,23 @@ class FSDPSFTTrainer:
             for data in self.val_dataloader:
                 data = TensorDict(data, batch_size=self.config.data.micro_batch_size_per_gpu).cuda(device=local_rank)
                 val_loss = self.validation_step(data)
-                val_losses.append(val_loss)
+                val_losses.append(val_loss)                        
+                # Extract prompt data and create a new DataProto for rollout
+                prompt_data = {
+                    'input_ids': data['prompt_ids'],  # Already has batch dimension
+                    'attention_mask': data['prompt_attention_mask'],
+                    'position_ids': data['prompt_position_ids'],
+                }
+                prompt_tensordict = TensorDict(prompt_data, batch_size=data['prompt_ids'].shape[0])
+                prompt_data_proto = convert_tensordict_to_dataproto(
+                    prompt_tensordict, 
+                    meta_info={'pad_token_id': self.tokenizer.pad_token_id, 'eos_token_id': self.tokenizer.eos_token_id}
+                )
+                
+                # Generate sequences using the prompt DataProto
+                output_proto = self.rollout.generate_sequences(prompt_data_proto)
+                print("Original prompt:", self.tokenizer.decode(data['prompt_ids'][0], skip_special_tokens=True))
+                print("Generated response:", self.tokenizer.decode(output_proto.batch['responses'][0], skip_special_tokens=True))
 
             if rank == 0:
                 val_loss = torch.mean(torch.stack(val_losses))
@@ -586,6 +630,49 @@ def create_sft_dataset(data_paths, data_config, tokenizer):
     dataset = dataset_cls(parquet_files=data_paths, tokenizer=tokenizer, config=data_config)
     return dataset
 
+def convert_tensordict_to_dataproto(tensordict_data: TensorDict, 
+                                   non_tensor_data: Dict[str, Any] = None,
+                                   meta_info: Dict[str, Any] = None) -> DataProto:
+    """
+    Convert TensorDict to DataProto format for reward function evaluation.
+    
+    Args:
+        tensordict_data: TensorDict containing the batch data
+        non_tensor_data: Optional dictionary containing non-tensor data (numpy arrays)
+        meta_info: Optional dictionary containing metadata
+        
+    Returns:
+        DataProto: The converted DataProto object
+    """
+    
+    # Extract tensors from TensorDict
+    tensors = {}
+    for key, value in tensordict_data.items():
+        if isinstance(value, torch.Tensor):
+            tensors[key] = value
+    
+    # Handle non-tensor data
+    if non_tensor_data is None:
+        non_tensor_data = {}
+    
+    # Convert non-tensor data to numpy arrays with dtype=object
+    processed_non_tensors = {}
+    for key, value in non_tensor_data.items():
+        if isinstance(value, np.ndarray):
+            processed_non_tensors[key] = value
+        else:
+            # Convert to numpy array with object dtype
+            try:
+                processed_non_tensors[key] = np.array(value, dtype=object)
+            except (TypeError, ValueError):
+                continue
+    
+    # Create DataProto using the from_dict method
+    return DataProto.from_dict(
+        tensors=tensors,
+        non_tensors=processed_non_tensors,
+        meta_info=meta_info or {}
+    ) 
 
 if __name__ == "__main__":
     main()
