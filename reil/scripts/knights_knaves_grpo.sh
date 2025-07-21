@@ -21,7 +21,7 @@ EXPERIMENT_NAME="kk-1.5b-${BETA}beta-${KL_COEF}kl-$(date +%m-%d)"
 ROLLOUT_TP_SIZE=1
 N_GPUS=4
 BATCH_SIZE=256
-export VLLM_ATTENTION_BACKEND=XFORMERS
+export VLLM_USE_V1=1
 
 python3 -m reil.trainer.main_ppo \
 data.type=reasoning_gym \
@@ -66,5 +66,3 @@ trainer.experiment_name=$EXPERIMENT_NAME \
 trainer.default_local_dir=checkpoints/ds543/REIL/${EXPERIMENT_NAME} \
 trainer.total_epochs=500 \
 trainer.policy_eval=False 2>&1 | tee kk_1.5b.log
-
-python data/dummy.py
