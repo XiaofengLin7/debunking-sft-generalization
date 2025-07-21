@@ -14,23 +14,21 @@ We study what makes LLM generalize.
 - Score function for SFT(see branch: feature/score_for_sft)
 - KL divergence metric for SFT
 
+## Prerequisites
+CUDA 12.2 & cuDNN 9.1.0 works, but [official docs](https://verl.readthedocs.io/en/latest/start/install.html) recommends CUDA >= 12.4 & cuDNN >= 9.8.0.
 
 ## Setup
 
 ```bash
 conda create -n reil python=3.10
 conda activate reil
+USE_MEGATRON=0 bash setup.sh
 git submodule init
 git submodule update
 pip install -e thirdparty/verl --no-dependencies
 pip install -e thirdparty/ragen --no-dependencies
 pip install -e thirdparty/alfworld --no-dependencies
-pip install -e thirdparty/trl
-conda install -c "nvidia/label/cuda-12.1.0" cuda-toolkit -y
-export CUDA_HOME=$CONDA_PREFIX
-pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cu121
-pip3 install flash-attn --no-build-isolation
-pip install -r requirements.txt
+pip install -e thirdparty/trl --no-dependecies
 ```
 
 ## Update submodules if necessary
