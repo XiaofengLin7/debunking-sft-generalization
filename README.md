@@ -1,25 +1,21 @@
 # REIL
-Reasoning Enhanced Imitation Learning
+We study what makes LLM generalize.
 
-## TODO
-- [] long chain of thought rewards
-- [] sft scripts
+[Google Doc](https://docs.google.com/document/d/1vZrBTFJIvfnOIr9hGS_SWdRS2Z1xw6kCow7Ps1BWaZc/edit?tab=t.0#heading=h.bsh8cnuvxol2)
+
 
 ## Experiments roadmap
-Diverse dataset, including math dataset, sokoban dataset.
-Sokoban dataset should be diverse enough with different length of horizons and different size of maps, etc.
-Increase the context windows.
-Implement long chain of thought rewards.
+- Comprehensive experiments on SFT vs RL on reasoning-required tasks.
+- Study why SFT can outperform RL on Sokoban task: measure $p_r$, $p_g$, $\pi_g$ and $\pi_r$. 
 
-## Initial steps on scc
-configure user name and email
+## To dos
+- GRPO for 5 domains(Sokoban, sudoku, shortest_path, knights_knaves, countdown)
+- SFT for 5 domains
+- Score function for SFT(see branch: feature/score_for_sft)
+- KL divergence metric for SFT
 
-```bash
-git config --global user.name XiaofengLin7
-git config --global user.email xfl199801@gmail.com
-```
 
-## Installation
+## Setup
 
 ```bash
 conda create -n reil python=3.10
@@ -37,13 +33,7 @@ pip3 install flash-attn --no-build-isolation
 pip install -r requirements.txt
 ```
 
-## Hardware Requirements
-
-Bfloat16 is only supported on GPUs with compute capability of at least 8.6.
-For 3B model, A100 is recommended.
-For 1.5B/0.5B model, scripts can be run on L40s.
-
-## update submodules if necessary
+## Update submodules if necessary
 
 ```bash
 cd thirdparty
