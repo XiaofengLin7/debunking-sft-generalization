@@ -1,7 +1,7 @@
 #!/bin/bash
 
 eval "$(conda shell.bash hook)"
-conda activate verl-test || exit 1
+conda activate reil || exit 1
 
 set -x
 
@@ -11,36 +11,54 @@ set -x
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-3B/snapshots/3aab1f1954e9cc14eb9509a215f9e5ca08227a9b"
 BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
 # BASE_MODEL="/usr3/graduate/xfl/lab/REIL/checkpoints/ds543/sft/alfworld-1.5b-pick_n_place-sft-qwen-2.5-base-full-sft/global_step_90"
+# Default values
 BETA=0.005
 KL_COEF=0.001
-CONTEXT_LENGTH=1024
-EXPERIMENT_NAME="countdown-1.5b-${BETA}beta-${KL_COEF}kl-$(date +%m-%d)"
+
+# Parse named arguments
+while [[ $# -gt 0 ]]; do
+  key="$1"
+  case $key in
+    --beta)
+      BETA="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --kl)
+      KL_COEF="$2"
+      shift
+      shift
+      ;;
+    -h|--help)
+      echo "Usage: $0 [--beta BETA] [--kl KL_COEF]"
+      exit 0
+      ;;
+    *)    # unknown option
+      echo "Unknown option $1"
+      exit 1
+      ;;
+  esac
+done
+
+CONTEXT_LENGTH=4096
+EXPERIMENT_NAME="sudoku-1.5b-${BETA}beta-${KL_COEF}kl-$(date +%m-%d)"
 # EXPERIMENT_NAME="alfworld-1.5b-${BETA}beta-${KL_COEF}kl-pick_n_place_05-07"
 # EXPERIMENT_NAME="alfworld-1.5b-${BETA}beta-${KL_COEF}kl-2025-04-28"
 # EXPERIMENT_NAME="1.5b-${BETA}beta-${KL_COEF}kl-2025-04-20"
 ROLLOUT_TP_SIZE=1
 N_GPUS=4
 BATCH_SIZE=256
-# export VLLM_ATTENTION_BACKEND=XFORMERS
 export VLLM_USE_V1=1
 
 python3 -m reil.trainer.main_ppo \
 data.type=reasoning_gym \
-+data.reasoning_gym.train.datasets.countdown.weight=1.0 \
-+data.reasoning_gym.train.datasets.countdown.config.min_numbers=4 \
-+data.reasoning_gym.train.datasets.countdown.config.max_numbers=4 \
-+data.reasoning_gym.train.datasets.countdown.config.min_value=1 \
-+data.reasoning_gym.train.datasets.countdown.config.max_value=100 \
-+data.reasoning_gym.train.datasets.countdown.config.min_target=100 \
-+data.reasoning_gym.val.datasets.countdown.weight=1.0 \
-+data.reasoning_gym.val.datasets.countdown.config.min_numbers=6 \
-+data.reasoning_gym.val.datasets.countdown.config.max_numbers=6 \
-+data.reasoning_gym.val.datasets.countdown.config.min_value=1 \
-+data.reasoning_gym.val.datasets.countdown.config.max_value=100 \
-+data.reasoning_gym.val.datasets.countdown.config.min_target=100 \
-+data.reasoning_gym.val.datasets.countdown.config.max_target=999 \
++data.reasoning_gym.train.datasets.mini_sudoku.weight=1.0 \
++data.reasoning_gym.train.datasets.mini_sudoku.config.min_empty=8 \
++data.reasoning_gym.train.datasets.mini_sudoku.config.max_empty=12 \
++data.reasoning_gym.val.datasets.sudoku.weight=1.0 \
++data.reasoning_gym.val.datasets.sudoku.config.min_empty=30 \
++data.reasoning_gym.val.datasets.sudoku.config.max_empty=50 \
 data.train_batch_size=$BATCH_SIZE \
-data.val_batch_size=32 \
 data.max_prompt_length=1000 \
 data.max_response_length=$CONTEXT_LENGTH \
 algorithm.adv_estimator=grpo \
@@ -71,5 +89,5 @@ trainer.resume_mode=auto \
 trainer.log_val_generations=4 \
 trainer.experiment_name=$EXPERIMENT_NAME \
 trainer.default_local_dir=checkpoints/ds543/REIL/${EXPERIMENT_NAME} \
-trainer.total_epochs=500 \
-trainer.policy_eval=False 2>&1 | tee countdown_1.5b.log
+trainer.total_epochs=100 \
+trainer.policy_eval=False 2>&1 | tee sudoku_1.5b.log
