@@ -63,6 +63,7 @@ from typing import Dict, Any
 from verl import DataProto
 import numpy as np
 from verl.workers.rollout.hf_rollout import HFRollout
+from reasoning_gym.utils import extract_answer
 
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv("VERL_SFT_LOGGING_LEVEL", "WARN"))
@@ -126,6 +127,7 @@ class FSDPSFTTrainer:
             
         self.init_agent_proxy()
         self.init_rollout()
+        self.init_reward_function()
 
     def _normalize_config_bsz(self):
         dp_size = self.device_mesh.size(0) if not self.ulysses_device_mesh else self.ulysses_device_mesh.size(0)
@@ -182,6 +184,97 @@ class FSDPSFTTrainer:
         print(f"Validation dataset length: {len(self.val_dataset)}")
         print(f"Validation dataloader length: {len(self.val_dataloader)}")
         # assert len(self.val_dataloader) == 1, "Validation dataloader should have only one batch"
+
+    def init_reward_function(self):
+        if self.config.data.type == 'reasoning_gym':
+            self.reward_fn = lambda data: self._score_output(data, num_examine=0, is_val=False)
+            self.val_reward_fn = lambda data: self._score_output(data, num_examine=1, is_val=True)
+        else:
+            # TODO: add reward function for standard SFT
+            pass
+
+    def _score_output(self, data: DataProto, num_examine: int = 0, is_val: bool = False) -> torch.Tensor:
+        reward_tensor = torch.zeros_like(data.batch["responses"], dtype=torch.float32)
+
+        num_printed = 0
+        for i in range(len(data)):
+            data_item = data[i]  # DataProtoItem
+            # print(data_item.non_tensor_batch)
+            prompt_ids = data_item.batch["prompts"]  # tokenized prompts
+            prompt_length = prompt_ids.shape[-1]
+
+            valid_prompt_length = data_item.batch["attention_mask"][:prompt_length].sum()
+            valid_prompt_ids = prompt_ids[-valid_prompt_length:]
+
+            response_ids = data_item.batch["responses"]
+            valid_response_length = data_item.batch["attention_mask"][prompt_length:].sum()
+            valid_response_ids = response_ids[:valid_response_length]
+
+            # decode
+            prompt_str = self.tokenizer.decode(valid_prompt_ids)
+            response_str = self.tokenizer.decode(valid_response_ids)
+            sequences_str = prompt_str + response_str
+
+            index = data_item.non_tensor_batch["index"]
+            correctness_score = self._compute_correctness_score(
+                solution_str=response_str,
+                index=index,
+                is_val=is_val
+            )
+            if self.config.reward.use_accuracy:
+                reward_components = {"correctness": correctness_score}
+                total_reward = correctness_score
+            else:
+                reward_components = {}
+                total_reward = 0
+
+            # Disable custom reward functions for now.
+            # for reward_fn in self.reward_functions:
+            #     func = reward_fn["function"]
+            #     name = reward_fn["name"]
+            #     scaling_factor = reward_fn["scaling_factor"]
+            #     kwargs = reward_fn["kwargs"]
+            #     if name == "cosine":
+            #         is_correct = correctness_score == 1.0
+            #         reward = func(response_str, scaling_factor, is_correct=is_correct, **kwargs)
+            #     elif name == "length":
+            #         reward = func(response_str, scaling_factor, correctness_score=correctness_score, **kwargs)
+            #     else:
+            #         reward = func(response_str, scaling_factor, **kwargs)
+            #     reward_components[name] = reward
+            #     total_reward += reward
+
+            reward_tensor[i, valid_response_length - 1] = total_reward
+
+            if num_printed < num_examine:
+                components = ", ".join([f"{k}={v:.2f}" for k, v in reward_components.items()])
+                print(f"(score={total_reward}, seq={sequences_str}, response={response_str})")
+                print(f"reward={total_reward:.2f} ({components})")
+                num_printed += 1
+
+        return reward_tensor
+
+    def _compute_correctness_score(self, solution_str: str, index: int, is_val: bool = False) -> float:
+        found_answer = extract_answer(solution_str, tag_name="answer")
+        if is_val:
+            data = self.val_dataset.data
+        else:
+            data = self.train_dataset.data
+
+        entry = data[index]
+        # TODO: debug if every index is valid and if the mapping is correct.
+        if is_val:
+            if self.val_dataset.experiment:
+                experiment = self.val_dataset.experiment
+                return experiment.score_answer_with_id(found_answer, entry["metadata"]["entry_id"])
+            else:
+                return data.score_answer(found_answer, entry=entry)
+        else:
+            if self.train_dataset.experiment:   
+                experiment = self.train_dataset.experiment
+                return experiment.score_answer_with_id(found_answer, entry["metadata"]["entry_id"])
+            else:
+                return data.score_answer(found_answer, entry=entry)
 
     def _build_model_optimizer(self):
         # TODO (zhangchi.usc1992):
@@ -551,6 +644,7 @@ class FSDPSFTTrainer:
             all_prompt_ids = []
             all_prompt_attention_mask = []
             all_prompt_position_ids = []
+            all_index = []
 
             for data in self.val_dataloader:
                 data = TensorDict(data, batch_size=self.config.data.micro_batch_size_per_gpu).cuda(device=local_rank)
@@ -561,11 +655,13 @@ class FSDPSFTTrainer:
                 all_prompt_ids.append(data['prompt_ids'])
                 all_prompt_attention_mask.append(data['prompt_attention_mask'])
                 all_prompt_position_ids.append(data['prompt_position_ids'])
-
+                all_index.append(data['index'])
             # After loop
             all_prompt_ids = torch.cat(all_prompt_ids, dim=0)
             all_prompt_attention_mask = torch.cat(all_prompt_attention_mask, dim=0)
             all_prompt_position_ids = torch.cat(all_prompt_position_ids, dim=0)
+            all_index = [x.cpu().numpy() for x in all_index]
+            all_index = np.concatenate(all_index, axis=0)
 
             prompt_data = {
                 'input_ids': all_prompt_ids,
@@ -578,9 +674,11 @@ class FSDPSFTTrainer:
                 meta_info={'pad_token_id': self.tokenizer.pad_token_id, 'eos_token_id': self.tokenizer.eos_token_id}
             )
             output_proto = self.rollout.generate_sequences(prompt_data_proto)
-            print("Original prompt:", self.tokenizer.decode(data['prompt_ids'][0], skip_special_tokens=True))
-            print("Generated response:", self.tokenizer.decode(output_proto.batch['responses'][0], skip_special_tokens=True))
+            output_proto.non_tensor_batch['index'] = all_index
+            reward = self.val_reward_fn(output_proto)
 
+            # print(f"Size of reward: {reward.shape}")
+            
             if rank == 0:
                 val_loss = torch.mean(torch.stack(val_losses))
                 metric = {"val/loss": val_loss.detach().item()}

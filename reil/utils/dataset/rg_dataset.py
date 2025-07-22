@@ -14,6 +14,7 @@ from reasoning_gym.composite import CompositeDataset, DatasetSpec
 import reasoning_gym
 from omegaconf import OmegaConf
 import torch
+import numpy as np
 response_template = """\
 <think></think> <answer> {answer} </answer>
 """
@@ -207,6 +208,7 @@ class ReasoningGymSFTDataset(Dataset):
             'prompt_ids': prompt_ids,
             'prompt_attention_mask': prompt_attention_mask,
             'prompt_position_ids': prompt_position_ids,
+            'index': index,
         }
 
 
