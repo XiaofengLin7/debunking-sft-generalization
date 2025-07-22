@@ -173,12 +173,15 @@ class FSDPSFTTrainer:
         self.val_dataloader = DataLoader(
             dataset=self.val_dataset,
             batch_size=config.data.micro_batch_size_per_gpu,
-            # batch_size=len(self.val_dataset),
+            # batch_size=len(self.val_dataset)//world_size,
             sampler=self.val_sampler,
             num_workers=8,
             pin_memory=True,
             drop_last=True,
         )
+        print(f"Validation dataset length: {len(self.val_dataset)}")
+        print(f"Validation dataloader length: {len(self.val_dataloader)}")
+        # assert len(self.val_dataloader) == 1, "Validation dataloader should have only one batch"
 
     def _build_model_optimizer(self):
         # TODO (zhangchi.usc1992):
@@ -544,26 +547,39 @@ class FSDPSFTTrainer:
 
             # validation
             val_losses = []
+            
+            all_prompt_ids = []
+            all_prompt_attention_mask = []
+            all_prompt_position_ids = []
+
             for data in self.val_dataloader:
                 data = TensorDict(data, batch_size=self.config.data.micro_batch_size_per_gpu).cuda(device=local_rank)
+                # data = TensorDict(data, batch_size=len(self.val_dataset)//world_size).cuda(device=local_rank)
                 val_loss = self.validation_step(data)
                 val_losses.append(val_loss)                        
                 # Extract prompt data and create a new DataProto for rollout
-                prompt_data = {
-                    'input_ids': data['prompt_ids'],  # Already has batch dimension
-                    'attention_mask': data['prompt_attention_mask'],
-                    'position_ids': data['prompt_position_ids'],
-                }
-                prompt_tensordict = TensorDict(prompt_data, batch_size=data['prompt_ids'].shape[0])
-                prompt_data_proto = convert_tensordict_to_dataproto(
-                    prompt_tensordict, 
-                    meta_info={'pad_token_id': self.tokenizer.pad_token_id, 'eos_token_id': self.tokenizer.eos_token_id}
-                )
-                
-                # Generate sequences using the prompt DataProto
-                output_proto = self.rollout.generate_sequences(prompt_data_proto)
-                print("Original prompt:", self.tokenizer.decode(data['prompt_ids'][0], skip_special_tokens=True))
-                print("Generated response:", self.tokenizer.decode(output_proto.batch['responses'][0], skip_special_tokens=True))
+                all_prompt_ids.append(data['prompt_ids'])
+                all_prompt_attention_mask.append(data['prompt_attention_mask'])
+                all_prompt_position_ids.append(data['prompt_position_ids'])
+
+            # After loop
+            all_prompt_ids = torch.cat(all_prompt_ids, dim=0)
+            all_prompt_attention_mask = torch.cat(all_prompt_attention_mask, dim=0)
+            all_prompt_position_ids = torch.cat(all_prompt_position_ids, dim=0)
+
+            prompt_data = {
+                'input_ids': all_prompt_ids,
+                'attention_mask': all_prompt_attention_mask,
+                'position_ids': all_prompt_position_ids,
+            }
+            prompt_tensordict = TensorDict(prompt_data, batch_size=all_prompt_ids.shape[0])
+            prompt_data_proto = convert_tensordict_to_dataproto(
+                prompt_tensordict, 
+                meta_info={'pad_token_id': self.tokenizer.pad_token_id, 'eos_token_id': self.tokenizer.eos_token_id}
+            )
+            output_proto = self.rollout.generate_sequences(prompt_data_proto)
+            print("Original prompt:", self.tokenizer.decode(data['prompt_ids'][0], skip_special_tokens=True))
+            print("Generated response:", self.tokenizer.decode(output_proto.batch['responses'][0], skip_special_tokens=True))
 
             if rank == 0:
                 val_loss = torch.mean(torch.stack(val_losses))
