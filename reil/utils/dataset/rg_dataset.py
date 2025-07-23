@@ -14,8 +14,9 @@ from reasoning_gym.composite import CompositeDataset, DatasetSpec
 import reasoning_gym
 from omegaconf import OmegaConf
 import torch
+import numpy as np
 response_template = """\
-</think> <answer> {answer} </answer>
+<think></think> <answer> {answer} </answer>
 """
 class ReasoningGymDataset(Dataset):
     def __init__(
@@ -144,14 +145,14 @@ class ReasoningGymSFTDataset(Dataset):
         prompt_chat_str = self.tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True)
 
         response = response_template.format(answer=a)
-        response_chat_str = response + self.tokenizer.eos_token
-
+        # response_chat_str = response + self.tokenizer.eos_token
+        response_chat_str = response
         # tokenize
-        prompt_ids_output = self.tokenizer(prompt_chat_str, return_tensors='pt', add_special_tokens=False)
+        prompt_ids_output = self.tokenizer(prompt_chat_str, return_tensors='pt', add_special_tokens=False, padding_side='left')
         prompt_ids = prompt_ids_output['input_ids'][0]
         prompt_attention_mask = prompt_ids_output['attention_mask'][0]
 
-        response_ids_output = self.tokenizer(response_chat_str, return_tensors='pt', add_special_tokens=False)
+        response_ids_output = self.tokenizer(response_chat_str, return_tensors='pt', add_special_tokens=False, padding_side='left')
         response_ids = response_ids_output['input_ids'][0]
         response_attention_mask = response_ids_output['attention_mask'][0]
 
@@ -161,15 +162,23 @@ class ReasoningGymSFTDataset(Dataset):
         input_ids = torch.cat((prompt_ids, response_ids), dim=-1)
         attention_mask = torch.cat((prompt_attention_mask, response_attention_mask), dim=-1)
 
-        # padding to max length right padding
+        # padding to max length left padding
         sequence_length = input_ids.shape[0]
         if sequence_length < self.max_length:
             padded_input_ids = torch.ones(size=(self.max_length - sequence_length,),
                                           dtype=input_ids.dtype) * self.tokenizer.pad_token_id
             padded_attention_mask = torch.zeros(size=(self.max_length - sequence_length,), dtype=attention_mask.dtype)
 
-            input_ids = torch.cat((input_ids, padded_input_ids))
-            attention_mask = torch.cat((attention_mask, padded_attention_mask))
+            input_ids = torch.cat((padded_input_ids, input_ids))
+            attention_mask = torch.cat((padded_attention_mask, attention_mask))
+
+            padded_prompt_ids = torch.ones(size=(self.max_length - prompt_length,),
+                                          dtype=prompt_ids.dtype) * self.tokenizer.pad_token_id
+            padded_prompt_attention_mask = torch.zeros(size=(self.max_length - prompt_length,), dtype=prompt_attention_mask.dtype)
+
+            prompt_ids = torch.cat((padded_prompt_ids, prompt_ids))
+            prompt_attention_mask = torch.cat((padded_prompt_attention_mask, prompt_attention_mask))
+
         elif sequence_length > self.max_length:
             if self.truncation == 'left':
                 # actually, left truncation may not be reasonable
@@ -184,19 +193,22 @@ class ReasoningGymSFTDataset(Dataset):
                 raise NotImplementedError(f'Unknown truncation method {self.truncation}')
         
         position_ids = compute_position_id_with_mask(attention_mask)
-
+        prompt_position_ids = compute_position_id_with_mask(prompt_attention_mask)
         loss_mask = attention_mask.clone()
         if prompt_length > 1:
             # mask out prompt for SFT.
             loss_mask[:min(prompt_length, loss_mask.size(0)) - 1] = 0
         # mask out the last token in response
         loss_mask[min(prompt_length + response_length, loss_mask.size(0)) - 1] = 0
-
         return {
             'input_ids': input_ids,
             'attention_mask': attention_mask,
             'position_ids': position_ids,
-            'loss_mask': loss_mask
+            'loss_mask': loss_mask,
+            'prompt_ids': prompt_ids,
+            'prompt_attention_mask': prompt_attention_mask,
+            'prompt_position_ids': prompt_position_ids,
+            'index': index,
         }
 
 

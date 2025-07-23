@@ -35,7 +35,7 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
     +data.reasoning_gym.val.datasets.countdown.config.min_target=100 \
     +data.reasoning_gym.val.datasets.countdown.config.max_target=999 \
     data.max_length=2048 \
-    data.train_batch_size=128 \
+    data.train_batch_size=256 \
     optim.lr=$LEARNING_RATE \
     data.micro_batch_size_per_gpu=4 \
     model.partial_pretrain=$BASE_MODEL \

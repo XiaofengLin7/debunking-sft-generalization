@@ -57,7 +57,14 @@ from verl.utils.ulysses import (
 )
 from verl.workers.sharding_manager.fsdp_ulysses import FSDPUlyssesShardingManager
 from reil.utils.dataset.rg_dataset import prepare_reasoning_gym_sft_dataset
-
+# from reil.trainer.llm_agent.agent_proxy import HFWrapperWg
+from tensordict import TensorDict
+from typing import Dict, Any
+from verl import DataProto
+import numpy as np
+from verl.workers.rollout.hf_rollout import HFRollout
+from reasoning_gym.utils import extract_answer
+from pprint import pprint
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv("VERL_SFT_LOGGING_LEVEL", "WARN"))
 
@@ -81,6 +88,13 @@ def convert_to_regular_types(obj):
         return {k: convert_to_regular_types(v) for k, v in obj.items()}
     return obj
 
+class Config:
+	def __init__(self, **kwargs):
+		for key, value in kwargs.items():
+			setattr(self, key, value)
+	
+	def get(self, key: str, default: Any = None) -> Any:
+		return getattr(self, key, default)
 
 class FSDPSFTTrainer:
     def __init__(self, config, device_mesh: DeviceMesh, ulysses_device_mesh: DeviceMesh, tokenizer, train_dataset: Dataset, val_dataset: Dataset):
@@ -112,6 +126,8 @@ class FSDPSFTTrainer:
             print(self.config)
             
         self.init_agent_proxy()
+        self.init_rollout()
+        self.init_reward_function()
 
     def _normalize_config_bsz(self):
         dp_size = self.device_mesh.size(0) if not self.ulysses_device_mesh else self.ulysses_device_mesh.size(0)
@@ -159,11 +175,105 @@ class FSDPSFTTrainer:
         self.val_dataloader = DataLoader(
             dataset=self.val_dataset,
             batch_size=config.data.micro_batch_size_per_gpu,
+            # batch_size=len(self.val_dataset)//world_size,
             sampler=self.val_sampler,
             num_workers=8,
             pin_memory=True,
             drop_last=True,
         )
+        print(f"Validation dataset length: {len(self.val_dataset)}")
+        print(f"Validation dataloader length: {len(self.val_dataloader)}")
+        # assert len(self.val_dataloader) == 1, "Validation dataloader should have only one batch"
+
+    def init_reward_function(self):
+        if self.config.data.type == 'reasoning_gym':
+            self.reward_fn = lambda data: self._score_output(data, num_examine=0, is_val=False)
+            self.val_reward_fn = lambda data: self._score_output(data, num_examine=1, is_val=True)
+        else:
+            # TODO: add reward function for standard SFT
+            pass
+
+    def _score_output(self, data: DataProto, num_examine: int = 0, is_val: bool = False) -> torch.Tensor:
+        reward_tensor = torch.zeros_like(data.batch["responses"], dtype=torch.float32)
+
+        num_printed = 0
+        for i in range(len(data)):
+            data_item = data[i]  # DataProtoItem
+            # print(data_item.non_tensor_batch)
+            prompt_ids = data_item.batch["prompts"]  # tokenized prompts
+            prompt_length = prompt_ids.shape[-1]
+
+            valid_prompt_length = data_item.batch["attention_mask"][:prompt_length].sum()
+            valid_prompt_ids = prompt_ids[-valid_prompt_length:]
+
+            response_ids = data_item.batch["responses"]
+            valid_response_length = data_item.batch["attention_mask"][prompt_length:].sum()
+            valid_response_ids = response_ids[:valid_response_length]
+
+            # decode
+            prompt_str = self.tokenizer.decode(valid_prompt_ids)
+            response_str = self.tokenizer.decode(valid_response_ids)
+            sequences_str = prompt_str + response_str
+
+            index = data_item.non_tensor_batch["index"]
+            correctness_score = self._compute_correctness_score(
+                solution_str=response_str,
+                index=index,
+                is_val=is_val
+            )
+            if self.config.reward.use_accuracy:
+                reward_components = {"correctness": correctness_score}
+                total_reward = correctness_score
+            else:
+                reward_components = {}
+                total_reward = 0
+
+            # Disable custom reward functions for now.
+            # for reward_fn in self.reward_functions:
+            #     func = reward_fn["function"]
+            #     name = reward_fn["name"]
+            #     scaling_factor = reward_fn["scaling_factor"]
+            #     kwargs = reward_fn["kwargs"]
+            #     if name == "cosine":
+            #         is_correct = correctness_score == 1.0
+            #         reward = func(response_str, scaling_factor, is_correct=is_correct, **kwargs)
+            #     elif name == "length":
+            #         reward = func(response_str, scaling_factor, correctness_score=correctness_score, **kwargs)
+            #     else:
+            #         reward = func(response_str, scaling_factor, **kwargs)
+            #     reward_components[name] = reward
+            #     total_reward += reward
+
+            reward_tensor[i, valid_response_length - 1] = total_reward
+
+            if num_printed < num_examine:
+                components = ", ".join([f"{k}={v:.2f}" for k, v in reward_components.items()])
+                print(f"(score={total_reward}, seq={sequences_str}, response={response_str})")
+                print(f"reward={total_reward:.2f} ({components})")
+                num_printed += 1
+
+        return reward_tensor
+
+    def _compute_correctness_score(self, solution_str: str, index: int, is_val: bool = False) -> float:
+        found_answer = extract_answer(solution_str, tag_name="answer")
+        if is_val:
+            data = self.val_dataset.data
+        else:
+            data = self.train_dataset.data
+
+        entry = data[index]
+        if is_val:
+            if self.val_dataset.experiment:
+                experiment = self.val_dataset.experiment
+                return experiment.score_answer_with_id(found_answer, entry["metadata"]["entry_id"])
+            else:
+                return data.score_answer(found_answer, entry=entry)
+        else:
+            if self.train_dataset.experiment:   
+                experiment = self.train_dataset.experiment
+                return experiment.score_answer_with_id(found_answer, entry["metadata"]["entry_id"])
+            else:
+                return data.score_answer(found_answer, entry=entry)
 
     def _build_model_optimizer(self):
         # TODO (zhangchi.usc1992):
@@ -287,6 +397,18 @@ class FSDPSFTTrainer:
             config = self.config
             actor_wg = HFWrapperWg(config, tokenizer, module=self.model)
             self.proxy = LLMAgentProxy(config, actor_wg, tokenizer)
+
+    def init_rollout(self):
+        rollout_config = Config(
+            # micro_batch_size=self.config.data.micro_batch_size_per_gpu,
+            micro_batch_size=len(self.val_dataset),
+            response_length=self.config.actor_rollout_ref.rollout.response_length,
+            do_sample=self.config.actor_rollout_ref.rollout.do_sample,
+            temperature=self.config.actor_rollout_ref.rollout.val_kwargs.temperature,
+            top_p=self.config.actor_rollout_ref.rollout.val_kwargs.top_p,
+            top_k=self.config.actor_rollout_ref.rollout.val_kwargs.top_k,
+        )
+        self.rollout = HFRollout(self.model, rollout_config)
 
     def _compute_loss_and_backward(self, batch, do_backward=True):
         """Compute loss with optional sequence parallelism and remove padding features"""
@@ -483,7 +605,6 @@ class FSDPSFTTrainer:
 
                 data = TensorDict(data, batch_size=self.config.data.train_batch_size).cuda(device=local_rank)
 
-
                 metric = self.training_step(data)
                 if rank == 0:
                     tracking.log(data=metric, step=global_step)
@@ -496,6 +617,7 @@ class FSDPSFTTrainer:
                         val_data = TensorDict(val_data, batch_size=self.config.data.micro_batch_size_per_gpu).cuda(device=local_rank)
                         val_loss = self.validation_step(val_data)
                         val_losses.append(val_loss)
+
                     # if self.config.trainer.policy_eval and self.config.model.lora_rank == 0:
                     if self.config.trainer.policy_eval:
                         actor_wg = HFWrapperWg(self.config, self.tokenizer, module=self.fsdp_model)
@@ -506,7 +628,8 @@ class FSDPSFTTrainer:
                         avg_val_loss = torch.mean(torch.stack(val_losses))
                         metric = {"val/loss": avg_val_loss.detach().item()}
                         tracking.log(data=metric, step=global_step)
-                        tracking.log(data=rollouts.meta_info['metrics'], step=global_step)
+                        if self.config.trainer.policy_eval: 
+                            tracking.log(data=rollouts.meta_info['metrics'], step=global_step)
                     
                     torch.distributed.barrier()
 
@@ -516,14 +639,49 @@ class FSDPSFTTrainer:
 
             # validation
             val_losses = []
+            
+            all_prompt_ids = []
+            all_prompt_attention_mask = []
+            all_prompt_position_ids = []
+            all_index = []
+
             for data in self.val_dataloader:
                 data = TensorDict(data, batch_size=self.config.data.micro_batch_size_per_gpu).cuda(device=local_rank)
+                # data = TensorDict(data, batch_size=len(self.val_dataset)//world_size).cuda(device=local_rank)
                 val_loss = self.validation_step(data)
-                val_losses.append(val_loss)
+                val_losses.append(val_loss)                        
+                # Extract prompt data and create a new DataProto for rollout
+                all_prompt_ids.append(data['prompt_ids'])
+                all_prompt_attention_mask.append(data['prompt_attention_mask'])
+                all_prompt_position_ids.append(data['prompt_position_ids'])
+                all_index.append(data['index'])
+            # After loop
+            all_prompt_ids = torch.cat(all_prompt_ids, dim=0)
+            all_prompt_attention_mask = torch.cat(all_prompt_attention_mask, dim=0)
+            all_prompt_position_ids = torch.cat(all_prompt_position_ids, dim=0)
+            all_index = [x.cpu().numpy() for x in all_index]
+            all_index = np.concatenate(all_index, axis=0)
 
+            prompt_data = {
+                'input_ids': all_prompt_ids,
+                'attention_mask': all_prompt_attention_mask,
+                'position_ids': all_prompt_position_ids,
+            }
+            prompt_tensordict = TensorDict(prompt_data, batch_size=all_prompt_ids.shape[0])
+            prompt_data_proto = convert_tensordict_to_dataproto(
+                prompt_tensordict, 
+                meta_info={'pad_token_id': self.tokenizer.pad_token_id, 'eos_token_id': self.tokenizer.eos_token_id}
+            )
+            output_proto = self.rollout.generate_sequences(prompt_data_proto)
+            output_proto.non_tensor_batch['index'] = all_index
+            reward_tensor = self.val_reward_fn(output_proto)
+
+            score = reward_tensor.sum(dim=-1).mean().cpu()
+            # TODO: add score for each data source     
+            
             if rank == 0:
                 val_loss = torch.mean(torch.stack(val_losses))
-                metric = {"val/loss": val_loss.detach().item()}
+                metric = {"val/loss": val_loss.detach().item(), "val/score": score.detach().item()}
                 tracking.log(data=metric, step=global_step)
             
             if global_step % self.config.trainer.test_freq == 0 and self.config.trainer.policy_eval:
@@ -586,6 +744,49 @@ def create_sft_dataset(data_paths, data_config, tokenizer):
     dataset = dataset_cls(parquet_files=data_paths, tokenizer=tokenizer, config=data_config)
     return dataset
 
+def convert_tensordict_to_dataproto(tensordict_data: TensorDict, 
+                                   non_tensor_data: Dict[str, Any] = None,
+                                   meta_info: Dict[str, Any] = None) -> DataProto:
+    """
+    Convert TensorDict to DataProto format for reward function evaluation.
+    
+    Args:
+        tensordict_data: TensorDict containing the batch data
+        non_tensor_data: Optional dictionary containing non-tensor data (numpy arrays)
+        meta_info: Optional dictionary containing metadata
+        
+    Returns:
+        DataProto: The converted DataProto object
+    """
+    
+    # Extract tensors from TensorDict
+    tensors = {}
+    for key, value in tensordict_data.items():
+        if isinstance(value, torch.Tensor):
+            tensors[key] = value
+    
+    # Handle non-tensor data
+    if non_tensor_data is None:
+        non_tensor_data = {}
+    
+    # Convert non-tensor data to numpy arrays with dtype=object
+    processed_non_tensors = {}
+    for key, value in non_tensor_data.items():
+        if isinstance(value, np.ndarray):
+            processed_non_tensors[key] = value
+        else:
+            # Convert to numpy array with object dtype
+            try:
+                processed_non_tensors[key] = np.array(value, dtype=object)
+            except (TypeError, ValueError):
+                continue
+    
+    # Create DataProto using the from_dict method
+    return DataProto.from_dict(
+        tensors=tensors,
+        non_tensors=processed_non_tensors,
+        meta_info=meta_info or {}
+    ) 
 
 if __name__ == "__main__":
     main()
