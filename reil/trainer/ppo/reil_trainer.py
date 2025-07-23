@@ -101,8 +101,8 @@ class ReilPPOTrainer(RayPPOTrainer):
                             }
                         )
 
-            reward_fn = lambda data: self._score_output(data, num_examine=0)
-            val_reward_fn = lambda data: self._score_output(data, num_examine=1)
+            reward_fn = lambda data: self._score_output(data, num_examine=0, is_val=False)
+            val_reward_fn = lambda data: self._score_output(data, num_examine=1, is_val=True)
         else:
             # TODO: we have to make sure the batch size is divisible by the dp size
             self.train_dataset = RLHFDataset(parquet_files=self.config.data.train_files,
@@ -203,7 +203,7 @@ class ReilPPOTrainer(RayPPOTrainer):
         rollouts = self.agent_proxy.rollout()
         return rollouts.meta_info['metrics']
 
-    def _score_output(self, data: DataProto, num_examine: int = 0) -> torch.Tensor:
+    def _score_output(self, data: DataProto, num_examine: int = 0, is_val: bool = False) -> torch.Tensor:
         reward_tensor = torch.zeros_like(data.batch["responses"], dtype=torch.float32)
 
         num_printed = 0
@@ -229,6 +229,7 @@ class ReilPPOTrainer(RayPPOTrainer):
             correctness_score = self._compute_correctness_score(
                 solution_str=response_str,
                 index=index,
+                is_val=is_val
             )
             if self.config.reward.use_accuracy:
                 reward_components = {"correctness": correctness_score}
@@ -262,16 +263,26 @@ class ReilPPOTrainer(RayPPOTrainer):
 
         return reward_tensor
 
-    def _compute_correctness_score(self, solution_str: str, index: int) -> float:
+    def _compute_correctness_score(self, solution_str: str, index: int, is_val: bool = False) -> float:
         found_answer = extract_answer(solution_str, tag_name="answer")
-        data = self.train_dataset.data
+        if is_val:
+            data = self.val_dataset.data
+        else:
+            data = self.train_dataset.data
 
         entry = data[index]
-        if self.train_dataset.experiment:
-            experiment = self.train_dataset.experiment
-            return experiment.score_answer_with_id(found_answer, entry["metadata"]["entry_id"])
+        if is_val:
+            if self.val_dataset.experiment:
+                experiment = self.val_dataset.experiment
+                return experiment.score_answer_with_id(found_answer, entry["metadata"]["entry_id"])
+            else:
+                return data.score_answer(found_answer, entry=entry)
         else:
-            return data.score_answer(found_answer, entry=entry)
+            if self.train_dataset.experiment:   
+                experiment = self.train_dataset.experiment
+                return experiment.score_answer_with_id(found_answer, entry["metadata"]["entry_id"])
+            else:
+                return data.score_answer(found_answer, entry=entry)
     
     def fit(self):
         """
