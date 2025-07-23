@@ -64,7 +64,7 @@ from verl import DataProto
 import numpy as np
 from verl.workers.rollout.hf_rollout import HFRollout
 from reasoning_gym.utils import extract_answer
-
+from pprint import pprint
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv("VERL_SFT_LOGGING_LEVEL", "WARN"))
 
@@ -262,7 +262,6 @@ class FSDPSFTTrainer:
             data = self.train_dataset.data
 
         entry = data[index]
-        # TODO: debug if every index is valid and if the mapping is correct.
         if is_val:
             if self.val_dataset.experiment:
                 experiment = self.val_dataset.experiment
@@ -675,13 +674,14 @@ class FSDPSFTTrainer:
             )
             output_proto = self.rollout.generate_sequences(prompt_data_proto)
             output_proto.non_tensor_batch['index'] = all_index
-            reward = self.val_reward_fn(output_proto)
+            reward_tensor = self.val_reward_fn(output_proto)
 
-            # print(f"Size of reward: {reward.shape}")
+            score = reward_tensor.sum(dim=-1).mean().cpu()
+            # TODO: add score for each data source     
             
             if rank == 0:
                 val_loss = torch.mean(torch.stack(val_losses))
-                metric = {"val/loss": val_loss.detach().item()}
+                metric = {"val/loss": val_loss.detach().item(), "val/score": score.detach().item()}
                 tracking.log(data=metric, step=global_step)
             
             if global_step % self.config.trainer.test_freq == 0 and self.config.trainer.policy_eval:
