@@ -1,8 +1,8 @@
 from ragen.env.sokoban.env import SokobanEnv
 import numpy as np
-from ragen.utils import NoLoggerWarnings
-from ragen.env.sokoban.room_utils import generate_room
-from ragen.utils import set_seed
+# from ragen.utils import NoLoggerWarnings
+from ragen.env.sokoban.utils import generate_room
+from ragen.utils import all_seed
 from typing import List
 import torch
 from transformers import AutoTokenizer
@@ -69,6 +69,7 @@ templates = {
 }
 
 class SokobanEnvReil(SokobanEnv):
+    INVALID_ACTION = 0
     def __init__(self, config=None):
         self.config = config or SokobanEnvConfig()
         self.search_depth = self.config.search_depth
@@ -76,13 +77,16 @@ class SokobanEnvReil(SokobanEnv):
         self.num_boxes = self.config.num_boxes
         self.prefix = self.config.prefix or 'qwen-instruct'
         super().__init__(
-            dim_room=self.dim_room,
-            max_steps=self.config.max_steps,
-            num_boxes=self.num_boxes,
-            search_depth=self.search_depth
+            # dim_room=self.dim_room,
+            # max_steps=self.config.max_steps,
+            # num_boxes=self.num_boxes,
+            # search_depth=self.search_depth
+            config=self.config
         )
 
-        
+    def success(self):
+        return self.boxes_on_target == self.num_boxes
+    
     def step(self, action: int):
         """
         - Step the environment with the given action.
@@ -106,26 +110,29 @@ class SokobanEnvReil(SokobanEnv):
         return obs, reward, done, info
     
     def reset(self, mode='complete', seed=None):
-        self._reset_tracking_variables()
-        with NoLoggerWarnings():
-            try:
-                with set_seed(seed):
-                    self.room_fixed, self.room_state, self.box_mapping, action_sequence = generate_room(
-                        dim=self.dim_room,
-                        num_steps=self.num_gen_steps,
-                        num_boxes=self.num_boxes,
-                        search_depth=self.search_depth
-                    )
-            except (RuntimeError, RuntimeWarning) as e:
-                print("[SOKOBAN] Runtime Error/Warning: {}".format(e))
-                print("[SOKOBAN] Retry . . .")
-                next_seed = abs(hash(str(seed))) % (2 ** 32) if seed is not None else None
-                return self.reset(mode, next_seed)
-            
-            # self.action_sequence = self._reverse_action_sequence(action_sequence)
-            self.player_position = np.argwhere(self.room_state == 5)[0]
-            self.num_env_steps = self.reward_last = self.boxes_on_target = 0
-            return self.render(mode)
+        # self._reset_tracking_variables()
+        self.reward = 0
+        self._actions = []
+        self._actions_valid = []
+        self._actions_effective = []
+        try:
+            with all_seed(seed):
+                self.room_fixed, self.room_state, self.box_mapping, action_sequence = generate_room(
+                    dim=self.dim_room,
+                    num_steps=self.num_gen_steps,
+                    num_boxes=self.num_boxes,
+                    search_depth=self.search_depth
+                )
+        except (RuntimeError, RuntimeWarning) as e:
+            print("[SOKOBAN] Runtime Error/Warning: {}".format(e))
+            print("[SOKOBAN] Retry . . .")
+            next_seed = abs(hash(str(seed))) % (2 ** 32) if seed is not None else None
+            return self.reset(mode, next_seed)
+        
+        # self.action_sequence = self._reverse_action_sequence(action_sequence)
+        self.player_position = np.argwhere(self.room_state == 5)[0]
+        self.num_env_steps = self.reward_last = self.boxes_on_target = 0
+        return self.render(mode)
         
     def render(self, mode='complete'):
         assert mode in ['tiny_rgb_array', 'list', 'state', 'rgb_array', 'text', 'complete']
