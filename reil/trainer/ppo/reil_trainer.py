@@ -54,7 +54,7 @@ import torch
 from verl.utils.torch_functional import masked_mean
 from collections import defaultdict
 # from ragen.llm_agent.generation import LLMGenerationManager, GenerationConfig
-from reil.trainer.llm_agent.generation import ReilGenerationManager, GenerationConfig
+# from reil.trainer.llm_agent.generation import ReilGenerationManager, GenerationConfig
 from reil.utils.dataset.rg_dataset import prepare_reasoning_gym_dataset
 from reasoning_gym.utils import extract_answer
 from reil.utils.reward_score.reward import reward_registry
@@ -105,34 +105,34 @@ class ReilPPOTrainer(RayPPOTrainer):
             val_reward_fn = lambda data: self._score_output(data, num_examine=1, is_val=True)
         else:
             # TODO: we have to make sure the batch size is divisible by the dp size
-            self.train_dataset = RLHFDataset(parquet_files=self.config.data.train_files,
-                                            tokenizer=self.tokenizer,
-                                            processor=self.processor,
-                                            prompt_key=self.config.data.prompt_key,
-                                            image_key=self.config.data.get('image_key', 'images'),
-                                            max_prompt_length=self.config.data.max_prompt_length,
+            self.train_dataset = RLHFDataset(parquet_files=config.data.train_files,
+                                            tokenizer=tokenizer,
+                                            processor=processor,
+                                            prompt_key=config.data.prompt_key,
+                                            image_key=config.data.get('image_key', 'images'),
+                                            max_prompt_length=config.data.max_prompt_length,
                                             filter_prompts=True,
-                                            return_raw_chat=self.config.data.get('return_raw_chat', False),
-                                            truncation=self.config.data.get('truncation', 'error'),
-                                            filter_overlong_prompts=self.config.data.filter_overlong_prompts)
+                                            return_raw_chat=config.data.get('return_raw_chat', False),
+                                            truncation=config.data.get('truncation', 'error'),
+                                            filter_overlong_prompts=config.data.filter_overlong_prompts)
             
-            assert self.train_dataset.truncation == self.config.data.get(
+            assert self.train_dataset.truncation == config.data.get(   
                 'truncation', 'error'
-            ), f'dataset truncation {self.train_dataset.truncation} must be the same as config {self.config.data.get("truncation", "error")}'
+            ), f'dataset truncation {self.train_dataset.truncation} must be the same as config {config.data.get("truncation", "error")}'
             
-            self.val_dataset = RLHFDataset(parquet_files=self.config.data.val_files,
-                                        tokenizer=self.tokenizer,
-                                        processor=self.processor,
-                                        prompt_key=self.config.data.prompt_key,
-                                        image_key=self.config.data.get('image_key', 'images'),
-                                        max_prompt_length=self.config.data.max_prompt_length,
+            self.val_dataset = RLHFDataset(parquet_files=config.data.val_files,
+                                        tokenizer=tokenizer,
+                                        processor=processor,
+                                        prompt_key=config.data.prompt_key,
+                                        image_key=config.data.get('image_key', 'images'),
+                                        max_prompt_length=config.data.max_prompt_length,
                                         filter_prompts=True,
-                                        return_raw_chat=self.config.data.get('return_raw_chat', False),
-                                        truncation=self.config.data.get('truncation', 'error'),
-                                        filter_overlong_prompts=self.config.data.filter_overlong_prompts)
-            assert self.val_dataset.truncation == self.config.data.get(
+                                        return_raw_chat=config.data.get('return_raw_chat', False),
+                                        truncation=config.data.get('truncation', 'error'),
+                                        filter_overlong_prompts=config.data.filter_overlong_prompts)
+            assert self.val_dataset.truncation == config.data.get(
                 'truncation', 'error'
-            ), f'dataset truncation {self.val_dataset.truncation} must be the same as config {self.config.data.get("truncation", "error")}'
+            ), f'dataset truncation {self.val_dataset.truncation} must be the same as config {config.data.get("truncation", "error")}'
             
         super().__init__(config=config, 
                          tokenizer=tokenizer, 
