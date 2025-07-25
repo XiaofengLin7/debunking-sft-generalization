@@ -20,6 +20,11 @@ custom_envs:
       dim_y: 6
       num_boxes: 1
       max_steps: 100
+      action_lookup:
+        1: "North"
+        2: "South"
+        3: "West"
+        4: "East"
 
   LargerSokoban:
     env_type: sokoban

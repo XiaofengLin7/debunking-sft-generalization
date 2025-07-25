@@ -105,6 +105,7 @@ actor_rollout_ref:
       temperature: 0.5
       n: 1
       do_sample: True # default eager for validation
+    seed: 42
 
 es_manager:
   format_penalty: -0.1
