@@ -2,8 +2,8 @@ custom_envs:
   SimpleSokoban:
     env_type: sokoban
     max_actions_per_traj: 10 # used in environment state manager to control the actual max actions executed per trajectory
-    env_instruction: "You are solving the Sokoban puzzle. You are the player and you need to push all boxes to targets. When you are right next to a box, you can push it by moving in the same direction. You cannot push a box through a wall, and you cannot pull a box. The answer should be a sequence of actions, like <answer>Right || Right || Up</answer>"
-    max_tokens: 100 # used to curate llm prompt "max words", not used for rollout
+    # env_instruction: "You are solving the Sokoban puzzle. You are the player and you need to push all boxes to targets. When you are right next to a box, you can push it by moving in the same direction. You cannot push a box through a wall, and you cannot pull a box. The answer should be a sequence of actions, like <answer>Right || Right || Up</answer>"
+    # max_tokens: 100 # used to curate llm prompt "max words", not used for rollout
     env_config: # keys should be a subset of SokobanConfig
       dim_x: 6
       dim_y: 6
@@ -13,8 +13,8 @@ custom_envs:
   SimpleSokobanCardinal:
     env_type: sokoban_cardinal
     max_actions_per_traj: 10
-    env_instruction: "You are solving the Sokoban puzzle. You are the player and you need to push all boxes to targets. When you are right next to a box, you can push it by moving in the same direction. You cannot push a box through a wall, and you cannot pull a box. The answer should be a sequence of actions, like <answer>Right || Right || Up</answer>"
-    max_tokens: 100
+    # env_instruction: "You are solving the Sokoban puzzle. You are the player and you need to push all boxes to targets. When you are right next to a box, you can push it by moving in the same direction. You cannot push a box through a wall, and you cannot pull a box. The answer should be a sequence of actions, like <answer>Right || Right || Up</answer>"
+    # max_tokens: 100
     env_config:
       dim_x: 6
       dim_y: 6
@@ -26,11 +26,36 @@ custom_envs:
         3: "West"
         4: "East"
 
+  SimpleSokobanEmoji:
+    env_type: sokoban_emoji
+    max_actions_per_traj: 10
+    # env_instruction: "You are solving the Sokoban puzzle. You are the player and you need to push all boxes to targets. When you are right next to a box, you can push it by moving in the same direction. You cannot push a box through a wall, and you cannot pull a box. The answer should be a sequence of actions, like <answer>Right || Right || Up</answer>"
+    # max_tokens: 100
+    env_config:
+      dim_x: 6
+      dim_y: 6
+      num_boxes: 1
+      max_steps: 100
+      action_lookup:
+        1: "⬆️"
+        2: "⬇️"
+        3: "⬅️"
+        4: "➡️"
+
+  SimpleSokobanEmpty:
+    env_type: sokoban_empty
+    max_actions_per_traj: 10
+    env_config:
+      dim_x: 6
+      dim_y: 6
+      num_boxes: 1
+      max_steps: 100
+
   LargerSokoban:
     env_type: sokoban
     max_actions_per_traj: 14
-    env_instruction: "You are solving the Sokoban puzzle. You are the player and you need to push all boxes to targets. When you are right next to a box, you can push it by moving in the same direction. You cannot push a box through a wall, and you cannot pull a box. The answer should be a sequence of actions, like <answer>Right || Right || Up</answer>"
-    max_tokens: 100
+    # env_instruction: "You are solving the Sokoban puzzle. You are the player and you need to push all boxes to targets. When you are right next to a box, you can push it by moving in the same direction. You cannot push a box through a wall, and you cannot pull a box. The answer should be a sequence of actions, like <answer>Right || Right || Up</answer>"
+    # max_tokens: 100
     env_config:
       dim_x: 10
       dim_y: 10
@@ -41,8 +66,8 @@ custom_envs:
   ComplexSokoban:
     env_type: sokoban
     max_actions_per_traj: 14
-    env_instruction: "You are solving the Sokoban puzzle. You are the player and you need to push all boxes to targets. When you are right next to a box, you can push it by moving in the same direction. You cannot push a box through a wall, and you cannot pull a box. The answer should be a sequence of actions, like <answer>Right || Right || Up</answer>"
-    max_tokens: 100
+    # env_instruction: "You are solving the Sokoban puzzle. You are the player and you need to push all boxes to targets. When you are right next to a box, you can push it by moving in the same direction. You cannot push a box through a wall, and you cannot pull a box. The answer should be a sequence of actions, like <answer>Right || Right || Up</answer>"
+    # max_tokens: 100
     env_config:
       dim_x: 10
       dim_y: 10
