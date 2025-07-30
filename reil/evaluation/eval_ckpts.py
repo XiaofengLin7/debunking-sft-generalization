@@ -225,9 +225,70 @@ class CheckpointEvaluator:
         
         # Get final results
         rollout_states = self.es_manager.get_rollout_states()
+        self.maybe_log_rollout_states(rollout_states)
         rollouts = self.ctx_manager.formulate_rollouts(rollout_states)
         
         return rollouts.meta_info['metrics']
+    
+    def maybe_log_rollout_states(self, rollout_states, n_samples=4):
+        """
+        Input:
+        rollout_states: List[Dict]
+        rollout_states[i]= {
+            'env_id': env_id,
+            'history': List[List[Dict]],
+            'group_id': group_id,
+            'tag': environment_type,
+            'penalty': penalty,
+            'metrics': metrics,
+        }
+        rollout_states[i]['history'][j] = {
+            'state': state,
+            'action_left': action_left,
+            'metrics': metrics,
+            'llm_raw_response': llm_raw_response if the task is not finished,
+            'llm_response': parsed llm response,
+            'info': info returned by the environment
+        }
+        Return:
+        - randomly sample 4(in default) rollout_states' last two states in history to log
+        """
+        import numpy as np
+        # Use fixed random seed for deterministic shuffling
+        rng = np.random.RandomState(42)
+        rng.shuffle(rollout_states)
+        rollout_states = rollout_states[:n_samples]
+        columns = ["step"] + sum([[f"state_{i+1}", f"responses_{i+1}"] for i in range(n_samples)], [])
+        if not hasattr(self, 'generations_table') and 'wandb' in self.logger.logger:
+            self.generations_table = wandb.Table(columns=columns)
+        states = []
+        responses = []
+        for rollout_state in rollout_states:
+            state_info = rollout_state['history'][-2] if len(rollout_state['history']) > 1 else rollout_state['history'][-1]
+            state_n_response = state_info['state'] + state_info['llm_raw_response'] if 'llm_raw_response' in state_info else state_info['state']
+            print(state_n_response)
+            # log texts to wandb
+            if 'wandb' in self.logger.logger:
+                states.append(state_info['state'])
+                responses.append(state_info['llm_raw_response'] if 'llm_raw_response' in state_info else "")
+            else:
+                
+                self.logger.log({"generations": state_n_response}, step=self.step)
+                
+        samples = list(zip(states, responses))
+        print(samples)
+        row_data = []
+        row_data.append(self.step)
+        for sample in samples:
+            row_data.extend(sample)
+        if 'wandb' in self.logger.logger:
+            new_table = wandb.Table(columns=columns, data=self.generations_table.data)
+            new_table.add_data(*row_data)
+            self.logger.log({"generations": new_table}, step=self.step)
+            self.generations_table = new_table
+            # TODO: add other loggers
+                            
+            
 
     def evaluate_checkpoints(self, checkpoint_dir: str):
         """Evaluate multiple checkpoints in a directory"""
@@ -273,6 +334,7 @@ class CheckpointEvaluator:
         for ckpt_dir in checkpoint_dirs:
             step = int(ckpt_dir.name.split('_')[-1] if found_pattern == "global_step_*" else ckpt_dir.name.split('-')[-1])
             print(f"\nEvaluating checkpoint at step {step}")
+            self.step = step
             
             # Get actor checkpoint path
             if self.is_fsdp:
@@ -288,7 +350,7 @@ class CheckpointEvaluator:
             metrics = self.evaluate_checkpoint(str(actor_ckpt_path))
             
             # Log metrics using Tracking
-            self.logger.log(data=metrics, step=step)
+            self.logger.log(data=metrics, step=self.step)
             
             print(f"Checkpoint {step} metrics:")
             pprint(metrics)
