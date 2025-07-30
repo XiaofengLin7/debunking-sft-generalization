@@ -63,6 +63,54 @@ All boxes placed: +10.0
 Decide the next action:\
 """
 
+EMOJI_INSTRUCTION_TEMPLATE = """You are a Sokoban solver.
+
+Sokoban Quick Guide
+Goal: Push all boxes (X) onto targets (O).
+
+Symbols:
+# Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+
+Rules:
+1. Push boxes (can't pull).
+2. Avoid walls (#).
+
+Answers:
+<answer> ⬆️ </answer> | <answer> ⬇️ </answer> | <answer> ⬅️ </answer> | <answer> ➡️ </answer>
+
+Rewards:
+Move: -0.1
+Box on target: +1.0
+All boxes placed: +10.0
+
+
+[Current Observation]:
+{observation}
+Decide the next action:\
+"""
+
+EMPTY_INSTRUCTION_TEMPLATE = """You are a Sokoban solver.
+
+Sokoban Quick Guide
+Goal: Push all boxes (X) onto targets (O).
+
+Symbols:
+# Wall | _ Floor | O Target | X Box | P You | √ = Box on Target | S = You on Target
+
+Rules:
+1. Push boxes (can't pull).
+2. Avoid walls (#).
+
+Rewards:
+Move: -0.1
+Box on target: +1.0
+All boxes placed: +10.0
+
+
+[Current Observation]:
+{observation}
+Decide the next action:\
+"""
 templates = {
     'qwen-instruct': '<|im_start|>user\n{prompt}\nAlways output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>\n<|im_start|>assistant\n<think>',
     'base': 'A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks briefly about the reasoning process in the mind and then provides the user with the answer.\nUser: {prompt}\nShow your work in <think> </think> tags. And return the final answer in <answer> </answer> tags, for example <think> [Thoughts] </think> <answer> 1 </answer>\nAssistant: \n<think>'
@@ -191,59 +239,6 @@ class SokobanEnvReil(SokobanEnv):
 
             return "\n".join(description)
     
-    @classmethod
-    def execute_predictions(
-            cls, 
-            envs: List['BaseEnv'], 
-            predictions: List[str], 
-            prediction_ids: torch.Tensor,
-            tokenizer: AutoTokenizer,
-        ) -> List[str]:
-        """
-        Execute predictions across multiple environments.
-        NOTE: the function is the actual `step` function in the environment
-        NOTE penalty_for_invalid is not included in observation shown to the LLM
-        
-        Args:
-            envs: List of environment instances
-            predictions: List of action predictions
-            pad_token: Token to use for padding
-            
-        Returns:
-            List of observation strings
-        """
-        cur_actions, action_is_valid = cls.postprocess_predictions(envs, predictions)
-        next_obs, dones = [], []
-        
-        for env, action, response, response_id, av in zip(envs, cur_actions, predictions, prediction_ids, action_is_valid):
-            obs = ""
-
-            if env.finished():
-                obs += tokenizer.pad_token
-                done = True
-            else:
-                # thinking reward
-                # thinking_reward = 0
-                # n_non_pad = (response_id != tokenizer.pad_token_id).sum().item()
-                # if n_non_pad > 50: # NOTE hard-coded here
-                #     thinking_reward += 1
-                
-                
-                # step in environment
-                observation, env_reward, done, extra_info = env.step(action)
-
-                obs += observation
-                
-                env._update_tracking_variables(
-                    response=response, 
-                    action=action, 
-                    action_is_valid=av, 
-                    action_is_effective=extra_info.get("action_is_effective", False), 
-                    reward=env_reward, 
-                )
-            next_obs.append(obs)
-            dones.append(done)
-        return next_obs, dones
     
     def copy(self):
         new_self = SokobanEnvReil(
@@ -270,8 +265,8 @@ class SokobanEnvReilCardinal(SokobanEnvReil):
     """
     Variant of SokobanEnvReil with cardinal direction action space:
     - 1: North (corresponds to Up in original)
-    - 2: West (corresponds to Left in original) 
-    - 3: South (corresponds to Down in original)
+    - 2: South (corresponds to Down in original) 
+    - 3: West (corresponds to Left in original)
     - 4: East (corresponds to Right in original)
     """
     
@@ -281,8 +276,8 @@ class SokobanEnvReilCardinal(SokobanEnvReil):
         self.ACTION_LOOKUP = {
             0: "None",
             1: "North",
-            2: "West", 
-            3: "South",
+            2: "South", 
+            3: "West",
             4: "East",
         }
     
@@ -291,12 +286,12 @@ class SokobanEnvReilCardinal(SokobanEnvReil):
         Extract action from text for cardinal directions.
         - 0: Still (Invalid Action)
         - 1: North
-        - 2: West
-        - 3: South
+        - 2: South
+        - 3: West
         - 4: East
         """
         import re
-        DIRECTION_MAP = {"North": 1, "West": 2, "South": 3, "East": 4}
+        DIRECTION_MAP = {"North": 1, "South": 2, "West": 3, "East": 4}
         # Pattern to match cardinal directions or numbers
         pattern = r'^\s*(([1-4])\s*\((north|west|south|east)\)|(north|west|south|east)|([1-4]))\s*$'
         match = re.fullmatch(pattern, text.strip(), flags=re.IGNORECASE | re.X)
@@ -340,6 +335,92 @@ class SokobanEnvReilCardinal(SokobanEnvReil):
     def close(self):
         self.render_cache = None
         super(SokobanEnvReilCardinal, self).close()
+    
+class SokobanEnvReilEmoji(SokobanEnvReil):
+    """
+    Variant of SokobanEnvReil with emoji action space:
+    - 1: ⬆️
+    - 2: ⬇️
+    - 3: ⬅️
+    - 4: ➡️
+    """
+    def __init__(self, config=None):
+        super().__init__(config)
+        # Override the ACTION_LOOKUP to use cardinal directions
+        self.ACTION_LOOKUP = {
+            0: "None",
+            1: "⬆️",
+            2: "⬇️", 
+            3: "⬅️",
+            4: "➡️",
+        }
+    
+    def render(self, mode='complete'):
+        if mode == 'complete':
+            map = self.render(mode='tiny_rgb_array')
+            return templates[self.prefix].format(prompt=EMOJI_INSTRUCTION_TEMPLATE.format(observation=map))
+        else:
+            return super().render(mode)
+        
+    def copy(self):
+        new_self = SokobanEnvReilEmoji(
+            dim_room=self.dim_room,
+            max_steps=self.max_steps,
+            num_boxes=self.num_boxes,
+            search_depth=self.search_depth
+        )
+        new_self.room_fixed = self.room_fixed.copy()
+        new_self.room_state = self.room_state.copy()
+        new_self.box_mapping = self.box_mapping.copy()
+        new_self.action_sequence = self.action_sequence.copy()
+        new_self.player_position = self.player_position.copy()
+        new_self.reward = self.reward
+        new_self._valid_actions = copy.deepcopy(self._valid_actions)
+        return new_self
+    
+    def close(self):
+        self.render_cache = None
+        super(SokobanEnvReilEmoji, self).close()
+
+class SokobanEnvReilEmpty(SokobanEnvReil):
+    """
+    Variant of SokobanEnvReil with empty action instruction:
+    """
+    def __init__(self, config=None):
+        super().__init__(config)
+        self.ACTION_LOOKUP = {
+            0: "None",
+            1: "Up",
+            2: "Down",
+            3: "Left",
+            4: "Right",
+        }
+    def render(self, mode='complete'):
+        if mode == 'complete':
+            map = self.render(mode='tiny_rgb_array')
+            return templates[self.prefix].format(prompt=EMPTY_INSTRUCTION_TEMPLATE.format(observation=map))
+        else:
+            return super().render(mode)
+        
+    def copy(self):
+        new_self = SokobanEnvReilEmpty(
+            dim_room=self.dim_room,
+            max_steps=self.max_steps,
+            num_boxes=self.num_boxes,
+            search_depth=self.search_depth
+        )
+        new_self.room_fixed = self.room_fixed.copy()
+        new_self.room_state = self.room_state.copy()
+        new_self.box_mapping = self.box_mapping.copy()
+        new_self.action_sequence = self.action_sequence.copy()
+        new_self.player_position = self.player_position.copy()
+        new_self.reward = self.reward
+        new_self._valid_actions = copy.deepcopy(self._valid_actions)
+        return new_self
+    
+    def close(self):
+        self.render_cache = None
+        super(SokobanEnvReilEmpty, self).close()
     
 if __name__ == "__main__":
     env = SokobanEnvReil(dim_room=(6, 6), num_boxes=1, max_steps=100, search_depth=30, prefix='base')
