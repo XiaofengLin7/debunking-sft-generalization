@@ -1,7 +1,10 @@
 import random
+import json
 from typing import List, Dict, Any, Optional
 from itertools import permutations, product, chain, zip_longest
 from fractions import Fraction as F
+from datasets import Dataset
+from tqdm import tqdm
 
 Q_GeneralPoint_EQN_L = """
 [Task Description]
@@ -93,7 +96,9 @@ def generate_task(task_id: int, target: int, num_cards: int = 4,
         raise ValueError(f"No solution found for task {task_id} with target {target} and {num_cards} cards")
     
     solution = random.choice(solutions)
-    formatted_solution = f"{{\n\"cards\": {cards_str},\n \"number\": {display_card_nums},\n \"formula\": '{solution}'\n}}"
+    # Convert cards_str to proper JSON format with double quotes
+    cards_json = json.dumps(cards_str)
+    formatted_solution = f"{{\n\"cards\": {cards_json},\n \"number\": {display_card_nums},\n \"formula\": \"{solution}\"\n}}"
     face_card_msg = "'J', 'Q', and 'K' count as '10'." if treat_face_cards_as_10 \
                                             else "'J', 'Q', and 'K' count as '11', '12', and '13' respectively."
     
@@ -119,12 +124,22 @@ def generate_task(task_id: int, target: int, num_cards: int = 4,
     }
 
 def main():
-    for task_id in range(10):
-        task = generate_task(task_id, target=24, num_cards=5, treat_face_cards_as_10=False, seed=42)
-        print(task["question"])
-        print(task["answer"])
-        print("-"*100)
-        
+    dataset_id = "Xiaofeng77/gp-l-only"  # Change this to your HF namespace
+    num_tasks = 5000
+    datapoints = []
+
+    for task_id in tqdm(range(num_tasks)):
+        task = generate_task(task_id, target=24, num_cards=4, treat_face_cards_as_10=False, seed=42 + task_id)
+        # print(task["question"])
+        # print(task["answer"])
+        # print("-"*100)
+        datapoints.append(task)
+
+    dataset = Dataset.from_list(datapoints)
+
+    dataset.to_parquet("./data/gp-l-only/test.parquet")
+    dataset.push_to_hub(dataset_id, split="test")
+
 
 if __name__ == "__main__":
     main()
