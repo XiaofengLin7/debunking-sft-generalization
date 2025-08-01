@@ -1,5 +1,7 @@
 import json
 from datasets import Dataset
+import random
+
 def parse_answer(answer):
     answer = answer.strip()
     # print(answer)
@@ -73,11 +75,16 @@ def convert_data(json_path):
 if __name__ == "__main__":
     # === Configuration ===
     json_path = "./data/gp-l-only/SFT_Data/gp-l/data.json"  # Your input data
-    parquet_path = "./data/gp-l-only/sft/train.parquet"
-    dataset_id = "Xiaofeng77/gp-l-only"  # Change this to your HF namespace
+    parquet_path = "./data/gp-l-only/sft/train-10k.parquet"
+    dataset_id = "Xiaofeng77/gp-l-only-10k"  # Change this to your HF namespace
 
     # === Execution ===
     datapoints = convert_data(json_path)
+    print(f'datapoints={len(datapoints)}')
+    # randomly shuffle datapoints and take the first 10000
+    random.seed(42)
+    random.shuffle(datapoints)
+    datapoints = datapoints[:10000]
     dataset = Dataset.from_list(datapoints)
     dataset.to_parquet(parquet_path)
     dataset.push_to_hub(dataset_id, split="train")

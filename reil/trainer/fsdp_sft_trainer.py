@@ -103,8 +103,8 @@ class FSDPSFTTrainer:
         self.ulysses_device_mesh = ulysses_device_mesh
         self.sharding_manager = FSDPUlyssesShardingManager(self.ulysses_device_mesh)
         self.tokenizer = tokenizer
-        if self.config.data.chat_template is not None:
-            raise ValueError("Apply Chat template from config is not supported yet.")
+        # if self.config.data.chat_template:
+        #     raise ValueError("Apply Chat template from config is not supported yet.")
 
         # normalize dp size
         self._normalize_config_bsz()
@@ -128,6 +128,8 @@ class FSDPSFTTrainer:
         self.init_agent_proxy()
         self.init_rollout()
         self.init_reward_function()
+        if not hasattr(self, 'val_reward_fn') or self.val_reward_fn is None:
+            print("No reward function is initialized")
 
     def _normalize_config_bsz(self):
         dp_size = self.device_mesh.size(0) if not self.ulysses_device_mesh else self.ulysses_device_mesh.size(0)
@@ -227,22 +229,6 @@ class FSDPSFTTrainer:
             else:
                 reward_components = {}
                 total_reward = 0
-
-            # Disable custom reward functions for now.
-            # for reward_fn in self.reward_functions:
-            #     func = reward_fn["function"]
-            #     name = reward_fn["name"]
-            #     scaling_factor = reward_fn["scaling_factor"]
-            #     kwargs = reward_fn["kwargs"]
-            #     if name == "cosine":
-            #         is_correct = correctness_score == 1.0
-            #         reward = func(response_str, scaling_factor, is_correct=is_correct, **kwargs)
-            #     elif name == "length":
-            #         reward = func(response_str, scaling_factor, correctness_score=correctness_score, **kwargs)
-            #     else:
-            #         reward = func(response_str, scaling_factor, **kwargs)
-            #     reward_components[name] = reward
-            #     total_reward += reward
 
             reward_tensor[i, valid_response_length - 1] = total_reward
 
@@ -390,13 +376,14 @@ class FSDPSFTTrainer:
             raise ValueError(f"Unknown lr scheduler: {self.config.optim.lr_scheduler}")
 
     def init_agent_proxy(self):
-        if self.config.data.type != 'reasoning_gym':
-            assert self.config.trainer.policy_eval==False, "Policy eval must be disabled for Reasoning Gym"
+        if self.config.data.type != 'reasoning_gym' and self.config.trainer.policy_eval:
+            # assert self.config.trainer.policy_eval==False, "Policy eval must be disabled for Reasoning Gym"
             from reil.trainer.llm_agent.agent_proxy import LLMAgentProxy, HFWrapperWg
             tokenizer = self.tokenizer
             config = self.config
             actor_wg = HFWrapperWg(config, tokenizer, module=self.model)
             self.proxy = LLMAgentProxy(config, actor_wg, tokenizer)
+        
 
     def init_rollout(self):
         rollout_config = Config(
@@ -639,11 +626,12 @@ class FSDPSFTTrainer:
 
             # validation
             val_losses = []
-            
-            all_prompt_ids = []
-            all_prompt_attention_mask = []
-            all_prompt_position_ids = []
-            all_index = []
+            score = None
+            if hasattr(self, 'val_reward_fn') and self.val_reward_fn is not None:
+                all_prompt_ids = []
+                all_prompt_attention_mask = []
+                all_prompt_position_ids = []
+                all_index = []
 
             for data in self.val_dataloader:
                 data = TensorDict(data, batch_size=self.config.data.micro_batch_size_per_gpu).cuda(device=local_rank)
@@ -651,37 +639,40 @@ class FSDPSFTTrainer:
                 val_loss = self.validation_step(data)
                 val_losses.append(val_loss)                        
                 # Extract prompt data and create a new DataProto for rollout
-                all_prompt_ids.append(data['prompt_ids'])
-                all_prompt_attention_mask.append(data['prompt_attention_mask'])
-                all_prompt_position_ids.append(data['prompt_position_ids'])
-                all_index.append(data['index'])
+                if hasattr(self, 'val_reward_fn') and self.val_reward_fn is not None:
+                    all_prompt_ids.append(data['prompt_ids'])
+                    all_prompt_attention_mask.append(data['prompt_attention_mask'])
+                    all_prompt_position_ids.append(data['prompt_position_ids'])
+                    all_index.append(data['index'])
             # After loop
-            all_prompt_ids = torch.cat(all_prompt_ids, dim=0)
-            all_prompt_attention_mask = torch.cat(all_prompt_attention_mask, dim=0)
-            all_prompt_position_ids = torch.cat(all_prompt_position_ids, dim=0)
-            all_index = [x.cpu().numpy() for x in all_index]
-            all_index = np.concatenate(all_index, axis=0)
+            if hasattr(self, 'val_reward_fn') and self.val_reward_fn is not None:
+                all_prompt_ids = torch.cat(all_prompt_ids, dim=0)
+                all_prompt_attention_mask = torch.cat(all_prompt_attention_mask, dim=0)
+                all_prompt_position_ids = torch.cat(all_prompt_position_ids, dim=0)
+                all_index = [x.cpu().numpy() for x in all_index]
+                all_index = np.concatenate(all_index, axis=0)
 
-            prompt_data = {
-                'input_ids': all_prompt_ids,
-                'attention_mask': all_prompt_attention_mask,
-                'position_ids': all_prompt_position_ids,
-            }
-            prompt_tensordict = TensorDict(prompt_data, batch_size=all_prompt_ids.shape[0])
-            prompt_data_proto = convert_tensordict_to_dataproto(
-                prompt_tensordict, 
-                meta_info={'pad_token_id': self.tokenizer.pad_token_id, 'eos_token_id': self.tokenizer.eos_token_id}
-            )
-            output_proto = self.rollout.generate_sequences(prompt_data_proto)
-            output_proto.non_tensor_batch['index'] = all_index
-            reward_tensor = self.val_reward_fn(output_proto)
+                prompt_data = {
+                    'input_ids': all_prompt_ids,
+                    'attention_mask': all_prompt_attention_mask,
+                    'position_ids': all_prompt_position_ids,
+                }
+            
+                prompt_tensordict = TensorDict(prompt_data, batch_size=all_prompt_ids.shape[0])
+                prompt_data_proto = convert_tensordict_to_dataproto(
+                    prompt_tensordict, 
+                    meta_info={'pad_token_id': self.tokenizer.pad_token_id, 'eos_token_id': self.tokenizer.eos_token_id}
+                )
+                output_proto = self.rollout.generate_sequences(prompt_data_proto)
+                output_proto.non_tensor_batch['index'] = all_index
+                reward_tensor = self.val_reward_fn(output_proto)
 
-            score = reward_tensor.sum(dim=-1).mean().cpu()
-            # TODO: add score for each data source     
+                score = reward_tensor.sum(dim=-1).mean().cpu()
+                # TODO: add score for each data source     
             
             if rank == 0:
                 val_loss = torch.mean(torch.stack(val_losses))
-                metric = {"val/loss": val_loss.detach().item(), "val/score": score.detach().item()}
+                metric = {"val/loss": val_loss.detach().item(), "val/score": score.detach().item() if score is not None else None}
                 tracking.log(data=metric, step=global_step)
             
             if global_step % self.config.trainer.test_freq == 0 and self.config.trainer.policy_eval:
@@ -695,9 +686,11 @@ class FSDPSFTTrainer:
             
             torch.distributed.barrier()
 
-            # save checkpoint
-            if global_step % self.config.trainer.save_freq == 0:
+            if self.config.trainer.save_freq == -1:
                 self.save_checkpoint(step=global_step)
+            else:
+                if global_step % self.config.trainer.save_freq == 0:
+                    self.save_checkpoint(step=global_step)
 
 
 
