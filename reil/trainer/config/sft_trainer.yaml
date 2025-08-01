@@ -16,7 +16,7 @@ data:
   max_length: 1024
   truncation: error
   balance_dp_token: False
-  chat_template: null
+  chat_template: False
   custom_cls:
     path: null
     name: null

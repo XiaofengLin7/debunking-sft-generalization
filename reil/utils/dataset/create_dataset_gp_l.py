@@ -137,7 +137,7 @@ def main():
 
     dataset = Dataset.from_list(datapoints)
 
-    dataset.to_parquet("./data/gp-l-only/test.parquet")
+    dataset.to_parquet("./data/gp-l-only/sft/test.parquet")
     dataset.push_to_hub(dataset_id, split="test")
 
 
