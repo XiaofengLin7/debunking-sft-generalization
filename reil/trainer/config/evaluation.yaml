@@ -18,6 +18,8 @@ data:
 agent_proxy:
   max_turn: 30
   enable_think: False # False -> no think RL(alfworld), True -> think RL(sokoban)
+  parse_response: True # True -> parse response, False -> use response as is
+  chat_template: False # True -> use chat template, False -> use response as is
 
 evaluator:
   n_gpus_per_node: 2
