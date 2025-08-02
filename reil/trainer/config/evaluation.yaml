@@ -29,6 +29,7 @@ evaluator:
   logger: [ 'console', 'wandb' ]
   checkpoint_dir: /usr3/graduate/xfl/lab/REIL/checkpoints/ds543/REIL/sokoban-1.5b-0.0075beta-0.001kl-2025-05-01
   resume_step: 0
+  seed: 42
 
 actor_rollout_ref:
   model:

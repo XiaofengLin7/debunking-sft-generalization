@@ -3,8 +3,8 @@ import random
 from itertools import permutations, product, chain, zip_longest
 from fractions import Fraction as F
 from reil.env.utils.prompts import Q_GeneralPoint_EQN_L
-from reil.utils.dataset.create_dataset_gp_l import card_num_to_str
-from reil.utils.reward_score.gp_l import re_match, robust_str_to_list, calculate_rewards, REWARD_FN
+from reil.utils.dataset.create_dataset_gp_l import card_num_to_str, card_str_to_num
+from reil.utils.reward_score.gp_l import re_match, robust_str_to_list, calculate_rewards, REWARD_FN 
 from reil.env.gp_l.config import GPLEnvConfig
 
 class GPLEnv(gym.Env):
@@ -156,8 +156,56 @@ class GPLEnv(gym.Env):
         """
         super().close()
 
+class GPLEnvFaceCardsAs10(GPLEnv):
+    """
+    GP-L environment with face cards always treated as 10 when calculating rewards, but rendered as 11, 12, and 13 respectively
+    to test if there is any shortcut learning.
+    """
+    def __init__(self, config):
+        self.config = config
+        self.target = config.target
+        self.num_cards = config.num_cards
+        # treat cards as 10 by default is False
+        self.treat_face_cards_as_10 = True  
+        self.ood = True
+        self.face_card_msg = "'J', 'Q', and 'K' count as '11', '12', and '13' respectively"
+    
+    def _generate_cards(self):
+        if not self.ood:
+            cards_num = [random.randint(1, 13) for _ in range(self.num_cards)]
+        else:
+            cards_num = [random.randint(1, 13) for _ in range(self.num_cards - 1)] + [random.randint(11, 13)]
+            # shuffle the cards
+            random.shuffle(cards_num)
+        cards_str = [card_num_to_str(num) for num in cards_num]
+
+        # treat face cards as 10 to calculate rewards
+        cards_num = [min(x, 10) for x in cards_num]
+
+        return cards_str, cards_num
+    
+    def reset(self, seed=None):
+        super().reset(seed=seed)
+        random.seed(seed)
+        self.cards, self.cards_num = self._generate_cards()
+        # covert self.cards to number treating face cards as 11, 12 and 13
+        self.real_cards_num = [card_str_to_num(card) for card in self.cards]
+        while not self.solve(self.real_cards_num) or not self.solve(self.cards_num):
+            self.cards, self.cards_num = self._generate_cards()
+            self.real_cards_num = [card_str_to_num(card) for card in self.cards]
+
+    
+
+
+
+
 
 if __name__ == "__main__":
+    print("Testing card_str_to_num function:")
+    print(f"card_str_to_num('A') = {card_str_to_num('A')}")
+    print(f"card_str_to_num('J') = {card_str_to_num('J')}")
+    print(f"card_str_to_num('10') = {card_str_to_num('10')}")
+    
     config = GPLEnvConfig()
     env = GPLEnv(config)
     env.reset(seed=42)
@@ -170,3 +218,19 @@ if __name__ == "__main__":
     """
     print(env.render())
     print(env.step(action))
+    config1 = GPLEnvConfig(treat_face_cards_as_10=True, ood=True)
+    env1 = GPLEnvFaceCardsAs10(config1)
+    env1.reset(seed=42)
+
+    print(env1.solution)
+
+    action1 = """
+    {
+        "cards": ["2", "7", "Q", "2"],
+        "number": [2, 7, 10,   2],
+        "formula": "(10/2+7)*2",
+    }
+    """
+    print(env1.step(action1))
+
+

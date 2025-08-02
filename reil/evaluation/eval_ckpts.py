@@ -193,7 +193,7 @@ class CheckpointEvaluator:
         start_time = time.time()
         
         # Reset environments
-        env_outputs = self.es_manager.reset()
+        env_outputs = self.es_manager.reset(seed=self.config.evaluator.seed)
         print(f"Loading envs takes: {time.time() - start_time} seconds")
         
         # Set up meta info for generation
