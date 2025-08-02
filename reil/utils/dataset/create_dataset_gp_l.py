@@ -22,6 +22,14 @@ def card_num_to_str(num: int) -> str:
     face_cards = {1: 'A', 11: 'J', 12: 'Q', 13: 'K'}
     return face_cards.get(num, str(num))
 
+def card_str_to_num(card: str) -> int:
+    assert card in ['A', 'J', 'Q', 'K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
+    face_cards = {'A': 1, 'J': 11, 'Q': 12, 'K': 13}
+    if card in face_cards:
+        return face_cards[card]
+    else:
+        return int(card)
+
 def solve_game(digits: List[int], target: int) -> List[str]:
     digilen = len(digits)
     exprlen = 2 * digilen - 1

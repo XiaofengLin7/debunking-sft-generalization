@@ -92,3 +92,24 @@ custom_envs:
       num_cards: 4
       treat_face_cards_as_10: True
       ood: False
+
+  GP-L-FACE-CARDS-AS-REGULAR:
+    env_type: gp_l
+    max_actions_per_traj: 1
+    env_config:
+      target: 24
+      num_cards: 4
+      ood: True
+      treat_face_cards_as_10: False
+
+  GP-L-FACE-CARDS-AS-10:
+    # GP-L environment with face cards always treated as 10 when calculating rewards, but rendered as 11, 12, and 13 respectively
+    # to test if there is any shortcut learning.
+    env_type: gp_l_face_cards_as_10
+    max_actions_per_traj: 1
+    env_config:
+      target: 24
+      num_cards: 4
+      ood: True
+      treat_face_cards_as_10: True
+      

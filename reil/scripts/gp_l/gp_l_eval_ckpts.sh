@@ -29,12 +29,12 @@ python -m reil.evaluation.eval_ckpts \
     evaluator.project_name=$PROJECT_NAME \
     evaluator.experiment_name=$EXPERIMENT_NAME \
     evaluator.n_gpus_per_node=$N_GPUS \
-    evaluator.logger="['console']" \
+    evaluator.logger="['console', 'wandb']" \
     evaluator.resume_step=100 \
-    es_manager.val.env_groups=256 \
+    es_manager.val.env_groups=768 \
     es_manager.val.group_size=1 \
-    es_manager.val.env_configs.tags="['GP-L']" \
-    es_manager.val.env_configs.n_groups="[256]" \
+    es_manager.val.env_configs.tags="['GP-L', 'GP-L-FACE-CARDS-AS-REGULAR', 'GP-L-FACE-CARDS-AS-10']" \
+    es_manager.val.env_configs.n_groups="[256, 256, 256]" \
     agent_proxy.max_turn=1 \
     agent_proxy.parse_response=False \
     agent_proxy.chat_template=True \
