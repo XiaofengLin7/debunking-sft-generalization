@@ -370,6 +370,9 @@ class NaiveContextManager(ContextManager):
         for env_output in env_outputs:
             assert 'state' in env_output['history'][-1]
             text = env_output['history'][-1]['state']
+            if self.config.agent_proxy.get("chat_template", False):
+                text_chat = [{'role': 'user', 'content': text}]
+                text = self.tokenizer.apply_chat_template(text_chat, add_generation_prompt=False, tokenize=False)
             llm_input_texts.append(text)
 
         inputs = self.tokenizer(llm_input_texts, padding_side='left', padding='longest', return_tensors='pt') # do not truncate here. Process later at TODO
@@ -419,7 +422,12 @@ class NaiveContextManager(ContextManager):
         env_ids = lm_outputs.non_tensor_batch['env_ids']
         env_inputs = []
         for env_id, response in zip(env_ids, responses):
-            llm_response, actions = self._parse_response(response)
+            if self.config.agent_proxy.get("parse_response", True):
+                llm_response, actions = self._parse_response(response)
+            else:
+                for special_token in self.special_token_list:
+                    response = response.replace(special_token, "").strip()
+                llm_response, actions = response, [response]
             env_inputs.append({
                 "env_id": env_id,
                 "llm_raw_response": response,

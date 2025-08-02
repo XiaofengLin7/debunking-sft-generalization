@@ -10,6 +10,7 @@ from reil.env.gp_l.config import GPLEnvConfig
 class GPLEnv(gym.Env):
     def __init__(self, config):
         # Initialize environment with configuration
+        self.config = config
         self.target = config.target
         self.num_cards = config.num_cards
         self.treat_face_cards_as_10 = config.treat_face_cards_as_10

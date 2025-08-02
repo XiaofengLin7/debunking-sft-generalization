@@ -84,3 +84,11 @@ custom_envs:
       # train_eval: "eval_in_distribution"
       train_eval: "eval"
     
+  GP-L:
+    env_type: gp_l
+    max_actions_per_traj: 1
+    env_config:
+      target: 24
+      num_cards: 4
+      treat_face_cards_as_10: True
+      ood: False
