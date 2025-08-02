@@ -46,3 +46,21 @@ templates = {
     'qwen-instruct': '<|im_start|>user\n{prompt}\nAlways output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>\n<|im_start|>assistant\n<think>',
     'base': 'A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks briefly about the reasoning process in the mind and then provides the user with the answer.\nUser: {prompt}\nShow your work in <think> </think> tags. And return the final answer in <answer> </answer> tags, for example <think> [Thoughts] </think> <answer> 1 </answer>\nAssistant: \n<think>'
 }
+
+Q_GeneralPoint_EQN_L = """
+[Task Description]
+You are an expert {target_number} points card game player. You will receive a set of 4 cards.
+Note that {face_card_msg}, and each card must be used once.
+Your goal is to output a formula that evaluates to {target_number} using numbers from the cards and operators such as '+', '-', '*', '/', '(', ')', and '='.
+
+[Input]
+Cards: {cards}
+
+[Output]
+{{
+  "cards": [x, y, z, w], where {face_card_msg},
+  "number": [a, b, c, d], where a, b, c, and d are the numbers on the cards,
+  "formula": 'an equation that equals {target_number}',
+}}
+
+"""

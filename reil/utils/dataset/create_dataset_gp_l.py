@@ -5,24 +5,8 @@ from itertools import permutations, product, chain, zip_longest
 from fractions import Fraction as F
 from datasets import Dataset
 from tqdm import tqdm
+from reil.env.utils.prompts import Q_GeneralPoint_EQN_L
 
-Q_GeneralPoint_EQN_L = """
-[Task Description]
-You are an expert {target_number} points card game player. You will receive a set of 4 cards.
-Note that {face_card_msg}, and each card must be used once.
-Your goal is to output a formula that evaluates to {target_number} using numbers from the cards and operators such as '+', '-', '*', '/', '(', ')', and '='.
-
-[Input]
-Cards: {cards}
-
-[Output]
-{{
-  "cards": [x, y, z, w], where {face_card_msg},
-  "number": [a, b, c, d], where a, b, c, and d are the numbers on the cards,
-  "formula": 'an equation that equals {target_number}',
-}}
-
-"""
 
 def generate_cards(num_cards=4, treat_face_cards_as_10=True):
     cards_num = [random.randint(1, 13) for _ in range(num_cards)]
@@ -99,8 +83,8 @@ def generate_task(task_id: int, target: int, num_cards: int = 4,
     # Convert cards_str to proper JSON format with double quotes
     cards_json = json.dumps(cards_str)
     formatted_solution = f"{{\n\"cards\": {cards_json},\n \"number\": {display_card_nums},\n \"formula\": \"{solution}\"\n}}"
-    face_card_msg = "'J', 'Q', and 'K' count as '10'." if treat_face_cards_as_10 \
-                                            else "'J', 'Q', and 'K' count as '11', '12', and '13' respectively."
+    face_card_msg = "'J', 'Q', and 'K' count as '10'" if treat_face_cards_as_10 \
+                                            else "'J', 'Q', and 'K' count as '11', '12', and '13' respectively"
     
     task_prompt = Q_GeneralPoint_EQN_L.format(
         target_number=target,

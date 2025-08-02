@@ -53,8 +53,6 @@ from verl.trainer.ppo.ray_trainer import compute_response_mask
 import torch
 from verl.utils.torch_functional import masked_mean
 from collections import defaultdict
-# from ragen.llm_agent.generation import LLMGenerationManager, GenerationConfig
-from reil.trainer.llm_agent.generation import ReilGenerationManager, GenerationConfig
 from reil.utils.dataset.rg_dataset import prepare_reasoning_gym_dataset
 from reasoning_gym.utils import extract_answer
 from reil.utils.reward_score.reward import reward_registry

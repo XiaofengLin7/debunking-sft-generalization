@@ -96,10 +96,11 @@ def calculate_rewards(  card_nums: list[int],
         else:
             return 'unknown'
         # Extract tokens
+    current_formula = current_formula.replace(' ', '')
     tokens = re.findall(r'\d+|[+\-*/()]', current_formula)
     tokens_str = ''.join(tokens)
 
-    
+    # print(tokens_str, current_formula)
     if tokens_str != current_formula:
         # There are illegal characters in current_formula
         reward += REWARD_FN["ILLEGAL_FORMULA"]
