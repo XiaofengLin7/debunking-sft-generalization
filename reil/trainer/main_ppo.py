@@ -158,6 +158,9 @@ class TaskRunner:
         elif reward_manager_name == 'complete':
             from reil.workers.reward_manager import CompleteRewardManager
             reward_manager_cls = CompleteRewardManager
+        elif reward_manager_name == 'gp_l':
+            from reil.workers.reward_manager import GPLRewardManager
+            reward_manager_cls = GPLRewardManager
         else:
             raise NotImplementedError
         

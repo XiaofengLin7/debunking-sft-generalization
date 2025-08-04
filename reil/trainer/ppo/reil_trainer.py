@@ -109,6 +109,7 @@ class ReilPPOTrainer(RayPPOTrainer):
                                             prompt_key=config.data.prompt_key,
                                             image_key=config.data.get('image_key', 'images'),
                                             max_prompt_length=config.data.max_prompt_length,
+                                            chat_template=config.data.get('chat_template', False),
                                             filter_prompts=True,
                                             return_raw_chat=config.data.get('return_raw_chat', False),
                                             truncation=config.data.get('truncation', 'error'),
@@ -124,6 +125,7 @@ class ReilPPOTrainer(RayPPOTrainer):
                                         prompt_key=config.data.prompt_key,
                                         image_key=config.data.get('image_key', 'images'),
                                         max_prompt_length=config.data.max_prompt_length,
+                                        chat_template=config.data.get('chat_template', False),
                                         filter_prompts=True,
                                         return_raw_chat=config.data.get('return_raw_chat', False),
                                         truncation=config.data.get('truncation', 'error'),
@@ -145,7 +147,7 @@ class ReilPPOTrainer(RayPPOTrainer):
 
 
     def init_agent_proxy(self):
-        if self.config.data.type != 'reasoning_gym':
+        if self.config.trainer.policy_eval and self.config.data.type != 'reasoning_gym':
             from reil.trainer.llm_agent.agent_proxy import LLMAgentProxy
             self.agent_proxy = LLMAgentProxy(self.config, self.actor_rollout_wg, self.tokenizer)
 

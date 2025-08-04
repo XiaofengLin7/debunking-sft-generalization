@@ -1,7 +1,10 @@
 import json
 from datasets import Dataset
 import random
-
+from tqdm import tqdm
+"""
+This script is to process the gp-l dataset provided by the author of SFTvsRL paper.
+"""
 def parse_answer(answer):
     answer = answer.strip()
     # print(answer)
@@ -46,13 +49,22 @@ def parse_answer(answer):
         "treat_face_cards_as_10": True,
     }
 
-def convert_data(json_path):
+def convert_data(json_path, dataset_size=10000):
     with open(json_path, "r") as f:
         raw_data = json.load(f)
 
-    datapoints = []
+    sft_datapoints = []
+    rl_datapoints = []
     index = 0
-    for item in raw_data:
+    random.seed(42)
+    random.shuffle(raw_data)
+    if len(raw_data) > dataset_size:
+        raw_data = raw_data[:dataset_size]
+    else:
+        print(f'Warning: dataset size is less than {dataset_size}, using all data')
+        dataset_size = len(raw_data)
+    
+    for item in tqdm(raw_data):
         question = None
         answer = None
         for convo in item.get("conversations", []):
@@ -62,30 +74,37 @@ def convert_data(json_path):
                 answer = convo["value"].strip()
         if question is not None and answer is not None:
             meta_info = parse_answer(answer)
-            meta_info["task_id"] = index
-            datapoints.append({
-                "meta_info": meta_info,
+            meta_info["index"] = index
+            sft_datapoints.append({
+                "data_source": "gp-l",
+                "extra_info": meta_info,
                 "question": question,
                 "answer": answer
             })
+            rl_datapoints.append({
+                "data_source": "gp-l",
+                "extra_info": meta_info,
+                "question": [{"role": "user", "content": question}],
+            })
             index += 1
-    return datapoints
+    return sft_datapoints, rl_datapoints
 
 
 if __name__ == "__main__":
     # === Configuration ===
     json_path = "./data/gp-l-only/SFT_Data/gp-l/data.json"  # Your input data
-    parquet_path = "./data/gp-l-only/sft/train-10k.parquet"
+    sft_parquet_path = "./data/gp-l-only/sft/train-10k.parquet"
+    rl_parquet_path = "./data/gp-l-only/rl/train-10k.parquet"
     dataset_id = "Xiaofeng77/gp-l-only-10k"  # Change this to your HF namespace
 
     # === Execution ===
-    datapoints = convert_data(json_path)
-    print(f'datapoints={len(datapoints)}')
+    sft_datapoints, rl_datapoints = convert_data(json_path)
+    print(f'sft_datapoints={len(sft_datapoints)}')
+    print(f'rl_datapoints={len(rl_datapoints)}')
     # randomly shuffle datapoints and take the first 10000
-    random.seed(42)
-    random.shuffle(datapoints)
-    datapoints = datapoints[:10000]
-    dataset = Dataset.from_list(datapoints)
-    dataset.to_parquet(parquet_path)
-    dataset.push_to_hub(dataset_id, split="train")
+    sft_dataset = Dataset.from_list(sft_datapoints)
+    sft_dataset.to_parquet(sft_parquet_path)
+    rl_dataset = Dataset.from_list(rl_datapoints)
+    rl_dataset.to_parquet(rl_parquet_path)
+    rl_dataset.push_to_hub(dataset_id, split="train")
 

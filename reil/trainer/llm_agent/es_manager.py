@@ -13,6 +13,8 @@ from pprint import pprint
 from reil.env import REGISTERED_ENVS, REGISTERED_ENV_CONFIGS
 import os
 from tqdm import tqdm
+import time
+
 @dataclass
 class EnvStatus:
     """Status of an environment"""
@@ -50,7 +52,11 @@ class EnvStateManager:
         """
         assert sum(self.config.env_configs.n_groups) == self.env_groups, f"Sum of n_groups must equal env_groups. Got sum({self.config.env_configs.n_groups}) != {self.env_groups}"
         assert len(self.config.env_configs.tags) == len(self.config.env_configs.n_groups), f"Number of tags must equal number of n_groups. Got {len(self.config.env_configs.tags)} != {len(self.config.env_configs.n_groups)}"
+        print("start init envs")
+        start_time = time.time()
         self.envs = self._init_env_instances(self.config)
+        end_time = time.time()
+        print(f"end init envs (took {end_time - start_time:.2f} seconds)")
 
     def _init_env_instances(self, config):
         env_list = []
