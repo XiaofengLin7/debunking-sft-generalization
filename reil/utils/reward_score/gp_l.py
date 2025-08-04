@@ -2,6 +2,7 @@ import re
 import json
 from reil.utils.dataset.create_test_dataset_gp_l import solve_game
 from collections import Counter
+from typing import Optional
 
 # some predefined patterns
 RE_PATTERN_DICT = {
@@ -57,11 +58,11 @@ def robust_str_to_list(list_like_str: str, num_cards: int):
 
 def calculate_rewards(  card_nums: list[int],
                     current_formula: str,
-                    solutions: list,
                     target_points: int,
                     recognized_cards: list[str],
-                    translated_number: list[str],
+                    translated_number: list[str],   
                     gt_cards: list[str],
+                    solutions: Optional[list] = None,
                     ) -> int:
     """
     card_nums: list of nums in the ground truth cards
@@ -169,7 +170,7 @@ def calculate_rewards(  card_nums: list[int],
                 reward += REWARD_FN["CORRECT_SOLUTION"]
                 return reward
         except Exception as e:
-            if any(sol.startswith(current_formula) for sol in solutions):
+            if solutions and any(sol.startswith(current_formula) for sol in solutions):
                 reward += REWARD_FN["PARTIAL_SOLUTION"]
                 return reward
     else:
@@ -182,7 +183,7 @@ def calculate_rewards(  card_nums: list[int],
         prev_register = register
         register += token
         # check if register is in any solution
-        if any(sol.startswith(register) for sol in solutions):
+        if solutions and any(sol.startswith(register) for sol in solutions):
             pass
         else:
             if prev_register == "":
@@ -207,11 +208,15 @@ def score_gp_l(solution_str: str, meta_info: dict):
     num_cards = len(meta_info["cards"])
     digits = meta_info["display_cards"]
     target = meta_info["target"]
+
     solutions = solve_game(digits, target)
+    
     recognized_cards = robust_str_to_list(recognized_cards, num_cards)
     translated_number = robust_str_to_list(translated_number, num_cards)
     # print(recognized_cards, translated_number)
     # print(meta_info["cards"])
+
+
     reward = calculate_rewards(card_nums=digits, 
                                current_formula=current_formula, 
                                solutions=solutions, 
@@ -220,6 +225,34 @@ def score_gp_l(solution_str: str, meta_info: dict):
                                translated_number=translated_number, 
                                gt_cards=meta_info["cards"])
     return reward
+
+def score_gp_l_wo_sol(solution_str: str, meta_info: dict):
+    current_formula = re_match(solution_str, "formula")
+    recognized_cards = re_match(solution_str, 'cards')
+    translated_number = re_match(solution_str, 'number')
+    # print(recognized_cards, translated_number)
+    try:
+        current_formula = current_formula.split('=')[0]
+    except:
+        pass
+    
+    num_cards = len(meta_info["cards"])
+    digits = meta_info["display_cards"]
+    target = meta_info["target"]
+    
+    recognized_cards = robust_str_to_list(recognized_cards, num_cards)
+    translated_number = robust_str_to_list(translated_number, num_cards)
+    # print(recognized_cards, translated_number)
+    # print(meta_info["cards"])
+
+    reward = calculate_rewards(card_nums=digits, 
+                               current_formula=current_formula, 
+                               target_points=target, 
+                               recognized_cards=recognized_cards, 
+                               translated_number=translated_number, 
+                               gt_cards=meta_info["cards"])
+    return reward
+
 
 if __name__ == "__main__":
     solution_str = """
@@ -230,9 +263,9 @@ if __name__ == "__main__":
     }
     """
     meta_info = {
-        "cards": ["A", "2", "3", "4"],
+        "cards": ["K", "10", "3", "4"],
         "display_cards": [1, 2, 3, 4],
-        "target": 10,
+        "target": 24,
     }
     reward = score_gp_l(solution_str, meta_info)
     print(reward)
