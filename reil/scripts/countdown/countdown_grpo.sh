@@ -1,8 +1,4 @@
 #!/bin/bash
-
-eval "$(conda shell.bash hook)"
-conda activate reil || exit 1
-
 set -x
 
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-3B-Instruct/snapshots/aa8e72537993ba99e69dfaafa59ed015b17504d1"

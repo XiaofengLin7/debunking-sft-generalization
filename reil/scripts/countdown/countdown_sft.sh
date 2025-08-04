@@ -1,6 +1,4 @@
-
-eval "$(conda shell.bash hook)"
-conda activate reil || exit 1
+#!/bin/bash
 
 set -x
 

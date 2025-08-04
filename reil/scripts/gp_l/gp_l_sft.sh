@@ -1,5 +1,4 @@
-eval "$(conda shell.bash hook)"
-conda activate verl-test || exit 1
+#!/bin/bash
 
 set -x
 

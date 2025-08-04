@@ -1,8 +1,4 @@
 #!/bin/bash
-
-eval "$(conda shell.bash hook)"
-conda activate verl-test || exit 1
-
 set -x
 
 
@@ -18,6 +14,32 @@ BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a26334
 # BASE_MODEL="/usr3/graduate/xfl/lab/REIL/checkpoints/sft/sokoban-1.5b-sft-qwen-2.5-base-full-sft-05-15/global_step_180"
 BETA=0
 KL_COEF=0
+
+# Parse named arguments
+while [[ $# -gt 0 ]]; do
+  key="$1"
+  case $key in
+    --beta)
+      BETA="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --kl)
+      KL_COEF="$2"
+      shift
+      shift
+      ;;
+    -h|--help)
+      echo "Usage: $0 [--beta BETA] [--kl KL_COEF]"
+      exit 0
+      ;;
+    *)    # unknown option
+      echo "Unknown option $1"
+      exit 1
+      ;;
+  esac
+done
+
 CONTEXT_LENGTH=1024
 BATCH_SIZE=256
 EXPERIMENT_NAME="gp-l-1.5b-${BETA}beta-${KL_COEF}kl-$(date +%m-%d)-grpo"
@@ -25,7 +47,6 @@ EXPERIMENT_NAME="gp-l-1.5b-${BETA}beta-${KL_COEF}kl-$(date +%m-%d)-grpo"
 ROLLOUT_TP_SIZE=1
 N_GPUS=4
 export VLLM_USE_V1=1
-export VLLM_LOGGING_LEVEL=INFO
 
 python3 -m reil.trainer.main_ppo \
 data.train_files=$DATA_DIR/train-10k.parquet \
@@ -53,7 +74,7 @@ actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=64 \
 actor_rollout_ref.rollout.n=8 \
 trainer.logger=['wandb'] \
 +trainer.val_only=False \
-trainer.val_before_train=False \
+trainer.val_before_train=True \
 trainer.default_hdfs_dir=null \
 trainer.n_gpus_per_node=$N_GPUS \
 trainer.nnodes=1 \
@@ -65,7 +86,7 @@ trainer.log_val_generations=4 \
 trainer.experiment_name=$EXPERIMENT_NAME \
 trainer.default_local_dir=checkpoints/ds310/REIL/${EXPERIMENT_NAME} \
 trainer.total_epochs=2000 \
-trainer.policy_eval=False \
+trainer.policy_eval=True \
 reward_model.reward_manager=gp_l \
 es_manager.val.env_groups=768 \
 es_manager.val.group_size=1 \

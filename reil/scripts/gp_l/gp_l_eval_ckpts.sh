@@ -1,8 +1,5 @@
 #!/bin/bash
 
-eval "$(conda shell.bash hook)"
-conda activate reil || exit 1
-
 set -x
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 # Model and checkpoint settings
