@@ -3,7 +3,7 @@ import random
 from itertools import permutations, product, chain, zip_longest
 from fractions import Fraction as F
 from reil.env.utils.prompts import Q_GeneralPoint_EQN_L
-from reil.utils.dataset.create_dataset_gp_l import card_num_to_str, card_str_to_num
+from reil.utils.dataset.create_test_dataset_gp_l import card_num_to_str, card_str_to_num
 from reil.utils.reward_score.gp_l import re_match, robust_str_to_list, calculate_rewards, REWARD_FN 
 from reil.env.gp_l.config import GPLEnvConfig
 

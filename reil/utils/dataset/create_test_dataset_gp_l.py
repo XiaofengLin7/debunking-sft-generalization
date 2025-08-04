@@ -7,6 +7,9 @@ from datasets import Dataset
 from tqdm import tqdm
 from reil.env.utils.prompts import Q_GeneralPoint_EQN_L
 
+"""
+This script is used to create the test split of dataset for gp-l domain.
+"""
 
 def generate_cards(num_cards=4, treat_face_cards_as_10=True):
     cards_num = [random.randint(1, 13) for _ in range(num_cards)]
@@ -100,37 +103,47 @@ def generate_task(task_id: int, target: int, num_cards: int = 4,
         cards=cards_str,
     )
 
-    meta_info = {
-        "task_id": task_id,
+    extra_info = {
+        "index": task_id,
         "cards": cards_str,
         "display_cards": display_card_nums,
         "solution": solution,
         "target": target,
         "treat_face_cards_as_10": treat_face_cards_as_10,
     }
-
-    return {
+    sft_instance = {
+        "data_source": "gp-l",
         "question": task_prompt,
         "answer": formatted_solution,
-        "meta_info": meta_info
+        "extra_info": extra_info
     }
+    rl_instance = {
+        "data_source": "gp-l",
+        "question": [{"role": "user", "content": task_prompt}],
+        "extra_info": extra_info
+    }
+    return sft_instance, rl_instance
 
 def main():
     dataset_id = "Xiaofeng77/gp-l-only"  # Change this to your HF namespace
-    num_tasks = 5000
-    datapoints = []
+    num_tasks = 2000
+    sft_datapoints = []
+    rl_datapoints = []
 
     for task_id in tqdm(range(num_tasks)):
-        task = generate_task(task_id, target=24, num_cards=4, treat_face_cards_as_10=False, seed=42 + task_id)
+        sft_instance, rl_instance = generate_task(task_id, target=24, num_cards=4, treat_face_cards_as_10=False, seed=42 + task_id)
         # print(task["question"])
         # print(task["answer"])
         # print("-"*100)
-        datapoints.append(task)
+        sft_datapoints.append(sft_instance)
+        rl_datapoints.append(rl_instance)
 
-    dataset = Dataset.from_list(datapoints)
+    sft_dataset = Dataset.from_list(sft_datapoints)
+    rl_dataset = Dataset.from_list(rl_datapoints)
 
-    dataset.to_parquet("./data/gp-l-only/sft/test.parquet")
-    dataset.push_to_hub(dataset_id, split="test")
+    sft_dataset.to_parquet("./data/gp-l-only/sft/test.parquet")
+    rl_dataset.to_parquet("./data/gp-l-only/rl/test.parquet")
+    # dataset.push_to_hub(dataset_id, split="test")
 
 
 if __name__ == "__main__":

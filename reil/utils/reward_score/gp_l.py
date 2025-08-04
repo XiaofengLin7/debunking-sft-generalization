@@ -1,6 +1,6 @@
 import re
 import json
-from reil.utils.dataset.create_dataset_gp_l import solve_game
+from reil.utils.dataset.create_test_dataset_gp_l import solve_game
 from collections import Counter
 
 # some predefined patterns
@@ -77,7 +77,10 @@ def calculate_rewards(  card_nums: list[int],
     sorted_gt_cards = sorted(gt_cards)
     sorted_card_nums = sorted(card_nums)
     # convert translated_number to int
-    translated_number = [int(num) for num in translated_number]
+    try:
+        translated_number = [int(num) for num in translated_number]
+    except:
+        return REWARD_FN["INCORRECT_VISION"]
     sorted_translated_number = sorted(translated_number)
     # print(sorted_recognized_cards, sorted_gt_cards, sorted_card_nums, sorted_translated_number)
     if sorted_recognized_cards != sorted_gt_cards or sorted_card_nums != sorted_translated_number:
