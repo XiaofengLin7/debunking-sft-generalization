@@ -1,3 +1,6 @@
+"""
+This script is used to create the test split of dataset for gp-l domain.
+"""
 import random
 import json
 from typing import List, Dict, Any, Optional
@@ -5,11 +8,26 @@ from itertools import permutations, product, chain, zip_longest
 from fractions import Fraction as F
 from datasets import Dataset
 from tqdm import tqdm
-from reil.env.utils.prompts import Q_GeneralPoint_EQN_L
+
+Q_GeneralPoint_EQN_L = """
+[Task Description]
+You are an expert {target_number} points card game player. You will receive a set of 4 cards.
+Note that {face_card_msg}, and each card must be used once.
+Your goal is to output a formula that evaluates to {target_number} using numbers from the cards and operators such as '+', '-', '*', '/', '(', ')', and '='.
+
+[Input]
+Cards: {cards}
+
+[Output]
+{{
+  "cards": [x, y, z, w], where {face_card_msg},
+  "number": [a, b, c, d], where a, b, c, and d are the numbers on the cards,
+  "formula": 'an equation that equals {target_number}',
+}}
 
 """
-This script is used to create the test split of dataset for gp-l domain.
-"""
+
+
 
 def generate_cards(num_cards=4, treat_face_cards_as_10=True):
     cards_num = [random.randint(1, 13) for _ in range(num_cards)]

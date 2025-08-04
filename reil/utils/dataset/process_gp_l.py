@@ -106,5 +106,5 @@ if __name__ == "__main__":
     sft_dataset.to_parquet(sft_parquet_path)
     rl_dataset = Dataset.from_list(rl_datapoints)
     rl_dataset.to_parquet(rl_parquet_path)
-    # dataset.push_to_hub(dataset_id, split="train")
+    rl_dataset.push_to_hub(dataset_id, split="train")
 
