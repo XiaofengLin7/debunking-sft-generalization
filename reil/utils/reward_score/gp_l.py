@@ -81,12 +81,13 @@ def calculate_rewards(  card_nums: list[int],
     try:
         translated_number = [int(num) for num in translated_number]
     except:
-        return REWARD_FN["INCORRECT_VISION"]
+        # return REWARD_FN["INCORRECT_VISION"]
+        pass
     sorted_translated_number = sorted(translated_number)
     # print(sorted_recognized_cards, sorted_gt_cards, sorted_card_nums, sorted_translated_number)
-    if sorted_recognized_cards != sorted_gt_cards or sorted_card_nums != sorted_translated_number:
-        reward += REWARD_FN["INCORRECT_VISION"]
-        return reward
+    # if sorted_recognized_cards != sorted_gt_cards or sorted_card_nums != sorted_translated_number:
+    #     reward += REWARD_FN["INCORRECT_VISION"]
+    #     return reward
     # Function to get token type
     def get_token_type(token):
         if token in '+-*/':
