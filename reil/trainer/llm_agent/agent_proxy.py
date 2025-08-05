@@ -162,7 +162,7 @@ class LLMAgentProxy:
 	
 	def rollout(self):
 		start_time = time.time()
-		env_outputs = self.val_es_manager.reset()
+		env_outputs = self.val_es_manager.reset(seed=self.config.evaluator.seed)
 		end_time = time.time()
 		print(f"Loading envs takes: {end_time - start_time} seconds")
 		meta_info = {

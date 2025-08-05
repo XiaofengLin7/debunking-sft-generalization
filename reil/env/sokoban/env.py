@@ -173,6 +173,7 @@ class SokobanEnvReil(SokobanEnv):
             # self.action_sequence = self._reverse_action_sequence(action_sequence)
             self.player_position = np.argwhere(self.room_state == 5)[0]
             self.num_env_steps = self.reward_last = self.boxes_on_target = 0
+            self.action_sequence = action_sequence
             return self.render(mode)
         
     def render(self, mode='complete'):
@@ -423,5 +424,19 @@ class SokobanEnvReilEmpty(SokobanEnvReil):
         super(SokobanEnvReilEmpty, self).close()
     
 if __name__ == "__main__":
-    env = SokobanEnvReil(dim_room=(6, 6), num_boxes=1, max_steps=100, search_depth=30, prefix='base')
-    print(env.reset(mode='complete', seed=1010))
+    max_turns = -1
+    seed = 20
+    # dim_room = (6, 6)
+    # env = SokobanEnvReil(dim_room=(6, 6), num_boxes=1, max_steps=100, search_depth=30, prefix='base')
+    config = SokobanEnvConfig()
+    config.dim_room = (6, 6)
+    config.num_boxes = 1
+    config.max_steps = 100
+    config.search_depth = 100
+    env = SokobanEnvReil(config)
+    for i in range(256):
+        env.reset(mode='complete', seed=seed + i)
+        if len(env.action_sequence) > max_turns:
+            max_turns = len(env.action_sequence)
+            print(f"max_turns: {max_turns}")
+    print(f"max_turns: {max_turns}")

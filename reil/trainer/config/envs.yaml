@@ -1,7 +1,7 @@
 custom_envs:
   SimpleSokoban:
     env_type: sokoban
-    max_actions_per_traj: 10 # used in environment state manager to control the actual max actions executed per trajectory
+    max_actions_per_traj: 30 # used in environment state manager to control the actual max actions executed per trajectory
     # env_instruction: "You are solving the Sokoban puzzle. You are the player and you need to push all boxes to targets. When you are right next to a box, you can push it by moving in the same direction. You cannot push a box through a wall, and you cannot pull a box. The answer should be a sequence of actions, like <answer>Right || Right || Up</answer>"
     # max_tokens: 100 # used to curate llm prompt "max words", not used for rollout
     env_config: # keys should be a subset of SokobanConfig
@@ -9,10 +9,11 @@ custom_envs:
       dim_y: 6
       num_boxes: 1
       max_steps: 100
+      search_depth: 30
       
   SimpleSokobanCardinal:
     env_type: sokoban_cardinal
-    max_actions_per_traj: 10
+    max_actions_per_traj: 30
     # env_instruction: "You are solving the Sokoban puzzle. You are the player and you need to push all boxes to targets. When you are right next to a box, you can push it by moving in the same direction. You cannot push a box through a wall, and you cannot pull a box. The answer should be a sequence of actions, like <answer>Right || Right || Up</answer>"
     # max_tokens: 100
     env_config:
@@ -20,15 +21,16 @@ custom_envs:
       dim_y: 6
       num_boxes: 1
       max_steps: 100
+      search_depth: 30
       action_lookup:
         1: "North"
         2: "South"
         3: "West"
         4: "East"
 
-  SimpleSokobanEmoji:
-    env_type: sokoban_emoji
-    max_actions_per_traj: 10
+  FakeSokobanCardinal:
+    env_type: sokoban_cardinal
+    max_actions_per_traj: 30
     # env_instruction: "You are solving the Sokoban puzzle. You are the player and you need to push all boxes to targets. When you are right next to a box, you can push it by moving in the same direction. You cannot push a box through a wall, and you cannot pull a box. The answer should be a sequence of actions, like <answer>Right || Right || Up</answer>"
     # max_tokens: 100
     env_config:
@@ -36,24 +38,51 @@ custom_envs:
       dim_y: 6
       num_boxes: 1
       max_steps: 100
-      action_lookup:
-        1: "⬆️"
-        2: "⬇️"
-        3: "⬅️"
-        4: "➡️"
+      search_depth: 30
 
-  SimpleSokobanEmpty:
-    env_type: sokoban_empty
-    max_actions_per_traj: 10
+  SimpleSokobanEmoji:
+    env_type: sokoban_emoji
+    max_actions_per_traj: 30
+    # env_instruction: "You are solving the Sokoban puzzle. You are the player and you need to push all boxes to targets. When you are right next to a box, you can push it by moving in the same direction. You cannot push a box through a wall, and you cannot pull a box. The answer should be a sequence of actions, like <answer>Right || Right || Up</answer>"
+    # max_tokens: 100
     env_config:
       dim_x: 6
       dim_y: 6
       num_boxes: 1
       max_steps: 100
+      search_depth: 30
+      action_lookup:
+        1: "⬆️"
+        2: "⬇️"
+        3: "⬅️"
+        4: "➡️"
+  
+  FakeSokobanEmoji:
+    env_type: sokoban_emoji
+    max_actions_per_traj: 30
+    # env_instruction: "You are solving the Sokoban puzzle. You are the player and you need to push all boxes to targets. When you are right next to a box, you can push it by moving in the same direction. You cannot push a box through a wall, and you cannot pull a box. The answer should be a sequence of actions, like <answer>Right || Right || Up</answer>"
+    # max_tokens: 100
+    env_config:
+      dim_x: 6
+      dim_y: 6
+      num_boxes: 1
+      max_steps: 100
+      search_depth: 30
+
+
+  SimpleSokobanEmpty:
+    env_type: sokoban_empty
+    max_actions_per_traj: 30
+    env_config:
+      dim_x: 6
+      dim_y: 6
+      num_boxes: 1
+      max_steps: 100
+      search_depth: 30
 
   LargerSokoban:
     env_type: sokoban
-    max_actions_per_traj: 14
+    max_actions_per_traj: 30
     # env_instruction: "You are solving the Sokoban puzzle. You are the player and you need to push all boxes to targets. When you are right next to a box, you can push it by moving in the same direction. You cannot push a box through a wall, and you cannot pull a box. The answer should be a sequence of actions, like <answer>Right || Right || Up</answer>"
     # max_tokens: 100
     env_config:
@@ -61,11 +90,11 @@ custom_envs:
       dim_y: 10
       num_boxes: 1
       max_steps: 100
-      search_depth: 10
+      search_depth: 30
 
   ComplexSokoban:
     env_type: sokoban
-    max_actions_per_traj: 14
+    max_actions_per_traj: 30
     # env_instruction: "You are solving the Sokoban puzzle. You are the player and you need to push all boxes to targets. When you are right next to a box, you can push it by moving in the same direction. You cannot push a box through a wall, and you cannot pull a box. The answer should be a sequence of actions, like <answer>Right || Right || Up</answer>"
     # max_tokens: 100
     env_config:
@@ -73,23 +102,33 @@ custom_envs:
       dim_y: 10
       num_boxes: 2
       max_steps: 100
-      search_depth: 10
+      search_depth: 30
 
-  ALFWorld:
-    env_type: alfworld
-    max_actions_per_traj: 30
-    env_config: 
-      config_path: "/projectnb/replearn/xfl/REIL/reil/env/alfworld/base_config.yaml"
-      # train_eval: "eval_out_of_distribution"
-      # train_eval: "eval_in_distribution"
-      train_eval: "eval"
-    
+
   GP-L:
     env_type: gp_l
     max_actions_per_traj: 1
     env_config:
       target: 24
       num_cards: 4
+      treat_face_cards_as_10: True
+      ood: False
+  
+  MediumGP-L:
+    env_type: gp_l
+    max_actions_per_traj: 1
+    env_config:
+      target: 24
+      num_cards: 5
+      treat_face_cards_as_10: True
+      ood: False
+
+  HardGP-L:
+    env_type: gp_l
+    max_actions_per_traj: 1
+    env_config:
+      target: 24
+      num_cards: 6
       treat_face_cards_as_10: True
       ood: False
 
@@ -113,3 +152,13 @@ custom_envs:
       ood: True
       treat_face_cards_as_10: True
       
+
+  ALFWorld:
+    env_type: alfworld
+    max_actions_per_traj: 30
+    env_config: 
+      config_path: "/projectnb/replearn/xfl/REIL/reil/env/alfworld/base_config.yaml"
+      # train_eval: "eval_out_of_distribution"
+      # train_eval: "eval_in_distribution"
+      train_eval: "eval"
+    
