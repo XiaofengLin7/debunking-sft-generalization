@@ -65,6 +65,8 @@ import numpy as np
 from verl.workers.rollout.hf_rollout import HFRollout
 from reasoning_gym.utils import extract_answer
 from pprint import pprint
+from reil.trainer.main_ppo import get_custom_reward_fn
+
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv("VERL_SFT_LOGGING_LEVEL", "WARN"))
 
@@ -124,8 +126,8 @@ class FSDPSFTTrainer:
         # TODO: add checkpoint manager
         if self.device_mesh.get_rank() == 0:
             print(self.config)
-            
-        self.init_agent_proxy()
+        if self.config.data.type != 'reasoning_gym' and self.config.trainer.policy_eval:
+            self.init_agent_proxy()
         self.init_rollout()
         self.init_reward_function()
         if not hasattr(self, 'val_reward_fn') or self.val_reward_fn is None:
@@ -193,7 +195,25 @@ class FSDPSFTTrainer:
             self.val_reward_fn = lambda data: self._score_output(data, num_examine=1, is_val=True)
         else:
             # TODO: add reward function for standard SFT
-            pass
+            reward_manager_name = self.config.reward_model.get("reward_manager", "naive")
+            if reward_manager_name == 'naive':
+                from verl.workers.reward_manager import NaiveRewardManager
+                reward_manager_cls = NaiveRewardManager
+            elif reward_manager_name == 'prime':
+                from verl.workers.reward_manager import PrimeRewardManager
+                reward_manager_cls = PrimeRewardManager
+            elif reward_manager_name == 'complete':
+                from reil.workers.reward_manager import CompleteRewardManager
+                reward_manager_cls = CompleteRewardManager
+            elif reward_manager_name == 'gp_l':
+                from reil.workers.reward_manager import GPLRewardManager
+                reward_manager_cls = GPLRewardManager
+            else:
+                raise NotImplementedError
+            compute_score = get_custom_reward_fn(self.config)
+            self.reward_fn = reward_manager_cls(tokenizer=self.tokenizer, num_examine=0, compute_score=compute_score)
+            self.val_reward_fn = reward_manager_cls(tokenizer=self.tokenizer, num_examine=1, compute_score=compute_score)
+
 
     def _score_output(self, data: DataProto, num_examine: int = 0, is_val: bool = False) -> torch.Tensor:
         reward_tensor = torch.zeros_like(data.batch["responses"], dtype=torch.float32)
@@ -376,13 +396,12 @@ class FSDPSFTTrainer:
             raise ValueError(f"Unknown lr scheduler: {self.config.optim.lr_scheduler}")
 
     def init_agent_proxy(self):
-        if self.config.data.type != 'reasoning_gym' and self.config.trainer.policy_eval:
-            # assert self.config.trainer.policy_eval==False, "Policy eval must be disabled for Reasoning Gym"
-            from reil.trainer.llm_agent.agent_proxy import LLMAgentProxy, HFWrapperWg
-            tokenizer = self.tokenizer
-            config = self.config
-            actor_wg = HFWrapperWg(config, tokenizer, module=self.model)
-            self.proxy = LLMAgentProxy(config, actor_wg, tokenizer)
+        # assert self.config.trainer.policy_eval==False, "Policy eval must be disabled for Reasoning Gym"
+        from reil.trainer.llm_agent.agent_proxy import LLMAgentProxy, HFWrapperWg
+        tokenizer = self.tokenizer
+        config = self.config
+        actor_wg = HFWrapperWg(config, tokenizer, module=self.model)
+        self.proxy = LLMAgentProxy(config, actor_wg, tokenizer)
         
 
     def init_rollout(self):

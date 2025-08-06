@@ -40,4 +40,5 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
     trainer.default_local_dir=checkpoints/ds310/sft/$EXPERIMENT_NAME \
     trainer.logger="['console', 'wandb']" \
     trainer.total_epochs=30 \
-    trainer.default_hdfs_dir=null $@ | tee checkpoints/ds310/sft/${EXPERIMENT_NAME}_train.log
+    trainer.default_hdfs_dir=null \
+    reward_model.reward_manager=gp_l $@ | tee checkpoints/ds310/sft/${EXPERIMENT_NAME}_train.log
