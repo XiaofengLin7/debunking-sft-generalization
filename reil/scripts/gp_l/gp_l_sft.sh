@@ -5,7 +5,10 @@ set -x
 # Shift the arguments so $@ refers to the rest
 shift 2
 N_GPUS=4
-
+test_data_path=./data/gp-l-only/rl/test.parquet
+test_5cards_data_path=./data/gp-l-only/rl/test_5cards.parquet
+test_fake_data_path=./data/gp-l-only/rl/test_fake.parquet
+test_large_card_data_path=./data/gp-l-only/rl/test_large_card.parquet
 # DATA_DIR="./data/alfworld_task_type/sft"
 # DATA_DIR="./data/sokoban_one_horizon_large_envs/sft"
 DATA_DIR="./data/gp-l-only/sft"
@@ -14,6 +17,7 @@ BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a26334
 LEARNING_RATE=1e-5
 EXPERIMENT_NAME="gp-l-1.5b-full-sft-lr-${LEARNING_RATE}-$(date +%m-%d)"
 
+TEST_DATA="['${test_data_path}', '${test_5cards_data_path}', '${test_fake_data_path}', '${test_large_card_data_path}']"
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 # export ALFWORLD_DATA="/projectnb/replearn/xfl/Retriever/src/envs/alf_world/data_storage"
 
@@ -21,6 +25,7 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
      -m reil.trainer.fsdp_sft_trainer \
     data.train_files=$DATA_DIR/train-10k.parquet \
     data.val_files=$DATA_DIR/test.parquet \
+    +data.val_score_files="$TEST_DATA" \
     data.prompt_key=question \
     data.response_key=answer \
     data.chat_template=True \
@@ -38,6 +43,8 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
     trainer.project_name=REIL-sft \
     trainer.experiment_name=$EXPERIMENT_NAME \
     trainer.default_local_dir=checkpoints/ds310/sft/$EXPERIMENT_NAME \
-    trainer.logger="['console', 'wandb']" \
+    trainer.logger="['console']" \
     trainer.total_epochs=30 \
-    trainer.default_hdfs_dir=null $@ | tee checkpoints/ds310/sft/${EXPERIMENT_NAME}_train.log
+    trainer.default_hdfs_dir=null \
+    trainer.val_before_train=True \
+    reward_model.reward_manager=gp_l $@ | tee checkpoints/ds310/sft/${EXPERIMENT_NAME}_train.log

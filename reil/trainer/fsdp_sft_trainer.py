@@ -65,6 +65,10 @@ import numpy as np
 from verl.workers.rollout.hf_rollout import HFRollout
 from reasoning_gym.utils import extract_answer
 from pprint import pprint
+from reil.trainer.main_ppo import get_custom_reward_fn
+from verl.utils.dataset.rl_dataset import RLHFDataset, collate_fn
+from torchdata.stateful_dataloader import StatefulDataLoader
+
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv("VERL_SFT_LOGGING_LEVEL", "WARN"))
 
@@ -116,7 +120,21 @@ class FSDPSFTTrainer:
             print(f"Using sequence parallel size: {self.config.ulysses_sequence_parallel_size}")
             print(f"Using remove padding: {self.use_remove_padding}")
 
+        if self.config.data.get('val_score_files', None):
+            self.val_score_dataset = RLHFDataset(parquet_files=config.data.val_score_files,
+                                        tokenizer=tokenizer,
+                                        prompt_key=config.data.prompt_key,
+                                        image_key=config.data.get('image_key', 'images'),
+                                        max_prompt_length=config.data.max_prompt_length,
+                                        chat_template=config.data.get('chat_template', False),
+                                        filter_prompts=True,
+                                        return_raw_chat=config.data.get('return_raw_chat', False),
+                                        truncation=config.data.get('truncation', 'error'),
+                                        filter_overlong_prompts=config.data.filter_overlong_prompts)
+        else:
+            self.val_score_dataset = None
         self._build_dataloader(train_dataset, val_dataset)
+
         # build model
         self._build_model_optimizer()
 
@@ -124,8 +142,8 @@ class FSDPSFTTrainer:
         # TODO: add checkpoint manager
         if self.device_mesh.get_rank() == 0:
             print(self.config)
-            
-        self.init_agent_proxy()
+        if self.config.data.type != 'reasoning_gym' and self.config.trainer.policy_eval:
+            self.init_agent_proxy()
         self.init_rollout()
         self.init_reward_function()
         if not hasattr(self, 'val_reward_fn') or self.val_reward_fn is None:
@@ -186,6 +204,16 @@ class FSDPSFTTrainer:
         print(f"Validation dataset length: {len(self.val_dataset)}")
         print(f"Validation dataloader length: {len(self.val_dataloader)}")
         # assert len(self.val_dataloader) == 1, "Validation dataloader should have only one batch"
+        if self.val_score_dataset is not None:
+            self.val_score_dataloader = StatefulDataLoader(
+            dataset=self.val_score_dataset,
+            # Validation datasets are sent to inference engines as a whole batch,
+            # which will schedule the memory themselves.
+            batch_size=len(self.val_score_dataset),
+            num_workers=8,
+            shuffle=True,
+            drop_last=False,
+            collate_fn=collate_fn)
 
     def init_reward_function(self):
         if self.config.data.type == 'reasoning_gym':
@@ -193,7 +221,24 @@ class FSDPSFTTrainer:
             self.val_reward_fn = lambda data: self._score_output(data, num_examine=1, is_val=True)
         else:
             # TODO: add reward function for standard SFT
-            pass
+            reward_manager_name = self.config.reward_model.get("reward_manager", "naive")
+            if reward_manager_name == 'naive':
+                from verl.workers.reward_manager import NaiveRewardManager
+                reward_manager_cls = NaiveRewardManager
+            elif reward_manager_name == 'prime':
+                from verl.workers.reward_manager import PrimeRewardManager
+                reward_manager_cls = PrimeRewardManager
+            elif reward_manager_name == 'complete':
+                from reil.workers.reward_manager import CompleteRewardManager
+                reward_manager_cls = CompleteRewardManager
+            elif reward_manager_name == 'gp_l':
+                from reil.workers.reward_manager import GPLRewardManager
+                reward_manager_cls = GPLRewardManager
+            else:
+                raise NotImplementedError
+            compute_score = get_custom_reward_fn(self.config)
+            self.reward_fn = reward_manager_cls(tokenizer=self.tokenizer, num_examine=0, compute_score=compute_score)
+            self.val_reward_fn = reward_manager_cls(tokenizer=self.tokenizer, num_examine=1, compute_score=compute_score)
 
     def _score_output(self, data: DataProto, num_examine: int = 0, is_val: bool = False) -> torch.Tensor:
         reward_tensor = torch.zeros_like(data.batch["responses"], dtype=torch.float32)
@@ -376,14 +421,99 @@ class FSDPSFTTrainer:
             raise ValueError(f"Unknown lr scheduler: {self.config.optim.lr_scheduler}")
 
     def init_agent_proxy(self):
-        if self.config.data.type != 'reasoning_gym' and self.config.trainer.policy_eval:
-            # assert self.config.trainer.policy_eval==False, "Policy eval must be disabled for Reasoning Gym"
-            from reil.trainer.llm_agent.agent_proxy import LLMAgentProxy, HFWrapperWg
-            tokenizer = self.tokenizer
-            config = self.config
-            actor_wg = HFWrapperWg(config, tokenizer, module=self.model)
-            self.proxy = LLMAgentProxy(config, actor_wg, tokenizer)
-        
+        # assert self.config.trainer.policy_eval==False, "Policy eval must be disabled for Reasoning Gym"
+        from reil.trainer.llm_agent.agent_proxy import LLMAgentProxy, HFWrapperWg
+        tokenizer = self.tokenizer
+        config = self.config
+        actor_wg = HFWrapperWg(config, tokenizer, module=self.model)
+        self.proxy = LLMAgentProxy(config, actor_wg, tokenizer)
+
+    def _validate(self):
+        reward_tensor_lst = []
+        data_source_lst = []
+
+        # Lists to collect samples for the table
+        sample_inputs = []
+        sample_outputs = []
+        sample_scores = []
+
+        for test_data in self.val_score_dataloader:
+            test_batch = DataProto.from_single_dict(test_data)
+
+            # repeat test batch
+            test_batch = test_batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.val_kwargs.n,
+                                           interleave=True)
+
+            # Store original inputs
+            input_ids = test_batch.batch['input_ids']
+            input_texts = [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in input_ids]
+            sample_inputs.extend(input_texts)
+
+            if 'multi_modal_inputs' in test_batch.non_tensor_batch.keys():
+                test_gen_batch = test_batch.pop(
+                    batch_keys=['input_ids', 'attention_mask', 'position_ids'],
+                    non_tensor_batch_keys=['raw_prompt_ids', 'multi_modal_data', 'multi_modal_inputs'],
+                )
+            else:
+                test_gen_batch = test_batch.pop(
+                    batch_keys=['input_ids', 'attention_mask', 'position_ids'],
+                    non_tensor_batch_keys=['raw_prompt_ids'],
+                )
+
+            test_gen_batch.meta_info = {
+                'eos_token_id': self.tokenizer.eos_token_id,
+                'pad_token_id': self.tokenizer.pad_token_id,
+                'recompute_log_prob': False,
+                'do_sample': self.config.actor_rollout_ref.rollout.val_kwargs.do_sample,
+                'validate': True,
+            }
+            print(f'test_gen_batch meta info: {test_gen_batch.meta_info}')
+
+            # pad to be divisible by dp_size
+            # test_gen_batch_padded, pad_size = pad_dataproto_to_divisor(test_gen_batch, self.actor_rollout_wg.world_size)
+            with FSDP.summon_full_params(self.fsdp_model, writeback=False, recurse=False):
+                self.fsdp_model.eval()
+                test_output_gen_batch = self.rollout.generate_sequences(test_gen_batch)
+
+            # unpad
+            # test_output_gen_batch = unpad_dataproto(test_output_gen_batch_padded, pad_size=pad_size)
+            print('validation generation end')
+
+            # Store generated outputs
+            output_ids = test_output_gen_batch.batch['responses']
+            output_texts = [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in output_ids]
+            sample_outputs.extend(output_texts)
+
+            test_batch = test_batch.union(test_output_gen_batch)
+
+            # evaluate using reward_function
+            reward_tensor = self.val_reward_fn(test_batch)
+
+            # Store scores
+            scores = reward_tensor.sum(-1).cpu().tolist()
+            sample_scores.extend(scores)
+
+            reward_tensor_lst.append(reward_tensor)
+            data_source_lst.append(test_batch.non_tensor_batch.get('data_source', ['unknown'] * reward_tensor.shape[0]))
+
+        # self._maybe_log_val_generations(inputs=sample_inputs, outputs=sample_outputs, scores=sample_scores)
+
+        reward_tensor = torch.cat(reward_tensor_lst, dim=0).sum(-1).cpu()  # (batch_size,)
+        data_sources = np.concatenate(data_source_lst, axis=0)
+
+        # evaluate test_score based on data source
+        data_source_reward = {}
+        for i in range(reward_tensor.shape[0]):
+            data_source = data_sources[i]
+            if data_source not in data_source_reward:
+                data_source_reward[data_source] = []
+            data_source_reward[data_source].append(reward_tensor[i].item())
+
+        metric_dict = {}
+        for data_source, rewards in data_source_reward.items():
+            metric_dict[f'val/test_score/{data_source}'] = np.mean(rewards)
+
+        return metric_dict
 
     def init_rollout(self):
         rollout_config = Config(
@@ -574,6 +704,8 @@ class FSDPSFTTrainer:
 
         # TODO (zhangchi.usc1992) add back checkpoint manager.
         # Currently, it blocks when uploading to hdfs. So very slow.
+        if self.config.trainer.get('val_before_train', False):
+            self._validate()
 
         for epoch in range(self.config.trainer.total_epochs):
             self.train_sampler.set_epoch(epoch=epoch)
@@ -604,6 +736,9 @@ class FSDPSFTTrainer:
                         val_data = TensorDict(val_data, batch_size=self.config.data.micro_batch_size_per_gpu).cuda(device=local_rank)
                         val_loss = self.validation_step(val_data)
                         val_losses.append(val_loss)
+                    
+                    if self.val_score_dataset is not None:
+                        metric_dict = self._validate()
 
                     # if self.config.trainer.policy_eval and self.config.model.lora_rank == 0:
                     if self.config.trainer.policy_eval:
@@ -615,6 +750,7 @@ class FSDPSFTTrainer:
                         avg_val_loss = torch.mean(torch.stack(val_losses))
                         metric = {"val/loss": avg_val_loss.detach().item()}
                         tracking.log(data=metric, step=global_step)
+                        tracking.log(data=metric_dict, step=global_step)
                         if self.config.trainer.policy_eval: 
                             tracking.log(data=rollouts.meta_info['metrics'], step=global_step)
                     
@@ -627,53 +763,22 @@ class FSDPSFTTrainer:
             # validation
             val_losses = []
             score = None
-            if hasattr(self, 'val_reward_fn') and self.val_reward_fn is not None:
-                all_prompt_ids = []
-                all_prompt_attention_mask = []
-                all_prompt_position_ids = []
-                all_index = []
 
             for data in self.val_dataloader:
                 data = TensorDict(data, batch_size=self.config.data.micro_batch_size_per_gpu).cuda(device=local_rank)
                 # data = TensorDict(data, batch_size=len(self.val_dataset)//world_size).cuda(device=local_rank)
                 val_loss = self.validation_step(data)
                 val_losses.append(val_loss)                        
-                # Extract prompt data and create a new DataProto for rollout
-                if hasattr(self, 'val_reward_fn') and self.val_reward_fn is not None:
-                    all_prompt_ids.append(data['prompt_ids'])
-                    all_prompt_attention_mask.append(data['prompt_attention_mask'])
-                    all_prompt_position_ids.append(data['prompt_position_ids'])
-                    all_index.append(data['index'])
+
             # After loop
-            if hasattr(self, 'val_reward_fn') and self.val_reward_fn is not None:
-                all_prompt_ids = torch.cat(all_prompt_ids, dim=0)
-                all_prompt_attention_mask = torch.cat(all_prompt_attention_mask, dim=0)
-                all_prompt_position_ids = torch.cat(all_prompt_position_ids, dim=0)
-                all_index = [x.cpu().numpy() for x in all_index]
-                all_index = np.concatenate(all_index, axis=0)
-
-                prompt_data = {
-                    'input_ids': all_prompt_ids,
-                    'attention_mask': all_prompt_attention_mask,
-                    'position_ids': all_prompt_position_ids,
-                }
-            
-                prompt_tensordict = TensorDict(prompt_data, batch_size=all_prompt_ids.shape[0])
-                prompt_data_proto = convert_tensordict_to_dataproto(
-                    prompt_tensordict, 
-                    meta_info={'pad_token_id': self.tokenizer.pad_token_id, 'eos_token_id': self.tokenizer.eos_token_id}
-                )
-                output_proto = self.rollout.generate_sequences(prompt_data_proto)
-                output_proto.non_tensor_batch['index'] = all_index
-                reward_tensor = self.val_reward_fn(output_proto)
-
-                score = reward_tensor.sum(dim=-1).mean().cpu()
-                # TODO: add score for each data source     
+            if self.val_score_dataset is not None:
+                metric_dict = self._validate()
             
             if rank == 0:
                 val_loss = torch.mean(torch.stack(val_losses))
-                metric = {"val/loss": val_loss.detach().item(), "val/score": score.detach().item() if score is not None else None}
+                metric = {"val/loss": val_loss.detach().item()}
                 tracking.log(data=metric, step=global_step)
+                tracking.log(data=metric_dict, step=global_step)
             
             if global_step % self.config.trainer.test_freq == 0 and self.config.trainer.policy_eval:
                 actor_wg = HFWrapperWg(self.config, self.tokenizer, module=self.fsdp_model)
