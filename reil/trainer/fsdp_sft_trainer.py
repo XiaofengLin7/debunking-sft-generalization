@@ -471,7 +471,9 @@ class FSDPSFTTrainer:
 
             # pad to be divisible by dp_size
             # test_gen_batch_padded, pad_size = pad_dataproto_to_divisor(test_gen_batch, self.actor_rollout_wg.world_size)
-            test_output_gen_batch = self.rollout.generate_sequences(test_gen_batch)
+            with FSDP.summon_full_params(self.fsdp_model, writeback=False, recurse=False):
+                self.fsdp_model.eval()
+                test_output_gen_batch = self.rollout.generate_sequences(test_gen_batch)
 
             # unpad
             # test_output_gen_batch = unpad_dataproto(test_output_gen_batch_padded, pad_size=pad_size)
