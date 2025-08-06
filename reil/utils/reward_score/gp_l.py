@@ -270,3 +270,18 @@ if __name__ == "__main__":
     }
     reward = score_gp_l(solution_str, meta_info)
     print(reward)
+
+    meta_info = {
+        "cards": ["K", "10", "3", "4", "7"],
+        "display_cards": [10, 10, 3, 4, 7],
+        "target": 39,
+    }
+    solution_str = """
+    {
+        "cards": ["K", "10", "3", "4", "7"],
+        "number": [10, 10, 3, 4, 7],
+        "formula": "10+10+3*4+7",
+    }
+    """
+    reward = score_gp_l_wo_sol(solution_str, meta_info)
+    print(reward)
