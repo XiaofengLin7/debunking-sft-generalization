@@ -15,6 +15,8 @@ from reil.trainer.llm_agent.ctx_manager import NaiveContextManager
 import time
 from tqdm import tqdm
 from pprint import pprint
+import torch
+from tensordict import TensorDict
 
 class Config:
 	def __init__(self, **kwargs):
@@ -39,7 +41,7 @@ class VllmWrapperWg: # Thi is a developing class for eval and test
             gpu_memory_utilization=ro_config.gpu_memory_utilization,
             disable_custom_all_reduce=True,
             skip_tokenizer_init=False,
-            max_model_len=ro_config.max_model_len,
+            max_model_len=ro_config.get('max_model_len', 2048),
             disable_log_stats=ro_config.disable_log_stats,
             max_num_batched_tokens=ro_config.max_num_batched_tokens,
             enable_chunked_prefill=ro_config.enable_chunked_prefill,
@@ -81,17 +83,52 @@ class VllmWrapperWg: # Thi is a developing class for eval and test
 		# cache_action = lm_inputs.meta_info.get('cache_action', None)
 
 		input_ids = lm_inputs.batch['input_ids']
+		attention_mask = lm_inputs.batch['attention_mask']
+
+		# print(f"lm_inputs.batch: {lm_inputs.batch}")
+		pad_token_id = lm_inputs.meta_info['pad_token_id']
+		
 		input_texts = self.tokenizer.batch_decode(input_ids, skip_special_tokens=False)
 		input_texts = [i.replace("<|endoftext|>", "") for i in input_texts]
 
 		outputs = self.llm.generate(input_texts, sampling_params=self.sampling_params, use_tqdm=False)
 		texts = [output.outputs[0].text for output in outputs] 
+		# print(f"texts: {texts[0]}")
+		prompt_token_ids = [torch.tensor(output.prompt_token_ids, dtype=input_ids.dtype) for output in outputs]
+		response_token_ids = [torch.tensor(output.outputs[0].token_ids, dtype=input_ids.dtype) for output in outputs]
+		
+		prompts_padded = torch.nn.utils.rnn.pad_sequence(prompt_token_ids, batch_first=True, padding_value=pad_token_id, padding_side="right")
+		responses_padded = torch.nn.utils.rnn.pad_sequence(response_token_ids, batch_first=True, padding_value=pad_token_id, padding_side="right")
+		print(f"responses_padded.shape: {responses_padded.shape}")
+
+		input_ids = torch.cat([prompts_padded, responses_padded], dim=1)
+		input_ids_padded = torch.nn.utils.rnn.pad_sequence(input_ids, batch_first=True, padding_value=pad_token_id, padding_side="right")
+
+		attention_mask = torch.where(input_ids_padded != pad_token_id, 1, 0)
+		
+		batch_size = len(input_texts)
+		batch = TensorDict(
+			{
+				'prompts': prompts_padded,
+				'responses': responses_padded,
+				'input_ids': input_ids_padded,
+				'attention_mask': attention_mask,
+			},
+			batch_size=batch_size
+		)
 		lm_outputs = DataProto()
+		lm_outputs.batch = batch
+
 		lm_outputs.non_tensor_batch = {
 			'response_texts': texts,
-			'env_ids': lm_inputs.non_tensor_batch['env_ids'],
-			'group_ids': lm_inputs.non_tensor_batch['group_ids']
+			# 'data_source': lm_inputs.non_tensor_batch['data_source'] if 'data_source' in lm_inputs.non_tensor_batch else None,
+			# 'env_ids': lm_inputs.non_tensor_batch['env_ids'] if 'env_ids' in lm_inputs.non_tensor_batch else None,
+			# 'group_ids': lm_inputs.non_tensor_batch['group_ids'] if 'group_ids' in lm_inputs.non_tensor_batch else None
 		} # this is a bit hard-coded to bypass the __init__ check in DataProto
+		if 'env_ids' in lm_inputs.non_tensor_batch.keys():
+			lm_outputs.non_tensor_batch['env_ids'] = lm_inputs.non_tensor_batch['env_ids']
+		if 'group_ids' in lm_inputs.non_tensor_batch.keys():
+			lm_outputs.non_tensor_batch['group_ids'] = lm_inputs.non_tensor_batch['group_ids']
 		lm_outputs.meta_info = lm_inputs.meta_info
 
 		return lm_outputs
@@ -99,10 +136,12 @@ class VllmWrapperWg: # Thi is a developing class for eval and test
 class HFWrapperWg:
 	def __init__(self, config, tokenizer, module: Union[nn.Module, None] = None):
 		if module is None:
-			module = AutoModelForCausalLM.from_pretrained(config.actor_rollout_ref.model.path, device_map="cuda")
+			self.module = AutoModelForCausalLM.from_pretrained(config.actor_rollout_ref.model.path, device_map="cuda")
+		else:
+			self.module = module
 		self.config = config
 		self.tokenizer = tokenizer
-		HFRolloutConfig = Config(
+		self.rollout_config = Config(
 			micro_batch_size=config.es_manager.val.env_groups,
 			response_length=config.actor_rollout_ref.rollout.response_length,
 			do_sample=config.actor_rollout_ref.rollout.do_sample,
@@ -110,7 +149,12 @@ class HFWrapperWg:
 			top_p=config.actor_rollout_ref.rollout.val_kwargs.top_p,
 			top_k=config.actor_rollout_ref.rollout.val_kwargs.top_k,
 		)
-		self.llm = HFRollout(module, HFRolloutConfig)
+		self.llm = HFRollout(self.module, self.rollout_config)
+	
+	def load_checkpoint(self, checkpoint_path: str):
+		self.module = AutoModelForCausalLM.from_pretrained(checkpoint_path, device_map="cuda")
+		# Recreate HFRollout with the new module
+		self.llm = HFRollout(self.module, self.rollout_config)
 
 	def generate_sequences(self, lm_inputs: DataProto):
 		input_ids = lm_inputs.batch['input_ids']
@@ -125,8 +169,8 @@ class HFWrapperWg:
 
 		lm_outputs = self.llm.generate_sequences(lm_inputs)
 		lm_outputs.non_tensor_batch = {
-			'env_ids': lm_inputs.non_tensor_batch['env_ids'],
-			'group_ids': lm_inputs.non_tensor_batch['group_ids']
+			'env_ids': lm_inputs.non_tensor_batch['env_ids'] if 'env_ids' in lm_inputs.non_tensor_batch else None,
+			'group_ids': lm_inputs.non_tensor_batch['group_ids'] if 'group_ids' in lm_inputs.non_tensor_batch else None
 		}
 		lm_outputs.meta_info = lm_inputs.meta_info
 		return lm_outputs

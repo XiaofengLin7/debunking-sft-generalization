@@ -22,6 +22,10 @@ from omegaconf import OmegaConf
 from verl.workers.fsdp_workers import ActorRolloutRefWorker
 from verl.protocol import pad_dataproto_to_divisor, unpad_dataproto
 import torch
+from verl.utils.dataset.rl_dataset import RLHFDataset, collate_fn
+from torchdata.stateful_dataloader import StatefulDataLoader
+from reil.trainer.main_ppo import get_custom_reward_fn
+import numpy as np
 
 class Role(Enum):
     """
@@ -45,7 +49,44 @@ class CheckpointEvaluator:
             default_backend=config.evaluator.logger,
             config=OmegaConf.to_container(config, resolve=True)
         )
-
+        if self.config.data.get('val_score_files', None):
+            self.val_score_dataset = RLHFDataset(parquet_files=config.data.val_score_files,
+                                        tokenizer=self.tokenizer,
+                                        prompt_key=config.data.prompt_key,
+                                        image_key=config.data.get('image_key', 'images'),
+                                        max_prompt_length=config.data.max_prompt_length,
+                                        chat_template=config.data.get('chat_template', False),
+                                        filter_prompts=True,
+                                        return_raw_chat=config.data.get('return_raw_chat', False),
+                                        truncation=config.data.get('truncation', 'error'),
+                                        filter_overlong_prompts=config.data.filter_overlong_prompts)
+            self.val_score_dataloader = StatefulDataLoader(
+                dataset=self.val_score_dataset,
+                batch_size=len(self.val_score_dataset),
+                num_workers=8,
+                shuffle=True,
+                drop_last=False,
+                collate_fn=collate_fn)
+            reward_manager_name = self.config.reward_model.get("reward_manager", "naive")
+            if reward_manager_name == 'naive':
+                from verl.workers.reward_manager import NaiveRewardManager
+                reward_manager_cls = NaiveRewardManager
+            elif reward_manager_name == 'prime':
+                from verl.workers.reward_manager import PrimeRewardManager
+                reward_manager_cls = PrimeRewardManager
+            elif reward_manager_name == 'complete':
+                from reil.workers.reward_manager import CompleteRewardManager
+                reward_manager_cls = CompleteRewardManager
+            elif reward_manager_name == 'gp_l':
+                from reil.workers.reward_manager import GPLRewardManager
+                reward_manager_cls = GPLRewardManager
+            else:
+                raise NotImplementedError
+            compute_score = get_custom_reward_fn(self.config)
+            
+            self.val_reward_fn = reward_manager_cls(tokenizer=self.tokenizer, num_examine=1, compute_score=compute_score)
+            self.MAX_REWARD = 5 if reward_manager_name == 'gp_l' else 1
+        
         self._init_checkpoint_dirs()
         
         self.init_checkpoint_type()
@@ -156,6 +197,7 @@ class CheckpointEvaluator:
             # Initialize the model first
             self.actor_rollout_wg.init_model()
         else:
+            # self.actor_rollout_wg = HFWrapperWg(self.config, self.tokenizer)
             self.actor_rollout_wg = VllmWrapperWg(self.config, self.tokenizer)
 
 
@@ -165,6 +207,7 @@ class CheckpointEvaluator:
             self.cleanup_llm()
             print(f"Loading checkpoint from {checkpoint_path}")
             self.actor_rollout_wg.load_checkpoint(checkpoint_path)
+            # print(self.actor_rollout_wg.module)
     
     def generate_sequences(self, lm_inputs: DataProto):
         """
@@ -185,10 +228,6 @@ class CheckpointEvaluator:
 
     def evaluate_checkpoint(self, checkpoint_path: Optional[str] = None) -> Dict:
         """Evaluate a single checkpoint"""
-        # Initialize workers
-        # Load checkpoint if provided
-        if checkpoint_path:
-            self.load_checkpoint(checkpoint_path)
         
         start_time = time.time()
         
@@ -288,8 +327,94 @@ class CheckpointEvaluator:
             self.generations_table = new_table
             # TODO: add other loggers
                             
-            
+    def _validate(self):
+        reward_tensor_lst = []
+        data_source_lst = []
 
+        # Lists to collect samples for the table
+        sample_inputs = []
+        sample_outputs = []
+        sample_scores = []
+
+        for test_data in self.val_score_dataloader:
+            test_batch = DataProto.from_single_dict(test_data)
+
+            # repeat test batch
+            test_batch = test_batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.val_kwargs.n,
+                                           interleave=True)
+
+            # Store original inputs
+            input_ids = test_batch.batch['input_ids']
+            input_texts = [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in input_ids]
+            sample_inputs.extend(input_texts)
+
+            if 'multi_modal_inputs' in test_batch.non_tensor_batch.keys():
+                test_gen_batch = test_batch.pop(
+                    batch_keys=['input_ids', 'attention_mask', 'position_ids'],
+                    non_tensor_batch_keys=['raw_prompt_ids', 'multi_modal_data', 'multi_modal_inputs'],
+                )
+            else:
+                test_gen_batch = test_batch.pop(
+                    batch_keys=['input_ids', 'attention_mask', 'position_ids'],
+                    non_tensor_batch_keys=['raw_prompt_ids'],
+                )
+
+            test_gen_batch.meta_info = {
+                'eos_token_id': self.tokenizer.eos_token_id,
+                'pad_token_id': self.tokenizer.pad_token_id,
+                'recompute_log_prob': False,
+                'do_sample': self.config.actor_rollout_ref.rollout.val_kwargs.do_sample,
+                'validate': True,
+            }
+            print(f'test_gen_batch meta info: {test_gen_batch.meta_info}')
+
+            test_output_gen_batch = self.generate_sequences(test_gen_batch)
+            print('validation generation end')
+            print(test_output_gen_batch.batch['responses'].shape)
+            # Store generated outputs
+            # TODO: add feasible solution for vllm wrapper
+            if 'response_texts' in test_output_gen_batch.non_tensor_batch.keys():
+                output_texts = test_output_gen_batch.non_tensor_batch['response_texts']
+            else:
+                output_ids = test_output_gen_batch.batch['responses']
+                output_texts = [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in output_ids]
+            sample_outputs.extend(output_texts)
+
+            test_batch = test_batch.union(test_output_gen_batch)
+
+            # evaluate using reward_function
+            reward_tensor = self.val_reward_fn(test_batch)
+
+            # Store scores
+            scores = reward_tensor.sum(-1).cpu().tolist()
+            sample_scores.extend(scores)
+
+            reward_tensor_lst.append(reward_tensor)
+            data_source_lst.append(test_batch.non_tensor_batch.get('data_source', ['unknown'] * reward_tensor.shape[0]))
+
+        # self._maybe_log_val_generations(inputs=sample_inputs, outputs=sample_outputs, scores=sample_scores)
+
+        reward_tensor = torch.cat(reward_tensor_lst, dim=0).sum(-1).cpu()  # (batch_size,)
+        data_sources = np.concatenate(data_source_lst, axis=0)
+
+        # evaluate test_score based on data source
+        data_source_reward = {}
+        data_source_acc = {}
+        for i in range(reward_tensor.shape[0]):
+            data_source = data_sources[i]
+            if data_source not in data_source_reward:
+                data_source_reward[data_source] = []
+                data_source_acc[data_source] = []
+            data_source_reward[data_source].append(reward_tensor[i].item())
+            data_source_acc[data_source].append(reward_tensor[i].item()==self.MAX_REWARD)
+            # print(f"data_source: {data_source}, reward: {reward_tensor[i].item()}")
+
+        metric_dict = {}
+        for data_source, rewards in data_source_reward.items():
+            metric_dict[f'val/test_score/{data_source}'] = np.mean(rewards)
+        for data_source, accs in data_source_acc.items():
+            metric_dict[f'val/test_acc/{data_source}'] = np.mean(accs)
+        return metric_dict
     def evaluate_checkpoints(self, checkpoint_dir: str):
         """Evaluate multiple checkpoints in a directory"""
         checkpoint_dir = Path(checkpoint_dir)
@@ -347,7 +472,14 @@ class CheckpointEvaluator:
                 continue
             
             # Evaluate checkpoint
-            metrics = self.evaluate_checkpoint(str(actor_ckpt_path))
+            
+            self.load_checkpoint(str(actor_ckpt_path))
+            if self.val_score_dataset is not None:
+                # single turn
+                metrics = self._validate()
+            else:
+                # multi turn
+                metrics = self.evaluate_checkpoint()
             
             # Log metrics using Tracking
             self.logger.log(data=metrics, step=self.step)
