@@ -12,6 +12,14 @@ DATA_DIR="./data/gp-l-only/rl"
 BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
 # BASE_MODEL="/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/sft/gp-l-1.5b-full-sft-lr-1e-5-08-01/global_step_570"
 # BASE_MODEL="/usr3/graduate/xfl/lab/REIL/checkpoints/sft/sokoban-1.5b-sft-qwen-2.5-base-full-sft-05-15/global_step_180"
+
+test_data_path=./data/gp-l-only/rl/test.parquet
+test_face_cards_as_regular_data_path=./data/gp-l-only/rl/test_face_cards_as_regular.parquet
+test_5cards_data_path=./data/gp-l-only/rl/test_5cards.parquet
+test_fake_data_path=./data/gp-l-only/rl/test_fake.parquet
+test_large_card_data_path=./data/gp-l-only/rl/test_large_card.parquet
+TEST_DATA="['${test_data_path}', '${test_face_cards_as_regular_data_path}', '${test_5cards_data_path}', '${test_fake_data_path}', '${test_large_card_data_path}']"
+
 BETA=0
 KL_COEF=0
 
@@ -50,7 +58,7 @@ export VLLM_USE_V1=1
 
 python3 -m reil.trainer.main_ppo \
 data.train_files=$DATA_DIR/train-10k.parquet \
-data.val_files=$DATA_DIR/test.parquet \
+data.val_files="$TEST_DATA" \
 data.train_batch_size=$BATCH_SIZE \
 data.val_batch_size=32 \
 data.max_prompt_length=1000 \

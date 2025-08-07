@@ -179,12 +179,12 @@ def main():
 
     for task_id in tqdm(range(num_tasks)):
         try:
-            sft_instance, rl_instance = generate_task(task_id, target=24, num_cards=5, 
+            sft_instance, rl_instance = generate_task(task_id, target=24, num_cards=4, 
                                                     treat_face_cards_as_10=True, 
                                                     seed=42 + task_id, 
-                                                    data_source="gp-l-5cards",
+                                                    data_source="gp-l-large",
                                                     ood=True,
-                                                    largest_card=13,
+                                                    largest_card=19,
                                                     is_fake=False)
             sft_datapoints.append(sft_instance)
             rl_datapoints.append(rl_instance)
@@ -212,9 +212,9 @@ def main():
     sft_dataset = Dataset.from_list(sft_datapoints)
     rl_dataset = Dataset.from_list(rl_datapoints, features=features)
 
-    sft_dataset.to_parquet("./data/gp-l-only/sft/test_5cards.parquet")
-    rl_dataset.to_parquet("./data/gp-l-only/rl/test_5cards.parquet")
-    rl_dataset.push_to_hub(dataset_id, split="test_5cards")
+    sft_dataset.to_parquet("./data/gp-l-only/sft/test_large_card.parquet")
+    rl_dataset.to_parquet("./data/gp-l-only/rl/test_large_card.parquet")
+    rl_dataset.push_to_hub(dataset_id, split="test_large")
 
 
 if __name__ == "__main__":
