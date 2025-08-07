@@ -41,7 +41,7 @@ class VllmWrapperWg: # Thi is a developing class for eval and test
             gpu_memory_utilization=ro_config.gpu_memory_utilization,
             disable_custom_all_reduce=True,
             skip_tokenizer_init=False,
-            max_model_len=ro_config.get('max_model_len', 2048),
+            max_model_len=ro_config.max_model_len,
             disable_log_stats=ro_config.disable_log_stats,
             max_num_batched_tokens=ro_config.max_num_batched_tokens,
             enable_chunked_prefill=ro_config.enable_chunked_prefill,
