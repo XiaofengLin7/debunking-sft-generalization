@@ -120,18 +120,21 @@ def calculate_rewards(  card_nums: list[int],
             else:
                 # invalid sequence
                 reward += REWARD_FN["ILLEGAL_FORMULA"]
+                return reward
         elif token_type == 'operator':
             if prev_token_type in ['number', 'close_paren']:
                 pass
             else:
                 # invalid sequence
                 reward += REWARD_FN["ILLEGAL_FORMULA"]
+                return reward
         elif token_type == 'open_paren':
             if prev_token_type in [None, 'operator', 'open_paren']:
                 paren_stack.append(token)
             else:
                 # invalid sequence
                 reward += REWARD_FN["ILLEGAL_FORMULA"]
+                return reward
         elif token_type == 'close_paren':
             if prev_token_type in ['number', 'close_paren']:
                 if paren_stack:
@@ -139,11 +142,14 @@ def calculate_rewards(  card_nums: list[int],
                 else:
                     # invalid sequence 
                     reward += REWARD_FN["ILLEGAL_FORMULA"]
+                    return reward
             else:
                 # invalid sequence
                 reward += REWARD_FN["ILLEGAL_FORMULA"]
+                return reward
         else:
             reward += REWARD_FN["ILLEGAL_FORMULA"]
+            return reward
         prev_token_type = token_type
 
     # Extract numbers from current_formula
