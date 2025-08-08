@@ -97,7 +97,7 @@ class VllmWrapperWg: # Thi is a developing class for eval and test
 		prompt_token_ids = [torch.tensor(output.prompt_token_ids, dtype=input_ids.dtype) for output in outputs]
 		response_token_ids = [torch.tensor(output.outputs[0].token_ids, dtype=input_ids.dtype) for output in outputs]
 		
-		prompts_padded = torch.nn.utils.rnn.pad_sequence(prompt_token_ids, batch_first=True, padding_value=pad_token_id, padding_side="right")
+		prompts_padded = torch.nn.utils.rnn.pad_sequence(prompt_token_ids, batch_first=True, padding_value=pad_token_id, padding_side="left")
 		responses_padded = torch.nn.utils.rnn.pad_sequence(response_token_ids, batch_first=True, padding_value=pad_token_id, padding_side="right")
 		# print(f"responses_padded.shape: {responses_padded.shape}")
 
