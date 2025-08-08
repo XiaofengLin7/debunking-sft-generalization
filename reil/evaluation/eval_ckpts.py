@@ -474,7 +474,7 @@ class CheckpointEvaluator:
             # Evaluate checkpoint
             
             self.load_checkpoint(str(actor_ckpt_path))
-            if self.val_score_dataset is not None:
+            if self.config.data.get('val_score_files', None):
                 # single turn
                 metrics = self._validate()
             else:

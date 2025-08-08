@@ -99,7 +99,7 @@ class VllmWrapperWg: # Thi is a developing class for eval and test
 		
 		prompts_padded = torch.nn.utils.rnn.pad_sequence(prompt_token_ids, batch_first=True, padding_value=pad_token_id, padding_side="right")
 		responses_padded = torch.nn.utils.rnn.pad_sequence(response_token_ids, batch_first=True, padding_value=pad_token_id, padding_side="right")
-		print(f"responses_padded.shape: {responses_padded.shape}")
+		# print(f"responses_padded.shape: {responses_padded.shape}")
 
 		input_ids = torch.cat([prompts_padded, responses_padded], dim=1)
 		input_ids_padded = torch.nn.utils.rnn.pad_sequence(input_ids, batch_first=True, padding_value=pad_token_id, padding_side="right")

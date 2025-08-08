@@ -92,6 +92,16 @@ custom_envs:
       max_steps: 30
       search_depth: 30
 
+  TwoBoxesSokoban:
+    env_type: sokoban
+    max_actions_per_traj: 30
+    env_config:
+      dim_x: 6
+      dim_y: 6
+      num_boxes: 2
+      max_steps: 30
+      search_depth: 30
+
   ComplexSokoban:
     env_type: sokoban
     max_actions_per_traj: 30
