@@ -1,20 +1,16 @@
-
-eval "$(conda shell.bash hook)"
-conda activate reil || exit 1
+#!/bin/bash
 
 set -x
 
 # Shift the arguments so $@ refers to the rest
 shift 2
-N_GPUS=2
+N_GPUS=4
 
-# DATA_DIR="./data/alfworld_task_type/sft"
 # DATA_DIR="./data/sokoban_one_horizon_large_envs/sft"
-DATA_DIR="./data/small_sokoban/sft"
+DATA_DIR="./data/sokoban_one_horizon_large_envs/mixed/sft"
 BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
-# EXPERIMENT_NAME="alfworld-1.5b-pick_n_place-sft-qwen-2.5-base-full-sft"
 LEARNING_RATE=1e-5
-EXPERIMENT_NAME="small_sokoban-1.5b-full-sft-lr-${LEARNING_RATE}-$(date +%m-%d)"
+EXPERIMENT_NAME="mixed_sokoban-1.5b-full-sft-lr-${LEARNING_RATE}-$(date +%m-%d)"
 
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 # export ALFWORLD_DATA="/projectnb/replearn/xfl/Retriever/src/envs/alf_world/data_storage"
@@ -27,6 +23,7 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
     data.response_key=response \
     data.max_length=2048 \
     data.train_batch_size=128 \
+    data.chat_template=False \
     data.max_response_length=200 \
     optim.lr=$LEARNING_RATE \
     data.micro_batch_size_per_gpu=4 \
@@ -35,19 +32,21 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
     ulysses_sequence_parallel_size=1 \
     use_remove_padding=True \
     model.enable_gradient_checkpointing=True \
-    es_manager.val.env_groups=512 \
+    es_manager.val.env_groups=900 \
     es_manager.val.group_size=1 \
-    es_manager.val.env_configs.tags="['LargerSokoban','SimpleSokoban']" \
-    es_manager.val.env_configs.n_groups="[256,256]" \
+    es_manager.val.env_configs.tags="['SimpleSokoban', 'LargerSokoban', 'ComplexSokoban', 'SimpleSokobanEmoji', 'FakeSokobanEmoji', 'SimpleSokobanCardinal', 'FakeSokobanCardinal', 'SimpleSokobanEmpty', 'TwoBoxesSokoban']" \
+    es_manager.val.env_configs.n_groups="[100,100,100,100,100,100,100,100,100]" \
+    agent_proxy.max_turn=30 \
     trainer.policy_eval=True \
-    trainer.project_name=REIL-sft \
-    trainer.test_freq=10 \
-    trainer.save_freq=10 \
+    trainer.project_name=REIL \
     trainer.experiment_name=$EXPERIMENT_NAME \
     trainer.default_local_dir=checkpoints/ds310/sft/$EXPERIMENT_NAME \
-    trainer.logger="['console', 'wandb']" \
+    trainer.logger="['console']" \
     trainer.total_epochs=30 \
+    trainer.val_before_train=False \
     trainer.default_hdfs_dir=null $@ | tee checkpoints/ds310/sft/${EXPERIMENT_NAME}_train.log
 
     # Or you can do this:
     # model.target_modules=[q_proj,v_proj] \
+#     trainer.test_freq=10 \
+#     trainer.save_freq=10 \

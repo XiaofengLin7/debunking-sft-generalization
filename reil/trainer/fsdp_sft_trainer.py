@@ -57,7 +57,7 @@ from verl.utils.ulysses import (
 )
 from verl.workers.sharding_manager.fsdp_ulysses import FSDPUlyssesShardingManager
 from reil.utils.dataset.rg_dataset import prepare_reasoning_gym_sft_dataset
-# from reil.trainer.llm_agent.agent_proxy import HFWrapperWg
+from reil.trainer.llm_agent.agent_proxy import LLMAgentProxy, HFWrapperWg
 from tensordict import TensorDict
 from typing import Dict, Any
 from verl import DataProto
@@ -422,7 +422,6 @@ class FSDPSFTTrainer:
 
     def init_agent_proxy(self):
         # assert self.config.trainer.policy_eval==False, "Policy eval must be disabled for Reasoning Gym"
-        from reil.trainer.llm_agent.agent_proxy import LLMAgentProxy, HFWrapperWg
         tokenizer = self.tokenizer
         config = self.config
         actor_wg = HFWrapperWg(config, tokenizer, module=self.model)
@@ -705,7 +704,11 @@ class FSDPSFTTrainer:
         # TODO (zhangchi.usc1992) add back checkpoint manager.
         # Currently, it blocks when uploading to hdfs. So very slow.
         if self.config.trainer.get('val_before_train', False):
-            self._validate()
+            if self.val_score_dataset is not None:
+                # single turn  
+                self._validate()
+            else:
+                pass
 
         for epoch in range(self.config.trainer.total_epochs):
             self.train_sampler.set_epoch(epoch=epoch)
@@ -742,7 +745,8 @@ class FSDPSFTTrainer:
 
                     # if self.config.trainer.policy_eval and self.config.model.lora_rank == 0:
                     if self.config.trainer.policy_eval:
-                        actor_wg = HFWrapperWg(self.config, self.tokenizer, module=self.fsdp_model)
+                        # Use non-FSDP model for generation to avoid full parameter gather OOM
+                        actor_wg = HFWrapperWg(self.config, self.tokenizer, module=self.model)
                         self.proxy.set_actor_wg(actor_wg)
                         rollouts = self.proxy.rollout()
 
@@ -750,7 +754,8 @@ class FSDPSFTTrainer:
                         avg_val_loss = torch.mean(torch.stack(val_losses))
                         metric = {"val/loss": avg_val_loss.detach().item()}
                         tracking.log(data=metric, step=global_step)
-                        tracking.log(data=metric_dict, step=global_step)
+                        if self.val_score_dataset is not None:
+                            tracking.log(data=metric_dict, step=global_step)
                         if self.config.trainer.policy_eval: 
                             tracking.log(data=rollouts.meta_info['metrics'], step=global_step)
                     
@@ -778,10 +783,12 @@ class FSDPSFTTrainer:
                 val_loss = torch.mean(torch.stack(val_losses))
                 metric = {"val/loss": val_loss.detach().item()}
                 tracking.log(data=metric, step=global_step)
-                tracking.log(data=metric_dict, step=global_step)
+                if self.val_score_dataset is not None:
+                    tracking.log(data=metric_dict, step=global_step)
             
             if global_step % self.config.trainer.test_freq == 0 and self.config.trainer.policy_eval:
-                actor_wg = HFWrapperWg(self.config, self.tokenizer, module=self.fsdp_model)
+                # Use non-FSDP model for generation to avoid full parameter gather OOM
+                actor_wg = HFWrapperWg(self.config, self.tokenizer, module=self.model)
                 self.proxy.set_actor_wg(actor_wg)
                 rollouts = self.proxy.rollout()  
 
