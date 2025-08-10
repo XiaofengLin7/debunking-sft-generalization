@@ -9,7 +9,8 @@ DATA_DIR="./data/sokoban_one_horizon_large_envs"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-3B/snapshots/3aab1f1954e9cc14eb9509a215f9e5ca08227a9b"
 # BASE_MODEL="./models/rlft/models--deepseek-ai--DeepSeek-R1-0528-Qwen3-8B/snapshots/6e8885a6ff5c1dc5201574c8fd700323f23c25fa"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-Math-1.5B/snapshots/4a83ca6e4526a4f2da3aa259ec36c259f66b2ab2"
-BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
+# BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
+BASE_MODEL="./models/rlft/models--Qwen--Qwen3-1.7B/snapshots/70d244cc86ccca08cf5af4e1e306ecf908b1ad5e"
 # BASE_MODEL="/usr3/graduate/xfl/lab/REIL/checkpoints/sft/sokoban-1.5b-sft-qwen-2.5-base-full-sft-05-15/global_step_180"
 BETA=0.000
 KL_COEF=0.000
@@ -41,7 +42,7 @@ done
 
 CONTEXT_LENGTH=1024
 BATCH_SIZE=256
-EXPERIMENT_NAME="sokoban-1.5b-${BETA}beta-${KL_COEF}kl-$(date +%m-%d)-grpo"
+EXPERIMENT_NAME="sokoban-qwen3-1.7b-${BETA}beta-${KL_COEF}kl-$(date +%m-%d)-grpo"
 #EXPERIMENT_NAME="small_sokoban-1.5b-${BETA}beta-${KL_COEF}kl-06-18-grpo"
 ROLLOUT_TP_SIZE=1
 N_GPUS=4

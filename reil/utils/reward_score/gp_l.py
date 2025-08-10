@@ -164,12 +164,15 @@ def calculate_rewards(  card_nums: list[int],
     overused_numbers = [num for num in numbers_in_formula_counts if numbers_in_formula_counts[num] > card_nums_counts[num]]
     if invalid_numbers:
         reward += REWARD_FN["INCORRECT_NUMBER"]
+        return reward
     elif overused_numbers:
         reward += REWARD_FN["INCORRECT_NUMBER"]
+        return reward
     
     underused_numbers = [num for num in card_nums_counts if card_nums_counts[num] > numbers_in_formula_counts[num]]
     if underused_numbers:
         reward += REWARD_FN["INCORRECT_NUMBER"]
+        return reward
     # if currently reward is 0
     if reward == 0:
         try:
