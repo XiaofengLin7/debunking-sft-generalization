@@ -58,13 +58,11 @@ from verl.utils.ulysses import (
 from verl.workers.sharding_manager.fsdp_ulysses import FSDPUlyssesShardingManager
 from reil.utils.dataset.rg_dataset import prepare_reasoning_gym_sft_dataset
 from reil.trainer.llm_agent.agent_proxy import LLMAgentProxy, HFWrapperWg
-from tensordict import TensorDict
 from typing import Dict, Any
 from verl import DataProto
 import numpy as np
 from verl.workers.rollout.hf_rollout import HFRollout
 from reasoning_gym.utils import extract_answer
-from pprint import pprint
 from reil.trainer.main_ppo import get_custom_reward_fn
 from verl.utils.dataset.rl_dataset import RLHFDataset, collate_fn
 from torchdata.stateful_dataloader import StatefulDataLoader
@@ -142,12 +140,18 @@ class FSDPSFTTrainer:
         # TODO: add checkpoint manager
         if self.device_mesh.get_rank() == 0:
             print(self.config)
+        self.eval_model: PreTrainedModel | None = None
+        # Build or refresh eval model with participation from all ranks to avoid FSDP deadlocks
         if self.config.data.type != 'reasoning_gym' and self.config.trainer.policy_eval:
-            self.init_agent_proxy()
+            self._sync_eval_model_from_fsdp_all_ranks()
+            if self.device_mesh.get_rank() == 0:
+                self.init_agent_proxy()
         self.init_rollout()
         self.init_reward_function()
         if not hasattr(self, 'val_reward_fn') or self.val_reward_fn is None:
             print("No reward function is initialized")
+        # Cache a standalone eval model to avoid rebuilding
+        
 
     def _normalize_config_bsz(self):
         dp_size = self.device_mesh.size(0) if not self.ulysses_device_mesh else self.ulysses_device_mesh.size(0)
@@ -310,7 +314,7 @@ class FSDPSFTTrainer:
         # TODO (zhangchi.usc1992):
         # 1. support pretrain from random weights
         # 2. support init directly from sharded weights
-        local_model_path = copy_to_local(src=self.config.model.partial_pretrain, verbose=True)
+        self.local_model_path = copy_to_local(src=self.config.model.partial_pretrain, verbose=True)
 
         if self.config.model.get("external_lib", None) is not None:
             # This is used to import external_lib into the huggingface systems
@@ -322,7 +326,7 @@ class FSDPSFTTrainer:
 
         trust_remote_code = self.config.model.trust_remote_code
         # load config first
-        config = AutoConfig.from_pretrained(local_model_path, trust_remote_code=trust_remote_code)
+        config = AutoConfig.from_pretrained(self.local_model_path, trust_remote_code=trust_remote_code)
         if self.config.ulysses_sequence_parallel_size > 1:
             assert self.use_remove_padding, "Sequence parallel is only supported when remove_padding is enabled"
 
@@ -331,7 +335,7 @@ class FSDPSFTTrainer:
 
         with init_context():
             self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
-                local_model_path,
+                self.local_model_path,
                 config=config,
                 torch_dtype=torch.float32,
                 attn_implementation="flash_attention_2",
@@ -424,8 +428,72 @@ class FSDPSFTTrainer:
         # assert self.config.trainer.policy_eval==False, "Policy eval must be disabled for Reasoning Gym"
         tokenizer = self.tokenizer
         config = self.config
-        actor_wg = HFWrapperWg(config, tokenizer, module=self.model)
+        actor_wg = HFWrapperWg(config, tokenizer, module=self._get_or_build_eval_model())
         self.proxy = LLMAgentProxy(config, actor_wg, tokenizer)
+
+    def _get_or_build_eval_model(self) -> PreTrainedModel:
+        if self.eval_model is None:
+            self.eval_model = self._build_eval_model_from_fsdp()
+        return self.eval_model
+
+    def _gather_full_state_dict_all_ranks(self):
+        from torch.distributed.fsdp import StateDictType, FullStateDictConfig
+        cfg = FullStateDictConfig(offload_to_cpu=True, rank0_only=False)
+        with FSDP.state_dict_type(self.fsdp_model, StateDictType.FULL_STATE_DICT, cfg):
+            full_state_dict = self.fsdp_model.state_dict()
+        return full_state_dict if self.device_mesh.get_rank() == 0 else None
+
+    def _build_eval_model_from_fsdp(self) -> PreTrainedModel:
+        """
+        Materialize a full-precision eval model with the current FSDP weights, without FSDP wrapping.
+        Avoids FSDP all-gather during generation and preserves exactness.
+        """
+        full_state_dict = self._gather_full_state_dict_all_ranks()
+        assert self.device_mesh.get_rank() == 0, "_build_eval_model_from_fsdp should be called only on rank 0"
+
+        eval_model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
+            self.local_model_path,
+            config=self.model.config,
+            torch_dtype=torch.bfloat16 if self.model.config.torch_dtype == torch.bfloat16 else torch.float32,
+            attn_implementation="flash_attention_2",
+            trust_remote_code=self.config.model.trust_remote_code,
+        ).cuda()
+        missing, unexpected = eval_model.load_state_dict(full_state_dict, strict=False)
+        if (missing or unexpected):
+            print(f"[Eval Model] Missing keys: {len(missing)}, Unexpected keys: {len(unexpected)}")
+        eval_model.eval()
+        return eval_model
+
+    def _sync_eval_model_from_fsdp_all_ranks(self) -> None:
+        """All ranks participate in gathering the full state dict; rank 0 builds or refreshes eval model.
+
+        This avoids deadlocks caused by calling FSDP full-state-dict collectives on a subset of ranks.
+        """
+        full_state_dict = self._gather_full_state_dict_all_ranks()
+        rank = self.device_mesh.get_rank()
+        if rank == 0:
+            if self.eval_model is None:
+                self.eval_model = AutoModelForCausalLM.from_pretrained(
+                    self.local_model_path,
+                    config=self.model.config,
+                    torch_dtype=torch.bfloat16 if self.model.config.torch_dtype == torch.bfloat16 else torch.float32,
+                    attn_implementation="flash_attention_2",
+                    trust_remote_code=self.config.model.trust_remote_code,
+                ).cuda()
+            missing, unexpected = self.eval_model.load_state_dict(full_state_dict, strict=False)
+            if (missing or unexpected):
+                print(f"[Eval Model Sync] Missing keys: {len(missing)}, Unexpected keys: {len(unexpected)}")
+            self.eval_model.eval()
+        # Ensure all ranks wait until rank 0 finishes preparing the eval model
+        torch.distributed.barrier()
+
+    def _policy_eval_and_log(self, tracking: Tracking, global_step: int) -> None:
+        """Run policy evaluation on rank 0 and log metrics. Assumes eval model has been synchronized."""
+        assert self.device_mesh.get_rank() == 0
+        actor_wg = HFWrapperWg(self.config, self.tokenizer, module=self._get_or_build_eval_model())
+        self.proxy.set_actor_wg(actor_wg)
+        rollouts = self.proxy.rollout()
+        tracking.log(data=rollouts.meta_info['metrics'], step=global_step)
 
     def _validate(self):
         reward_tensor_lst = []
@@ -468,11 +536,9 @@ class FSDPSFTTrainer:
             }
             print(f'test_gen_batch meta info: {test_gen_batch.meta_info}')
 
-            # pad to be divisible by dp_size
-            # test_gen_batch_padded, pad_size = pad_dataproto_to_divisor(test_gen_batch, self.actor_rollout_wg.world_size)
-            with FSDP.summon_full_params(self.fsdp_model, writeback=False, recurse=False):
-                self.fsdp_model.eval()
-                test_output_gen_batch = self.rollout.generate_sequences(test_gen_batch)
+            # Use non-FSDP model for generation to avoid all-gather
+            self.model.eval()
+            test_output_gen_batch = self.rollout.generate_sequences(test_gen_batch)
 
             # unpad
             # test_output_gen_batch = unpad_dataproto(test_output_gen_batch_padded, pad_size=pad_size)
@@ -708,7 +774,12 @@ class FSDPSFTTrainer:
                 # single turn  
                 self._validate()
             else:
-                pass
+                # All ranks must participate in FSDP full-state-dict collectives
+                self._sync_eval_model_from_fsdp_all_ranks()
+                if rank == 0:
+                    self._policy_eval_and_log(tracking, global_step)
+        # Ensure all ranks synchronize here; barrier must be called by every rank
+        torch.distributed.barrier()
 
         for epoch in range(self.config.trainer.total_epochs):
             self.train_sampler.set_epoch(epoch=epoch)
@@ -745,10 +816,10 @@ class FSDPSFTTrainer:
 
                     # if self.config.trainer.policy_eval and self.config.model.lora_rank == 0:
                     if self.config.trainer.policy_eval:
-                        # Use non-FSDP model for generation to avoid full parameter gather OOM
-                        actor_wg = HFWrapperWg(self.config, self.tokenizer, module=self.model)
-                        self.proxy.set_actor_wg(actor_wg)
-                        rollouts = self.proxy.rollout()
+                        # All ranks refresh; rank 0 runs rollout
+                        self._sync_eval_model_from_fsdp_all_ranks()
+                        if rank == 0:
+                            self._policy_eval_and_log(tracking, global_step)
 
                     if rank == 0:
                         avg_val_loss = torch.mean(torch.stack(val_losses))
@@ -757,7 +828,7 @@ class FSDPSFTTrainer:
                         if self.val_score_dataset is not None:
                             tracking.log(data=metric_dict, step=global_step)
                         if self.config.trainer.policy_eval: 
-                            tracking.log(data=rollouts.meta_info['metrics'], step=global_step)
+                            pass  # metrics logged in _policy_eval_and_log
                     
                     torch.distributed.barrier()
 
@@ -787,13 +858,10 @@ class FSDPSFTTrainer:
                     tracking.log(data=metric_dict, step=global_step)
             
             if global_step % self.config.trainer.test_freq == 0 and self.config.trainer.policy_eval:
-                # Use non-FSDP model for generation to avoid full parameter gather OOM
-                actor_wg = HFWrapperWg(self.config, self.tokenizer, module=self.model)
-                self.proxy.set_actor_wg(actor_wg)
-                rollouts = self.proxy.rollout()  
-
+                # Periodic eval uses refreshed eval model; all ranks participate
+                self._sync_eval_model_from_fsdp_all_ranks()
                 if rank == 0:
-                    tracking.log(data=rollouts.meta_info['metrics'], step=global_step)
+                    self._policy_eval_and_log(tracking, global_step)
 
             
             torch.distributed.barrier()

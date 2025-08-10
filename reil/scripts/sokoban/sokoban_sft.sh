@@ -41,7 +41,7 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
     trainer.project_name=REIL \
     trainer.experiment_name=$EXPERIMENT_NAME \
     trainer.default_local_dir=checkpoints/ds310/sft/$EXPERIMENT_NAME \
-    trainer.logger="['console']" \
+    trainer.logger="['console', 'wandb']" \
     trainer.total_epochs=30 \
     trainer.val_before_train=False \
     trainer.default_hdfs_dir=null $@ | tee checkpoints/ds310/sft/${EXPERIMENT_NAME}_train.log
