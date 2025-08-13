@@ -16,7 +16,7 @@ def extract_solution(solution_str):
         final_answer = None
     return final_answer, processed_str
 
-def extract_action(text):
+def extract_action_base(text):
     """
     Extract action from text.
     - 0: Still (Invalid Action)
@@ -40,6 +40,31 @@ def extract_action(text):
     elif match.group(4): 
         return DIRECTION_MAP[match.group(4).capitalize()]
     elif match.group(5): 
+        return int(match.group(5))
+    
+    return 0
+
+def extract_action_cardinal(text):
+    """
+    Extract action from text.
+    - 0: Still (Invalid Action)
+    - 1: North
+    - 2: South
+    - 3: West
+    - 4: East
+    """
+    DIRECTION_MAP = {"North": 1, "South": 2, "West": 3, "East": 4}
+    pattern = r'^\s*(([1-4])\s*\((north|south|west|east)\)|(north|south|west|east)|([1-4]))\s*$'
+    match = re.fullmatch(pattern, text.strip(), flags=re.IGNORECASE | re.X)
+    
+    if not match:
+        return 0
+    
+    if match.group(2):
+        return int(match.group(2))
+    elif match.group(4):
+        return DIRECTION_MAP[match.group(4).capitalize()]
+    elif match.group(5):
         return int(match.group(5))
     
     return 0
@@ -88,7 +113,7 @@ def compute_score(solution_str, ground_truth, format_score=0.0, score=1.0, *args
     if final_answer is None:
         return 0
     else:
-        action = extract_action(final_answer)
+        action = extract_action_base(final_answer)
         if action == ground_truth:
             return score
         return format_score
@@ -100,7 +125,7 @@ def compute_score_with_format(solution_str, ground_truth, format_score=0.1, scor
     if final_answer is None:
         return 0
     else:
-        action = extract_action(final_answer)
+        action = extract_action_base(final_answer)
         if action == ground_truth:
             return score
         return format_score
@@ -122,12 +147,12 @@ def compute_score_with_logic(solution_str, ground_truth, format_score=0.1, score
         if final_answer is None:
             return 0
         else:
-            action = extract_action(final_answer)
+            action = extract_action_base(final_answer)
             if action == ground_truth:
                 return score
     return format_score
 
-def convert_action_sequence(action_sequence):
+def convert_action_sequence(action_sequence, data_source="sokoban"):
     """
     Convert a sequence of actions to their numerical representations.
     
@@ -156,11 +181,14 @@ def convert_action_sequence(action_sequence):
     # Convert each action using the existing extract_action function
     numerical_actions = []
     for action in actions:
-        numerical_actions.append(extract_action(action))
+        if "cardinal" in data_source:
+            numerical_actions.append(extract_action_cardinal(action))
+        else:
+            numerical_actions.append(extract_action_base(action))
     
     return numerical_actions
 
-def compute_score_with_action_sequence(solution_str, ground_truth, format_score=0.1, score=1.0, *args, **kwargs):
+def compute_score_with_action_sequence(solution_str, ground_truth, data_source, format_score=0.1, score=1.0, *args, **kwargs):
     if "Assistant:" in solution_str:
         processed_str = solution_str.split("Assistant:", 1)[1]
     elif "<|im_start|>assistant" in solution_str:
@@ -176,7 +204,7 @@ def compute_score_with_action_sequence(solution_str, ground_truth, format_score=
         if final_answer is None:
             return 0
         else:
-            action_sequence = convert_action_sequence(final_answer)
+            action_sequence = convert_action_sequence(final_answer, data_source)
             len_horizon = len(ground_truth)
             if len(action_sequence) < len_horizon:
                 return 0
@@ -188,7 +216,7 @@ def compute_score_with_action_sequence(solution_str, ground_truth, format_score=
                 
     return 0
 
-def compute_score_with_action_sequence_zero_format_score(solution_str, ground_truth, score=1.0, *args, **kwargs):
+def compute_score_with_action_sequence_zero_format_score(solution_str, ground_truth, data_source, score=1.0, *args, **kwargs):
     if "Assistant:" in solution_str:
         processed_str = solution_str.split("Assistant:", 1)[1]
     elif "<|im_start|>assistant" in solution_str:
@@ -204,7 +232,7 @@ def compute_score_with_action_sequence_zero_format_score(solution_str, ground_tr
         if final_answer is None:
             return 0
         else:
-            action_sequence = convert_action_sequence(final_answer)
+            action_sequence = convert_action_sequence(final_answer, data_source)
             len_horizon = len(ground_truth)
             if len(action_sequence) < len_horizon:
                 return 0
@@ -237,11 +265,12 @@ def main():
     # print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<action>4(right)</action>", 4))
     # print(compute_score("<|im_start|>assistant\n\n<|im_end|>\n\n<action>up</action> <answer>left</answer>", 4))
     # print(compute_score_with_logic("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>up</answer>", 1))
-    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>up, left, down, right</answer>", [1, 3, 2, 4], 0.1, 1.0))
-    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>up, left, down, right, right</answer>", [1, 3, 2, 4], 0.1, 1.0))
-    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>up, left, </answer>", [1, 3, 2, 4], 0.1, 1.0))
-    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer></answer>", [1, 3, 2, 4], 0.1, 1.0))
-    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>up, </answer>", [1, 3, 2, 4], 0.1, 1.0))
-    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>up  left down left</answer>", [1, 3, 2, 4], 0.1, 1.0))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>up, left, down, right</answer>", [1, 3, 2, 4],'sokoban', 0.1, 1.0))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>up, left, down, right, right</answer>", [1, 3, 2, 4], 'sokoban', 0.1, 1.0))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>up, left, </answer>", [1, 3, 2, 4], 'sokoban', 0.1, 1.0))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer></answer>", [1, 3, 2, 4], 'sokoban', 0.1, 1.0))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>up, </answer>", [1, 3, 2, 4], 'sokoban', 0.1, 1.0))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>up  left down left</answer>", [1, 3, 2, 4], 'sokoban', 0.1, 1.0))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>north, west, south, east</answer>", [1, 3, 2, 4], 'sokoban_cardinal', 0.1, 1.0))
 if __name__ == "__main__":
     main()
