@@ -18,6 +18,8 @@ class ActionFormat(Enum):
     CARDINAL = "cardinal" 
     EMOJI = "emoji"
     EMPTY = "empty"
+    NUMERICAL = "numerical"
+    ALPHABETICAL = "alphabetical"
 
 class InstructionTemplates:
     """Centralized template management with caching."""
@@ -50,7 +52,9 @@ Decide the next action:\\"""
         ActionFormat.BASE: "Answers:\n<answer> Up </answer> | <answer> Down </answer> | <answer> Left </answer> | <answer> Right </answer>",
         ActionFormat.CARDINAL: "Answers:\n<answer> North </answer> | <answer> South </answer> | <answer> West </answer> | <answer> East </answer>",
         ActionFormat.EMOJI: "Answers:\n<answer> ⬆️ </answer> | <answer> ⬇️ </answer> | <answer> ⬅️ </answer> | <answer> ➡️ </answer>",
-        ActionFormat.EMPTY: ""
+        ActionFormat.EMPTY: "",
+        ActionFormat.NUMERICAL: "Answers:\n<answer> 1 </answer> | <answer> 2 </answer> | <answer> 3 </answer> | <answer> 4 </answer>\nwhere 1 is Up, 2 is Down, 3 is Left, 4 is Right.",
+        ActionFormat.ALPHABETICAL: "Answers:\n<answer> A </answer> | <answer> B </answer> | <answer> C </answer> | <answer> D </answer>\nwhere A is Up, B is Down, C is Left, D is Right."
     }
 
     CHAT_TEMPLATES = {
@@ -67,7 +71,9 @@ class SokobanEnvReil(SokobanEnv):
         ActionFormat.BASE: {0: "None", 1: "Up", 2: "Down", 3: "Left", 4: "Right"},
         ActionFormat.CARDINAL: {0: "None", 1: "North", 2: "South", 3: "West", 4: "East"},
         ActionFormat.EMOJI: {0: "None", 1: "⬆️", 2: "⬇️", 3: "⬅️", 4: "➡️"},
-        ActionFormat.EMPTY: {0: "None", 1: "Up", 2: "Down", 3: "Left", 4: "Right"}
+        ActionFormat.EMPTY: {0: "None", 1: "Up", 2: "Down", 3: "Left", 4: "Right"},
+        ActionFormat.NUMERICAL: {0: "None", 1: "1", 2: "2", 3: "3", 4: "4"},
+        ActionFormat.ALPHABETICAL: {0: "None", 1: "A", 2: "B", 3: "C", 4: "D"}
     }
 
     def __init__(self, config=None, action_format: ActionFormat = ActionFormat.BASE):
@@ -133,32 +139,6 @@ class SokobanEnvReil(SokobanEnv):
             self.action_sequence = action_sequence
             return self.render(mode)
 
-    # def extract_action(self, text: str) -> int:
-    #     """Extract action from text based on action format."""
-    #     if self.action_format == ActionFormat.CARDINAL:
-    #         return self._extract_cardinal_action(text)
-    #     else:
-    #         # Use parent class implementation for other formats
-    #         return super().extract_action(text)
-
-    # def _extract_cardinal_action(self, text: str) -> int:
-    #     """Extract cardinal direction action from text."""
-    #     import re
-    #     DIRECTION_MAP = {"North": 1, "South": 2, "West": 3, "East": 4}
-    #     pattern = r'^\s*(([1-4])\s*\((north|west|south|east)\)|(north|west|south|east)|([1-4]))\s*$'
-    #     match = re.fullmatch(pattern, text.strip(), flags=re.IGNORECASE | re.X)
-        
-    #     if not match:
-    #         return self.INVALID_ACTION
-        
-    #     if match.group(2):   
-    #         return int(match.group(2))
-    #     elif match.group(4): 
-    #         return DIRECTION_MAP[match.group(4).capitalize()]
-    #     elif match.group(5): 
-    #         return int(match.group(5))
-        
-    #     return self.INVALID_ACTION
 
     def render(self, mode='complete'):
         """Optimized render method with caching."""
@@ -272,6 +252,16 @@ class SokobanEnvReilEmpty(SokobanEnvReil):
     """Backward compatibility wrapper for empty instruction."""
     def __init__(self, config=None):
         super().__init__(config=config, action_format=ActionFormat.EMPTY)
+
+class SokobanEnvReilNumerical(SokobanEnvReil):
+    """Backward compatibility wrapper for numerical actions."""
+    def __init__(self, config=None):
+        super().__init__(config=config, action_format=ActionFormat.NUMERICAL)
+
+class SokobanEnvReilAlphabetical(SokobanEnvReil):
+    """Backward compatibility wrapper for alphabetical actions."""
+    def __init__(self, config=None):
+        super().__init__(config=config, action_format=ActionFormat.ALPHABETICAL)
 
 if __name__ == "__main__":
     # Example usage showing improved flexibility

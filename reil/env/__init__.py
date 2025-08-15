@@ -1,4 +1,4 @@
-from .sokoban.env import SokobanEnvReil, SokobanEnvReilCardinal, SokobanEnvReilEmoji, SokobanEnvReilEmpty
+from .sokoban.env import SokobanEnvReil, SokobanEnvReilCardinal, SokobanEnvReilEmoji, SokobanEnvReilEmpty, SokobanEnvReilNumerical, SokobanEnvReilAlphabetical
 from .alfworld.env import ALFWorldTW
 from .sokoban.config import SokobanEnvConfig
 from .alfworld.config import ALFWorldConfig
@@ -10,6 +10,8 @@ REGISTERED_ENVS = {
     'sokoban_cardinal': SokobanEnvReilCardinal,
     'sokoban_emoji': SokobanEnvReilEmoji,
     'sokoban_empty': SokobanEnvReilEmpty,
+    'sokoban_numerical': SokobanEnvReilNumerical,
+    'sokoban_alphabetical': SokobanEnvReilAlphabetical,
     'alfworld': ALFWorldTW,
     'gp_l': GPLEnv,
     'gp_l_face_cards_as_10': GPLEnvFaceCardsAs10,
@@ -20,6 +22,8 @@ REGISTERED_ENV_CONFIGS = {
     'sokoban_cardinal': SokobanEnvConfig,
     'sokoban_emoji': SokobanEnvConfig,
     'sokoban_empty': SokobanEnvConfig,
+    'sokoban_numerical': SokobanEnvConfig,
+    'sokoban_alphabetical': SokobanEnvConfig,
     'alfworld': ALFWorldConfig,
     'gp_l': GPLEnvConfig,
     'gp_l_face_cards_as_10': GPLEnvConfig,

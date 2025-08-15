@@ -32,8 +32,8 @@ python -m reil.evaluation.eval_ckpts \
     evaluator.n_gpus_per_node=$N_GPUS \
     evaluator.logger="['console', 'wandb']" \
     evaluator.resume_step=0 \
-    es_manager.val.env_groups=900 \
+    es_manager.val.env_groups=1100 \
     es_manager.val.group_size=1 \
-    es_manager.val.env_configs.tags="['SimpleSokoban', 'LargerSokoban', 'ComplexSokoban', 'SimpleSokobanEmoji', 'FakeSokobanEmoji', 'SimpleSokobanCardinal', 'FakeSokobanCardinal', 'SimpleSokobanEmpty', 'TwoBoxesSokoban']" \
-    es_manager.val.env_configs.n_groups="[100,100,100,100,100,100,100,100,100]" \
+    es_manager.val.env_configs.tags="['SimpleSokoban', 'LargerSokoban', 'ComplexSokoban', 'SimpleSokobanEmoji', 'FakeSokobanEmoji', 'SimpleSokobanCardinal', 'FakeSokobanCardinal', 'SimpleSokobanEmpty', 'TwoBoxesSokoban', 'SimpleSokobanNumerical', 'SimpleSokobanAlphabetical']" \
+    es_manager.val.env_configs.n_groups="[100,100,100,100,100,100,100,100,100,100,100]" \
     agent_proxy.max_turn=30 \
