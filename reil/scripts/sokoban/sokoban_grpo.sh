@@ -2,7 +2,7 @@
 set -x
 
 
-DATA_DIR="./data/sokoban_one_horizon_large_envs"
+DATA_DIR="./data/sokoban_one_horizon_large_envs/mixed/rl"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-3B-Instruct/snapshots/aa8e72537993ba99e69dfaafa59ed015b17504d1"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B-Instruct/snapshots/989aa7980e4cf806f80c7fef2b1adb7bc71aa306"
@@ -42,7 +42,7 @@ done
 
 CONTEXT_LENGTH=1024
 BATCH_SIZE=256
-EXPERIMENT_NAME="sokoban-qwen3-1.7b-${BETA}beta-${KL_COEF}kl-$(date +%m-%d)-grpo"
+EXPERIMENT_NAME="mixed_sokoban-qwen3-1.7b-${BETA}beta-${KL_COEF}kl-$(date +%m-%d)-grpo"
 #EXPERIMENT_NAME="small_sokoban-1.5b-${BETA}beta-${KL_COEF}kl-06-18-grpo"
 ROLLOUT_TP_SIZE=1
 N_GPUS=4
@@ -82,7 +82,7 @@ trainer.project_name=REIL \
 trainer.resume_mode=auto \
 trainer.log_val_generations=4 \
 trainer.experiment_name=$EXPERIMENT_NAME \
-trainer.default_local_dir=checkpoints/ds310/REIL/${EXPERIMENT_NAME} \
+trainer.default_local_dir=checkpoints/REIL/${EXPERIMENT_NAME} \
 trainer.total_epochs=500 \
 trainer.policy_eval=True \
 reward_model.reward_manager=complete \
