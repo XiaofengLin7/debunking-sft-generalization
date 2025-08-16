@@ -37,6 +37,27 @@ EMOJI_ACTION_LOOKUP = {
     3: "⬅️",
     4: "➡️",
 }
+NUMERICAL_ACTION_LOOKUP = {
+    0: "None",
+    1: "1",
+    2: "2",
+    3: "3",
+    4: "4",
+}
+ALPHABETICAL_ACTION_LOOKUP = {
+    0: "None",
+    1: "A",
+    2: "B",
+    3: "C",
+    4: "D",
+}
+RANDOM_ACTION_LOOKUP = {
+    0: "None",
+    1: "*",
+    2: "&",
+    3: "1",
+    4: "M",
+}
 
 
 def _normalize_space_name(name: str | None) -> str:
@@ -51,6 +72,11 @@ def _normalize_space_name(name: str | None) -> str:
         "news": "cardinal",
         "emoji": "emoji",
         "empty": "empty",
+        "numerical": "numerical",
+        "num": "numerical",
+        "alphabetical": "alphabetical",
+        "alpha": "alphabetical",
+        "random": "random",
     }
     return alias.get(name_l, name_l)
 
@@ -67,6 +93,12 @@ def _get_action_lookup(space: str):
     if space == "empty":
         # Fallback to base mapping for response vocabulary if needed
         return getattr(SokobanEnvReil, "ACTION_LOOKUP", BASE_ACTION_LOOKUP)
+    if space == "numerical":
+        return NUMERICAL_ACTION_LOOKUP
+    if space == "alphabetical":
+        return ALPHABETICAL_ACTION_LOOKUP
+    if space == "random":
+        return RANDOM_ACTION_LOOKUP
     raise ValueError(f"Unsupported action space: {space}")
 
 
@@ -89,6 +121,24 @@ def _answers_block(space: str) -> str:
         )
     if space == "empty":
         return ""
+    if space == "numerical":
+        return (
+            "Answers:\n"
+            "<answer> 1 </answer> | <answer> 2 </answer> | <answer> 3 </answer> | <answer> 4 </answer>\n"
+            "where 1 is Up, 2 is Down, 3 is Left, 4 is Right.\n"
+        )
+    if space == "alphabetical":
+        return (
+            "Answers:\n"
+            "<answer> A </answer> | <answer> B </answer> | <answer> C </answer> | <answer> D </answer>\n"
+            "where A is Up, B is Down, C is Left, D is Right.\n"
+        )
+    if space == "random":
+        return (
+            "Answers:\n"
+            "<answer> * </answer> | <answer> & </answer> | <answer> 1 </answer> | <answer> M </answer>\n"
+            "where * is Up, & is Down, 1 is Left, M is Right.\n"
+        )
     raise ValueError(f"Unsupported action space for answers block: {space}")
 
 
@@ -127,8 +177,12 @@ def _replace_action_space_in_prompt(prompt_text: str, target_space: str) -> str:
 def convert_to_mixed_data(
     data_file: str,
     original_action_space: str | None = None,
-    new_action_space: str | None = None,
+    new_action_spaces: list[str] | None = None,
+    seed: int = 42,
 ):
+    # Set seed for reproducible results
+    np.random.seed(seed)
+    
     df = pd.read_parquet(data_file)
     assert 'data_source' in df.columns, "data_source is required"
     assert 'prompt' in df.columns, "prompt is required"
@@ -144,13 +198,67 @@ def convert_to_mixed_data(
     sft_instances = []
     rl_instances = []
     data_length = len(df)
-    # Randomly choose half indices to convert
-    convert_idx = np.random.permutation(data_length)
-    convert_set = set(convert_idx[: data_length // 2])
-
+    
     # Normalize action space names and defaults
     orig_space = _normalize_space_name(original_action_space)
-    new_space = _normalize_space_name(new_action_space or "cardinal")
+    
+    # Handle new action spaces - if None, default to cardinal; if single string, convert to list
+    if new_action_spaces is None:
+        new_action_spaces = ["cardinal"]
+    elif isinstance(new_action_spaces, str):
+        new_action_spaces = [new_action_spaces]
+    
+    # Normalize all new action spaces
+    new_action_spaces = [_normalize_space_name(space) for space in new_action_spaces]
+    n = len(new_action_spaces)
+    
+    # Calculate distribution: n/(n+1) for new action spaces, 1/(n+1) for original
+    total_new_samples = int(data_length * n / (n + 1))
+    samples_per_new_space = int(data_length / (n + 1))
+    original_samples = data_length - total_new_samples
+    
+    # Handle remainder from integer division - assign to original action space
+    remainder = data_length - (original_samples + samples_per_new_space * n)
+    original_samples += remainder  # Add remainder to original samples
+    
+    print(f"Dataset distribution:")
+    print(f"  Total samples: {data_length}")
+    print(f"  Original action space ({orig_space}): {original_samples} samples (includes {remainder} remainder)")
+    print(f"  New action spaces: {total_new_samples} samples total")
+    for i, space in enumerate(new_action_spaces):
+        print(f"    {space}: {samples_per_new_space} samples")
+    
+    # Randomly shuffle indices for fair distribution
+    all_indices = np.random.permutation(data_length)
+    
+    # Assign indices to each action space
+    current_idx = 0
+    
+    # Original action space gets the first 1/(n+1) portion + remainder
+    original_indices = set(all_indices[current_idx:current_idx + original_samples])
+    current_idx += original_samples
+    
+    # Each new action space gets exactly 1/(n+1) portion
+    action_space_assignments = {}
+    for space in new_action_spaces:
+        space_indices = set(all_indices[current_idx:current_idx + samples_per_new_space])
+        for idx in space_indices:
+            action_space_assignments[idx] = space
+        current_idx += samples_per_new_space
+    
+    # Debug: Verify all samples are assigned
+    total_assigned = len(original_indices) + len(action_space_assignments)
+    print(f"  Verification: {total_assigned} samples assigned out of {data_length}")
+    if total_assigned != data_length:
+        print(f"  WARNING: Sample count mismatch! Expected {data_length}, got {total_assigned}")
+    
+    # Safety check: Ensure all positions are covered
+    all_positions = set(range(data_length))
+    covered_positions = original_indices.union(set(action_space_assignments.keys()))
+    uncovered_positions = all_positions - covered_positions
+    if uncovered_positions:
+        print(f"  WARNING: Uncovered positions: {len(uncovered_positions)}")
+        print(f"  First few uncovered: {list(uncovered_positions)[:10]}")
 
     for pos, (index, row) in enumerate(df.iterrows()):
         sft_instance = copy.deepcopy(instance_template)
@@ -169,14 +277,19 @@ def convert_to_mixed_data(
         
         action = row['reward_model']['ground_truth'][:]
         if "sokoban" in row['data_source']:
-            # Whether to convert this datapoint's prompt to new action space
-            to_convert = pos in convert_set
-            target_space = new_space if to_convert else orig_space
+            # Determine which action space to use for this datapoint
+            if pos in original_indices:
+                target_space = orig_space
+            elif pos in action_space_assignments:
+                target_space = action_space_assignments[pos]
+            else:
+                # Safety fallback: assign to original space if somehow not assigned
+                print(f"  WARNING: Position {pos} not assigned to any action space, using original")
+                target_space = orig_space
 
             # Update prompt to target action space
             sft_instance['prompt'] = _replace_action_space_in_prompt(prompt_text, target_space)
             rl_instance['prompt'][0]['content'] = _replace_action_space_in_prompt(prompt_text, target_space)
-            # print(instance['prompt'] if to_convert else "")
 
             # Map response to correct action vocabulary
             lookup = _get_action_lookup(target_space)
@@ -200,28 +313,40 @@ def convert_to_mixed_data(
 
 
 def main():
+    # Train dataset: mix of 3 new action spaces (cardinal, emoji, numerical)
+    # Distribution: 3/4 to new action spaces, 1/4 to original
+    # Each new action space gets 1/4 of the dataset
+    print("Creating train dataset with 3 new action spaces...")
     train_sft_instances, train_rl_instances = convert_to_mixed_data(
         "./data/sokoban_one_horizon_large_envs/train.parquet",
         original_action_space="base",
-        new_action_space="cardinal",
+        new_action_spaces=["cardinal", "alphabetical", "numerical"],
+        seed=42,
     )
+    
+    # Test dataset: mix of 2 new action spaces (alphabetical, random)
+    # Distribution: 2/3 to new action spaces, 1/3 to original
+    # Each new action space gets 1/3 of the dataset
+    print("\nCreating test dataset with 2 new action spaces...")
     test_sft_instances, test_rl_instances = convert_to_mixed_data(
         "./data/sokoban_one_horizon_large_envs/test.parquet",
         original_action_space="base",
-        new_action_space="emoji",
+        new_action_spaces=["emoji", "random"],
+        seed=42,
     )
+    
     train_sft_dataset = Dataset.from_list(train_sft_instances)
     test_sft_dataset = Dataset.from_list(test_sft_instances)
     train_rl_dataset = Dataset.from_list(train_rl_instances)
     test_rl_dataset = Dataset.from_list(test_rl_instances)
-    train_sft_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/mixed/sft/train.parquet")
-    test_sft_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/mixed/sft/test.parquet")
-    train_rl_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/mixed/rl/train.parquet")
-    test_rl_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/mixed/rl/test.parquet")
+    train_sft_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/ultradiverse/sft/train.parquet")
+    test_sft_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/ultradiverse/sft/test.parquet")
+    train_rl_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/ultradiverse/rl/train.parquet")
+    test_rl_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/ultradiverse/rl/test.parquet")
 
     # Optional: push to hub with a different repo name if desired
-    # train_dataset.push_to_hub("Xiaofeng77/reil_small_sokoban_mixed", split="train")
-    # test_dataset.push_to_hub("Xiaofeng77/reil_small_sokoban_mixed", split="test")
+    train_rl_dataset.push_to_hub("Xiaofeng77/sokoban_ultradiverse", split="train")
+    test_rl_dataset.push_to_hub("Xiaofeng77/sokoban_ultradiverse", split="test")
     
 if __name__ == "__main__":
     main()
