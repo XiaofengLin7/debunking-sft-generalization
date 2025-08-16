@@ -99,6 +99,21 @@ custom_envs:
         3: "C"
         4: "D"
 
+  SimpleSokobanRandom:
+    env_type: sokoban_random
+    max_actions_per_traj: 30
+    env_config:
+      dim_x: 6
+      dim_y: 6
+      num_boxes: 1
+      max_steps: 30
+      search_depth: 30
+      action_lookup:
+        1: "*"
+        2: "&"
+        3: "1"
+        4: "M"
+
   SimpleSokobanEmpty:
     env_type: sokoban_empty
     max_actions_per_traj: 30

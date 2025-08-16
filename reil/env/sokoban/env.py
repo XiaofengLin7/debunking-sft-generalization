@@ -20,6 +20,7 @@ class ActionFormat(Enum):
     EMPTY = "empty"
     NUMERICAL = "numerical"
     ALPHABETICAL = "alphabetical"
+    RANDOM = "random"
 
 class InstructionTemplates:
     """Centralized template management with caching."""
@@ -54,7 +55,8 @@ Decide the next action:\\"""
         ActionFormat.EMOJI: "Answers:\n<answer> ⬆️ </answer> | <answer> ⬇️ </answer> | <answer> ⬅️ </answer> | <answer> ➡️ </answer>",
         ActionFormat.EMPTY: "",
         ActionFormat.NUMERICAL: "Answers:\n<answer> 1 </answer> | <answer> 2 </answer> | <answer> 3 </answer> | <answer> 4 </answer>\nwhere 1 is Up, 2 is Down, 3 is Left, 4 is Right.",
-        ActionFormat.ALPHABETICAL: "Answers:\n<answer> A </answer> | <answer> B </answer> | <answer> C </answer> | <answer> D </answer>\nwhere A is Up, B is Down, C is Left, D is Right."
+        ActionFormat.ALPHABETICAL: "Answers:\n<answer> A </answer> | <answer> B </answer> | <answer> C </answer> | <answer> D </answer>\nwhere A is Up, B is Down, C is Left, D is Right.",
+        ActionFormat.RANDOM: "Answers:\n<answer> * </answer> | <answer> & </answer> | <answer> 1 </answer> | <answer> M </answer>\nwhere * is Up, & is Down, 1 is Left, M is Right."
     }
 
     CHAT_TEMPLATES = {
@@ -73,7 +75,8 @@ class SokobanEnvReil(SokobanEnv):
         ActionFormat.EMOJI: {0: "None", 1: "⬆️", 2: "⬇️", 3: "⬅️", 4: "➡️"},
         ActionFormat.EMPTY: {0: "None", 1: "Up", 2: "Down", 3: "Left", 4: "Right"},
         ActionFormat.NUMERICAL: {0: "None", 1: "1", 2: "2", 3: "3", 4: "4"},
-        ActionFormat.ALPHABETICAL: {0: "None", 1: "A", 2: "B", 3: "C", 4: "D"}
+        ActionFormat.ALPHABETICAL: {0: "None", 1: "A", 2: "B", 3: "C", 4: "D"},
+        ActionFormat.RANDOM: {0: "None", 1: "*", 2: "&", 3: "1", 4: "M"}
     }
 
     def __init__(self, config=None, action_format: ActionFormat = ActionFormat.BASE):
@@ -262,6 +265,11 @@ class SokobanEnvReilAlphabetical(SokobanEnvReil):
     """Backward compatibility wrapper for alphabetical actions."""
     def __init__(self, config=None):
         super().__init__(config=config, action_format=ActionFormat.ALPHABETICAL)
+
+class SokobanEnvReilRandom(SokobanEnvReil):
+    """Backward compatibility wrapper for random actions."""
+    def __init__(self, config=None):
+        super().__init__(config=config, action_format=ActionFormat.RANDOM)
 
 if __name__ == "__main__":
     # Example usage showing improved flexibility
