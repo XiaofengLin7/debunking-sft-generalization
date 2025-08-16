@@ -94,6 +94,81 @@ def extract_action_emoji(text):
     
     return 0
     
+def extract_action_numerical(text):
+    """
+    Extract action from text.
+    - 0: Still (Invalid Action)
+    - 1: 1
+    - 2: 2
+    - 3: 3
+    - 4: 4
+    """
+    pattern = r'^\s*(([1-4])\s*\((1|2|3|4)\)|(1|2|3|4)|([1-4]))\s*$'
+    match = re.fullmatch(pattern, text.strip(), flags=re.IGNORECASE | re.X)
+
+    if not match:
+        return 0
+    
+    if match.group(2):
+        return int(match.group(2))
+    elif match.group(4):
+        return int(match.group(4))
+    elif match.group(5):
+        return int(match.group(5))
+    
+    return 0
+
+def extract_action_alphabetical(text):
+    """
+    Extract action from text.
+    - 0: Still (Invalid Action)
+    - 1: A (Up)
+    - 2: B (Down)
+    - 3: C (Left)
+    - 4: D (Right)
+    """
+    DIRECTION_MAP = {"A": 1, "B": 2, "C": 3, "D": 4}
+    pattern = r'^\s*(([1-4])\s*\((A|B|C|D)\)|(A|B|C|D)|([1-4]))\s*$'
+    match = re.fullmatch(pattern, text.strip(), flags=re.IGNORECASE | re.X)
+
+    if not match:
+        return 0
+    
+    if match.group(2):  # Number in parentheses like "1(A)"
+        return int(match.group(2))
+    elif match.group(4):  # Letter like A, B, C, D
+        # Map letters to action numbers
+        return DIRECTION_MAP[match.group(4).capitalize()]
+    elif match.group(5):  # Number like 1, 2, 3, 4
+        return int(match.group(5))
+    
+    return 0
+
+def extract_action_random(text):
+    """
+    - 0: "None"
+    - 1: "*"
+    - 2: "&"
+    - 3: "1"
+    - 4: "M"
+    """
+    DIRECTION_MAP = {"*": 1, "&": 2, "1": 3, "M": 4}
+    pattern = r'^\s*(([1-4])\s*\(([*&1M])\)|([*&1M])|([1-4]))\s*$'
+    match = re.fullmatch(pattern, text.strip(), flags=re.IGNORECASE | re.X)
+
+    if not match:
+        return 0
+    
+    if match.group(2):
+        return int(match.group(2))
+    elif match.group(4):
+        # print(match.group(4).capitalize())
+        return DIRECTION_MAP[match.group(4).capitalize()]
+    elif match.group(5):
+        return int(match.group(5))
+    
+    return 0
+
 def validate_response_structure(processed_str: str) -> bool:
     """Adapted from https://github.com/Unakar/Logic-RL/blob/main/verl/utils/reward_score/kk.py"""
     """Performs comprehensive validation of response structure.
@@ -210,6 +285,12 @@ def convert_action_sequence(action_sequence, data_source="sokoban"):
             numerical_actions.append(extract_action_cardinal(action))
         elif "emoji" in data_source:
             numerical_actions.append(extract_action_emoji(action))
+        elif "numerical" in data_source:
+            numerical_actions.append(extract_action_numerical(action))
+        elif "alphabetical" in data_source:
+            numerical_actions.append(extract_action_alphabetical(action))
+        elif "random" in data_source:
+            numerical_actions.append(extract_action_random(action))
         else:
             numerical_actions.append(extract_action_base(action))
     
@@ -301,5 +382,14 @@ def main():
     print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>north, west, south, east</answer>", [1, 3, 2, 4], 'sokoban_cardinal', 0.1, 1.0))
     print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>⬆️, ⬅️, ⬇️, ➡️</answer>", [1, 3, 2, 4], 'sokoban_emoji', 0.1, 1.0))
     print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>⬆️</answer>", [1], 'sokoban_emoji', 0.1, 1.0))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>1, 3, 2, 4</answer>", [1, 3, 2, 4], 'sokoban_numerical', 0.1, 1.0))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>1</answer>", [1], 'sokoban_numerical', 0.1, 1.0))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>A, C, B, D</answer>", [1, 3, 2, 4], 'sokoban_alphabetical', 0.1, 1.0))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>A, C</answer>", [1, 3], 'sokoban_alphabetical', 0.1, 1.0))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>*</answer>", [1], 'sokoban_random', 0.1, 1.0))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>1</answer>", [3], 'sokoban_random', 0.1, 1.0))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>M</answer>", [4], 'sokoban_random', 0.1, 1.0))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>&</answer>", [2], 'sokoban_random', 0.1, 1.0))
+    print(compute_score_with_action_sequence("<|im_start|>assistant\n\n<|im_end|>\n\n<think></think><answer>&, M</answer>", [2, 4], 'sokoban_random', 0.1, 1.0))
 if __name__ == "__main__":
     main()
