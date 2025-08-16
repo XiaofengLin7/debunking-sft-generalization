@@ -22,12 +22,13 @@ agent_proxy:
   chat_template: False # True -> use chat template, False -> use response as is
 
 evaluator:
-  n_gpus_per_node: 2
+  # n_gpus_per_node: 2
   nnodes: 1
   project_name: reil
   experiment_name: eval_ckpts
   logger: [ 'console', 'wandb' ]
   checkpoint_dir: /usr3/graduate/xfl/lab/REIL/checkpoints/ds543/REIL/sokoban-1.5b-0.0075beta-0.001kl-2025-05-01
+  is_lora: False
   resume_step: 0
   seed: 42
 

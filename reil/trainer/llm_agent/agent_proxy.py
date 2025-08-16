@@ -3,6 +3,7 @@ Adapted from https://github.com/RAGEN-AI/RAGEN/blob/main/ragen/llm_agent/agent_p
 """
 
 from vllm import LLM, SamplingParams
+from vllm.lora.request import LoRARequest
 from typing import List, Dict, Union, Any
 from verl.protocol import pad_dataproto_to_divisor, unpad_dataproto
 from verl.single_controller.ray.base import RayWorkerGroup
@@ -46,6 +47,8 @@ class VllmWrapperWg: # Thi is a developing class for eval and test
             max_num_batched_tokens=ro_config.max_num_batched_tokens,
             enable_chunked_prefill=ro_config.enable_chunked_prefill,
             enable_prefix_caching=True,
+			enable_lora=config.evaluator.is_lora,
+			max_lora_rank=32,
 			# tensor_parallel_size=config.evaluator.n_gpus_per_node,
 		)
 		self.sampling_params = SamplingParams(
@@ -57,22 +60,28 @@ class VllmWrapperWg: # Thi is a developing class for eval and test
 		)
 
 	def load_checkpoint(self, checkpoint_path: str):
-
-		ro_config = self.config.actor_rollout_ref.rollout
-		self.llm = LLM(
-			checkpoint_path,
-            tensor_parallel_size=ro_config.tensor_model_parallel_size,
-            dtype=ro_config.dtype,
-            enforce_eager=ro_config.enforce_eager,
-            gpu_memory_utilization=ro_config.gpu_memory_utilization,
-            disable_custom_all_reduce=True,
-            skip_tokenizer_init=False,
-            max_model_len=ro_config.max_model_len,
-            disable_log_stats=ro_config.disable_log_stats,
-            max_num_batched_tokens=ro_config.max_num_batched_tokens,
-            enable_chunked_prefill=ro_config.enable_chunked_prefill,
-            enable_prefix_caching=True,
-		)
+		if self.config.evaluator.is_lora:
+			self.lora_request = LoRARequest(
+				lora_name="adapter",
+				lora_int_id=1,
+				lora_path=checkpoint_path,
+			)
+		else:
+			ro_config = self.config.actor_rollout_ref.rollout
+			self.llm = LLM(
+				checkpoint_path,
+				tensor_parallel_size=ro_config.tensor_model_parallel_size,
+				dtype=ro_config.dtype,
+				enforce_eager=ro_config.enforce_eager,
+				gpu_memory_utilization=ro_config.gpu_memory_utilization,
+				disable_custom_all_reduce=True,
+				skip_tokenizer_init=False,
+				max_model_len=ro_config.max_model_len,
+				disable_log_stats=ro_config.disable_log_stats,
+				max_num_batched_tokens=ro_config.max_num_batched_tokens,
+				enable_chunked_prefill=ro_config.enable_chunked_prefill,
+				enable_prefix_caching=True,
+			)
 
 	def generate_sequences(self, lm_inputs: DataProto):
 		"""
@@ -90,8 +99,10 @@ class VllmWrapperWg: # Thi is a developing class for eval and test
 		
 		input_texts = self.tokenizer.batch_decode(input_ids, skip_special_tokens=False)
 		input_texts = [i.replace("<|endoftext|>", "") for i in input_texts]
-
-		outputs = self.llm.generate(input_texts, sampling_params=self.sampling_params, use_tqdm=False)
+		if self.config.evaluator.is_lora:
+			outputs = self.llm.generate(input_texts, sampling_params=self.sampling_params, use_tqdm=False, lora_request=self.lora_request)
+		else:
+			outputs = self.llm.generate(input_texts, sampling_params=self.sampling_params, use_tqdm=False)
 		texts = [output.outputs[0].text for output in outputs] 
 		# print(f"texts: {texts[0]}")
 		prompt_token_ids = [torch.tensor(output.prompt_token_ids, dtype=input_ids.dtype) for output in outputs]
