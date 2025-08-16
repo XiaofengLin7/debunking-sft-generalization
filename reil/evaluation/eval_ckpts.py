@@ -87,6 +87,8 @@ class CheckpointEvaluator:
             self.val_reward_fn = reward_manager_cls(tokenizer=self.tokenizer, num_examine=1, compute_score=compute_score)
             self.MAX_REWARD = 5 if reward_manager_name == 'gp_l' else 1
         
+        self.is_lora = self.config.evaluator.is_lora
+        
         self._init_checkpoint_dirs()
         
         self.init_checkpoint_type()
@@ -164,7 +166,7 @@ class CheckpointEvaluator:
         """Clean up LLM instance and free GPU memory"""
         if hasattr(self, 'actor_rollout_wg'):
             if isinstance(self.actor_rollout_wg, VllmWrapperWg):
-                if hasattr(self.actor_rollout_wg, 'llm'):
+                if not self.is_lora and hasattr(self.actor_rollout_wg, 'llm'):
                     # Delete the LLM instance
                     del self.actor_rollout_wg.llm
             elif isinstance(self.actor_rollout_wg, HFWrapperWg):
@@ -207,6 +209,7 @@ class CheckpointEvaluator:
             self.cleanup_llm()
             print(f"Loading checkpoint from {checkpoint_path}")
             self.actor_rollout_wg.load_checkpoint(checkpoint_path)
+
             # print(self.actor_rollout_wg.module)
     
     def generate_sequences(self, lm_inputs: DataProto):
