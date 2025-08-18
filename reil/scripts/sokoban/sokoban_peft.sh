@@ -7,10 +7,10 @@ shift 2
 N_GPUS=4
 
 # DATA_DIR="./data/sokoban_one_horizon_large_envs/sft"
-DATA_DIR="./data/sokoban_one_horizon_large_envs/sft"
+DATA_DIR="./data/sokoban_one_horizon_large_envs/ultradiverse/sft"
 BASE_MODEL="./models/rlft/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218"
 LEARNING_RATE=1e-5
-EXPERIMENT_NAME="sokoban-3b-lora-32-$(date +%m-%d)"
+EXPERIMENT_NAME="ultradiverse-sokoban-3b-lora-32-$(date +%m-%d)"
 
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 
