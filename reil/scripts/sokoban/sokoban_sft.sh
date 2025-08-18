@@ -7,10 +7,11 @@ shift 2
 N_GPUS=4
 
 # DATA_DIR="./data/sokoban_one_horizon_large_envs/sft"
-DATA_DIR="./data/sokoban_one_horizon_large_envs/mixed/sft"
-BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
+DATA_DIR="./data/sokoban_one_horizon_large_envs/sft"
+# BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
+BASE_MODEL="./models/rlft/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218"
 LEARNING_RATE=1e-5
-EXPERIMENT_NAME="mixed_sokoban-1.5b-full-sft-lr-${LEARNING_RATE}-$(date +%m-%d)"
+EXPERIMENT_NAME="sokoban-8b-full-sft-lr-${LEARNING_RATE}-$(date +%m-%d)"
 
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 # export ALFWORLD_DATA="/projectnb/replearn/xfl/Retriever/src/envs/alf_world/data_storage"
@@ -22,7 +23,7 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
     data.prompt_key=prompt \
     data.response_key=response \
     data.max_length=2048 \
-    data.train_batch_size=128 \
+    data.train_batch_size=64 \
     data.chat_template=False \
     data.max_response_length=200 \
     optim.lr=$LEARNING_RATE \
@@ -37,12 +38,12 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
     es_manager.val.env_configs.tags="['SimpleSokoban', 'LargerSokoban', 'ComplexSokoban', 'SimpleSokobanEmoji', 'FakeSokobanEmoji', 'SimpleSokobanCardinal', 'FakeSokobanCardinal', 'SimpleSokobanEmpty', 'TwoBoxesSokoban']" \
     es_manager.val.env_configs.n_groups="[100,100,100,100,100,100,100,100,100]" \
     agent_proxy.max_turn=30 \
-    trainer.policy_eval=True \
+    trainer.policy_eval=False \
     trainer.project_name=REIL \
     trainer.experiment_name=$EXPERIMENT_NAME \
-    trainer.default_local_dir=checkpoints/ds310/sft/$EXPERIMENT_NAME \
+    trainer.default_local_dir=checkpoints/sft/$EXPERIMENT_NAME \
     trainer.logger="['console', 'wandb']" \
-    trainer.total_epochs=30 \
+    trainer.total_epochs=5 \
     trainer.val_before_train=False \
     trainer.default_hdfs_dir=null $@ | tee checkpoints/ds310/sft/${EXPERIMENT_NAME}_train.log
 

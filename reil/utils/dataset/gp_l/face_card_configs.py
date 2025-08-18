@@ -46,6 +46,7 @@ TRAINING_PRESETS = {
         "all_10", "all_11", "all_13",
         "mixed_9_10_11", "mixed_10_11_12", 
         "skip_7_9_11", "skip_8_10_12", "skip_9_11_13",
+
     ],
     
     "extensive": [

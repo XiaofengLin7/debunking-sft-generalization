@@ -9,11 +9,8 @@ test_data_path=./data/gp-l-only/rl/test.parquet
 test_5cards_data_path=./data/gp-l-only/rl/test_5cards.parquet
 test_fake_data_path=./data/gp-l-only/rl/test_fake.parquet
 test_large_card_data_path=./data/gp-l-only/rl/test_large_card.parquet
-# DATA_DIR="./data/alfworld_task_type/sft"
-# DATA_DIR="./data/sokoban_one_horizon_large_envs/sft"
 DATA_DIR="./data/gp-l-only/sft"
 BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
-# EXPERIMENT_NAME="alfworld-1.5b-pick_n_place-sft-qwen-2.5-base-full-sft"
 LEARNING_RATE=1e-5
 EXPERIMENT_NAME="gp-l-1.5b-full-sft-lr-${LEARNING_RATE}-$(date +%m-%d)"
 
