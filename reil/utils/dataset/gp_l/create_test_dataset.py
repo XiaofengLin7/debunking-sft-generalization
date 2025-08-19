@@ -296,10 +296,15 @@ def generate_cards_with_mapping(num_cards: int = 4,
     if not ood:
         cards_num = [random.randint(1, largest_card) for _ in range(num_cards)]
     else:
-        # For OOD, ensure we have at least one face card (J, Q, K) or large card
-        if largest_card >= 11:
-            cards_num = [random.randint(1, largest_card) for _ in range(num_cards - 1)] + [random.randint(11, min(13, largest_card))]
+        # For OOD, ensure we have at least one card from the target range
+        if largest_card >= 14:
+            # For large cards (>= 14), ensure at least one card from 14-largest_card
+            cards_num = [random.randint(1, largest_card) for _ in range(num_cards - 1)] + [random.randint(14, largest_card)]
+        elif largest_card >= 11:
+            # For face cards (11-13), ensure at least one face card
+            cards_num = [random.randint(1, largest_card) for _ in range(num_cards - 1)] + [random.randint(11, largest_card)]
         else:
+            # If largest_card < 11, just generate normal cards
             cards_num = [random.randint(1, largest_card) for _ in range(num_cards)]
     
     random.shuffle(cards_num)
@@ -402,6 +407,56 @@ def generate_test_face_card_as_regular(num_tasks: int = 500) -> tuple:
     
     return sft_datapoints, rl_datapoints
 
+def generate_test_all_7(num_tasks: int = 500) -> tuple:
+    """Generate test dataset where J,Q,K all count as 7."""
+    sft_datapoints = []
+    rl_datapoints = []
+    
+    for task_id in tqdm(range(num_tasks), desc="Generating gp_l_all_7"):
+        try:
+            sft_instance, rl_instance = generate_task_with_mapping(
+                task_id=task_id,
+                target=24,
+                num_cards=4,
+                face_card_mapping="all_7",
+                data_source="gp_l_all_7",
+                seed=42 + task_id,
+                ood=True,  # Ensure we get face cards
+                largest_card=13
+            )
+            sft_datapoints.append(sft_instance)
+            rl_datapoints.append(rl_instance)
+        except ValueError as e:
+            print(f"Skipping task {task_id}: {e}")
+            continue
+    
+    return sft_datapoints, rl_datapoints
+
+def generate_test_all_5(num_tasks: int = 500) -> tuple:
+    """Generate test dataset where J,Q,K all count as 5."""
+    sft_datapoints = []
+    rl_datapoints = []
+    
+    for task_id in tqdm(range(num_tasks), desc="Generating gp_l_all_5"):
+        try:
+            sft_instance, rl_instance = generate_task_with_mapping(
+                task_id=task_id,
+                target=24,
+                num_cards=4,
+                face_card_mapping="all_5",
+                data_source="gp_l_all_5",
+                seed=42 + task_id,
+                ood=True,  # Ensure we get face cards
+                largest_card=13
+            )
+            sft_datapoints.append(sft_instance)
+            rl_datapoints.append(rl_instance)
+        except ValueError as e:
+            print(f"Skipping task {task_id}: {e}")
+            continue
+    
+    return sft_datapoints, rl_datapoints
+
 def generate_test_all_12(num_tasks: int = 500) -> tuple:
     """Generate test dataset where J,Q,K all count as 12."""
     sft_datapoints = []
@@ -453,6 +508,32 @@ def generate_test_fake(num_tasks: int = 500) -> tuple:
     
     return sft_datapoints, rl_datapoints
 
+def generate_test_id(num_tasks: int = 500) -> tuple:
+    """Generate in-distribution test dataset."""
+    sft_datapoints = []
+    rl_datapoints = []
+    
+    for task_id in tqdm(range(num_tasks), desc="Generating gp_l_id"):
+        try:
+            sft_instance, rl_instance = generate_task_with_mapping(
+                task_id=task_id,
+                target=24,
+                num_cards=4,
+                face_card_mapping="all_10",  # This is just for generation, won't be used for actual values
+                data_source="gp_l_id",
+                seed=42 + task_id,
+                ood=True, 
+                largest_card=13,
+                fake_prompt=False 
+            )
+            sft_datapoints.append(sft_instance)
+            rl_datapoints.append(rl_instance)
+        except ValueError as e:
+            print(f"Skipping task {task_id}: {e}")
+            continue
+    
+    return sft_datapoints, rl_datapoints
+
 def get_test_dataset_features():
     """Get the dataset features schema for test datasets."""
     return Features({
@@ -478,11 +559,14 @@ def main():
     
     # Generate all test datasets
     test_datasets = {
-        "5cards": generate_test_5cards(num_tasks),
-        "large": generate_test_large(num_tasks),
-        "face_card_as_regular": generate_test_face_card_as_regular(num_tasks),
-        "all_12": generate_test_all_12(num_tasks),
-        "fake": generate_test_fake(num_tasks)
+        # "5cards": generate_test_5cards(num_tasks),
+        # "large": generate_test_large(num_tasks),
+        # "face_card_as_regular": generate_test_face_card_as_regular(num_tasks),
+        # "all_12": generate_test_all_12(num_tasks),
+        # "fake": generate_test_fake(num_tasks)
+        # "id": generate_test_id(num_tasks),
+        # "all_7": generate_test_all_7(num_tasks),
+        "all_5": generate_test_all_5(num_tasks),
     }
     
     features = get_test_dataset_features()
@@ -496,8 +580,10 @@ def main():
         rl_dataset = Dataset.from_list(rl_data, features=features)
         
         # Save to parquet files
-        sft_dataset.to_parquet(f"./data/gp-l-only/mixed/sft/test_{dataset_name}.parquet")
-        rl_dataset.to_parquet(f"./data/gp-l-only/mixed/rl/test_{dataset_name}.parquet")
+        sft_dataset.to_parquet(f"./data/gp-l-only/10k-mixed/sft/test_{dataset_name}.parquet")
+        rl_dataset.to_parquet(f"./data/gp-l-only/10k-mixed/rl/test_{dataset_name}.parquet")
+        sft_dataset.to_parquet(f"./data/gp-l-only/20k-mixed/sft/test_{dataset_name}.parquet")
+        rl_dataset.to_parquet(f"./data/gp-l-only/20k-mixed/rl/test_{dataset_name}.parquet")
         
         # Push to hub with appropriate split name
         rl_dataset.push_to_hub(dataset_id, split=f"test_{dataset_name}")

@@ -773,7 +773,7 @@ class FSDPSFTTrainer:
             if self.val_score_dataset is not None:
                 # single turn  
                 self._validate()
-            else:
+            elif self.config.trainer.policy_eval:
                 # All ranks must participate in FSDP full-state-dict collectives
                 self._sync_eval_model_from_fsdp_all_ranks()
                 if rank == 0:

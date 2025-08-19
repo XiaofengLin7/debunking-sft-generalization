@@ -260,15 +260,15 @@ def get_dataset_features():
 def main():
     """Main function to generate training dataset."""
     # Configuration
-    dataset_id = "Xiaofeng77/gp-l-only-20k-mixed"
-    tasks_per_mapping = 2500  # Adjust as needed
-    ood = True
+    dataset_id = "Xiaofeng77/gp-l-only-10k-mixed"
+    tasks_per_mapping = 1250  # Adjust as needed
+    ood = False
     largest_card = 13
     
     # Select which mappings to use for training
     # You can choose from: "basic", "diverse", "extensive", or "custom"
     # Or specify your own list of mapping names
-    preset_name = "diverse"  # Change this to use different presets
+    preset_name = "mixed"  # Change this to use different presets
     training_mappings = TRAINING_PRESETS[preset_name]
     
     # Alternatively, you can specify custom mappings:
@@ -294,8 +294,8 @@ def main():
     rl_dataset = Dataset.from_list(rl_datapoints, features=features)
     
     # Save datasets
-    sft_dataset.to_parquet("./data/gp-l-only/mixed/sft/train.parquet")
-    rl_dataset.to_parquet("./data/gp-l-only/mixed/rl/train.parquet")
+    sft_dataset.to_parquet("./data/gp-l-only/10k-mixed/sft/train.parquet")
+    rl_dataset.to_parquet("./data/gp-l-only/10k-mixed/rl/train.parquet")
     
     # Push to hub
     rl_dataset.push_to_hub(dataset_id, split="train")

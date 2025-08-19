@@ -11,6 +11,8 @@ FACE_CARD_MAPPINGS = {
     "all_11": {"J": 11, "Q": 11, "K": 11},
     "all_9": {"J": 9, "Q": 9, "K": 9},
     "all_8": {"J": 8, "Q": 8, "K": 8},
+    "all_7": {"J": 7, "Q": 7, "K": 7},
+    "all_5": {"J": 5, "Q": 5, "K": 5},
     "all_12": {"J": 12, "Q": 12, "K": 12},
     "all_13": {"J": 13, "Q": 13, "K": 13},
     
@@ -25,8 +27,10 @@ FACE_CARD_MAPPINGS = {
     
     # Sequential mappings
     "sequential_7_8_9": {"J": 7, "Q": 8, "K": 9},
+    "sequential_8_9_10": {"J": 8, "Q": 9, "K": 10},
     
     # Skip mappings (every other number)
+    "skip_6_8_10": {"J": 6, "Q": 8, "K": 10},
     "skip_7_9_11": {"J": 7, "Q": 9, "K": 11},
     "skip_8_10_12": {"J": 8, "Q": 10, "K": 12},
     "skip_9_11_13": {"J": 9, "Q": 11, "K": 13},
@@ -40,6 +44,11 @@ FACE_CARD_MAPPINGS = {
 TRAINING_PRESETS = {
     "basic": [
         "all_10",           # Standard mapping
+    ],
+    "mixed": [
+        "all_8", "all_9", "all_10",
+        "mixed_8_9_10", "sequential_7_8_9", "sequential_8_9_10",
+        "low_range_5_7_9", "skip_6_8_10",
     ],
     
     "diverse": [
