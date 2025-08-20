@@ -3,7 +3,7 @@
 set -x
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 # Model and checkpoint settings
-CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/sft/gp-l-8b-full-sft-lr-1e-5-08-18
+CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds543/sft/gp-l-10k-non-mixed-8b-lora-32-lr-1e-5-08-20
 BASE_MODEL=/usr3/graduate/xfl/lab/REIL/models/rlft/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218
 CHECKPOINT_NAME=$(basename $CHECKPOINT_DIR)  # Extract the last segment of the path
 PROJECT_NAME="REIL"      # Project name for logging
@@ -41,6 +41,7 @@ python -m reil.evaluation.eval_ckpts \
     evaluator.experiment_name=$EXPERIMENT_NAME \
     evaluator.logger="['console', 'wandb']" \
     evaluator.resume_step=0 \
+    evaluator.is_lora=True \
     es_manager.val.env_groups=768 \
     es_manager.val.group_size=1 \
     es_manager.val.env_configs.tags="['GP-L', 'GP-L-FACE-CARDS-AS-REGULAR', 'GP-L-FACE-CARDS-AS-10']" \

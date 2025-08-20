@@ -12,16 +12,17 @@ N_GPUS=4
 # test_face_card_as_regular_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/10k-non-mixed/sft/test_face_card_as_regular.parquet
 # test_all_12_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/10k-non-mixed/sft/test_all_12.parquet
 # TEST_DATA="['${test_5cards_data_path}', '${test_fake_data_path}', '${test_large_card_data_path}', '${test_face_card_as_regular_data_path}', '${test_all_12_data_path}']"
-DATA_DIR="./data/gp-l-only/10k-mixed/sft"
+DATA_DIR="./data/gp-l-only/10k-non-mixed/sft"
 BASE_MODEL=./models/rlft/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218
 LEARNING_RATE=1e-5
-EXPERIMENT_NAME="gp-l-10k-mixed-8b-full-sft-lr-${LEARNING_RATE}-$(date +%m-%d)"
+EXPERIMENT_NAME="gp-l-10k-non-mixed-8b-lora-32-lr-${LEARNING_RATE}-$(date +%m-%d)"
 
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 
+
 torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
      -m reil.trainer.fsdp_sft_trainer \
-    data.train_files=$DATA_DIR/train.parquet \
+    data.train_files=$DATA_DIR/train-10k.parquet \
     data.val_files=$DATA_DIR/test_id.parquet \
     data.prompt_key=question \
     data.response_key=answer \
@@ -44,4 +45,7 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
     trainer.total_epochs=5 \
     trainer.default_hdfs_dir=null \
     trainer.val_before_train=False \
-    reward_model.reward_manager=gp_l $@ | tee checkpoints/ds543/sft/${EXPERIMENT_NAME}_train.log
+    reward_model.reward_manager=gp_l \
+    model.lora_rank=32\
+    model.lora_alpha=16 \
+    model.target_modules=all-linear $@ 2>&1 | tee checkpoints/ds543/sft/${EXPERIMENT_NAME}_train.log
