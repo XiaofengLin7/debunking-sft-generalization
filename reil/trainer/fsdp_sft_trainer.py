@@ -595,6 +595,8 @@ class FSDPSFTTrainer:
     def _compute_loss_and_backward(self, batch, do_backward=True):
         """Compute loss with optional sequence parallelism and remove padding features"""
         use_sp = self.use_remove_padding and self.config.ulysses_sequence_parallel_size > 1
+        if use_sp:
+            assert self.config.trainer.sft_type == "standard", "Sequence parallel is only supported for standard SFT"
 
         # Move inputs to GPU and prepare loss mask
         input_ids = batch["input_ids"].cuda()
@@ -620,7 +622,21 @@ class FSDPSFTTrainer:
                 # Enable model parallelism
                 shift_labels = shift_labels.to(shift_logits.device)
                 loss = loss_fct(shift_logits, shift_labels)
+                
+                if self.config.trainer.sft_type == "dft":
+                    probs = torch.softmax(shift_logits, dim=-1)
+                    prob_coefficients = probs.gather(1, shift_labels.unsqueeze(-1)).squeeze(-1)
+                    loss = loss * prob_coefficients.detach()
+                elif self.config.trainer.sft_type == "aft":
+                    probs = torch.softmax(shift_logits, dim=-1)
+                    prob_coefficients = probs.gather(1, shift_labels.unsqueeze(-1)).squeeze(-1)
+                    loss = loss * (1 - prob_coefficients.detach())
+                elif self.config.trainer.sft_type == "standard":
+                    pass
+                else:
+                    raise ValueError(f"Unknown SFT type: {self.config.trainer.sft_type}")
                 loss = loss * loss_mask.to(loss.device)
+                    
             else:
                 # IMPORTANT: We have a big assumption here, so we can shard the SAME sequence across SP ranks
                 # i.e., each GPU has <1 sequence, and each SP group has 1 sequence
