@@ -11,7 +11,8 @@ DATA_DIR="./data/sokoban_one_horizon_large_envs/sft"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
 BASE_MODEL="./models/rlft/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218"
 LEARNING_RATE=1e-5
-EXPERIMENT_NAME="sokoban-8b-full-sft-lr-${LEARNING_RATE}-$(date +%m-%d)"
+SFT_TYPE="dft" # "aft", "dft", "standard"
+EXPERIMENT_NAME="sokoban-8b-${SFT_TYPE}-sft-lr-${LEARNING_RATE}-$(date +%m-%d)"
 
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 # export ALFWORLD_DATA="/projectnb/replearn/xfl/Retriever/src/envs/alf_world/data_storage"
@@ -38,14 +39,15 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
     es_manager.val.env_configs.tags="['SimpleSokoban', 'LargerSokoban', 'ComplexSokoban', 'SimpleSokobanEmoji', 'FakeSokobanEmoji', 'SimpleSokobanCardinal', 'FakeSokobanCardinal', 'SimpleSokobanEmpty', 'TwoBoxesSokoban']" \
     es_manager.val.env_configs.n_groups="[100,100,100,100,100,100,100,100,100]" \
     agent_proxy.max_turn=30 \
+    trainer.sft_type=$SFT_TYPE \
     trainer.policy_eval=False \
     trainer.project_name=REIL \
     trainer.experiment_name=$EXPERIMENT_NAME \
-    trainer.default_local_dir=checkpoints/sft/$EXPERIMENT_NAME \
+    trainer.default_local_dir=checkpoints/ds543/sft/$EXPERIMENT_NAME \
     trainer.logger="['console', 'wandb']" \
     trainer.total_epochs=5 \
     trainer.val_before_train=False \
-    trainer.default_hdfs_dir=null $@ | tee checkpoints/ds310/sft/${EXPERIMENT_NAME}_train.log
+    trainer.default_hdfs_dir=null $@ | tee checkpoints/ds543/sft/${EXPERIMENT_NAME}_train.log
 
     # Or you can do this:
     # model.target_modules=[q_proj,v_proj] \

@@ -3,7 +3,7 @@ import copy
 from reil.env.sokoban.env import SokobanEnvReil
 from datasets import Dataset
 qwen_response_template = """\
-</think> <answer> {action} </answer> <|im_end|>
+</think> <answer> {action} </answer>
 """
 
 def convert_to_sft_data(data_file: str):
@@ -43,15 +43,15 @@ def convert_to_sft_data(data_file: str):
 
 
 def main():
-    train_instances = convert_to_sft_data("./data/small_sokoban/train.parquet")
-    test_instances = convert_to_sft_data("./data/small_sokoban/test.parquet")
+    train_instances = convert_to_sft_data("./data/sokoban_one_horizon_large_envs/train.parquet")
+    test_instances = convert_to_sft_data("./data/sokoban_one_horizon_large_envs/test.parquet")
     train_dataset = Dataset.from_list(train_instances)
     test_dataset = Dataset.from_list(test_instances)
-    train_dataset.to_parquet("./data/small_sokoban/sft/train.parquet")
-    test_dataset.to_parquet("./data/small_sokoban/sft/test.parquet")
+    train_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/sft/train.parquet")
+    test_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/sft/test.parquet")
 
-    train_dataset.push_to_hub("Xiaofeng77/reil_small_sokoban_sft", split="train")
-    test_dataset.push_to_hub("Xiaofeng77/reil_small_sokoban_sft", split="test")
+    # train_dataset.push_to_hub("Xiaofeng77/reil_sokoban_one_horizon_large_envs_sft", split="train")
+    # test_dataset.push_to_hub("Xiaofeng77/reil_sokoban_one_horizon_large_envs_sft", split="test")
     
 if __name__ == "__main__":
     main()
