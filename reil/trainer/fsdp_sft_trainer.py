@@ -741,6 +741,7 @@ class FSDPSFTTrainer:
 
         step_loss = torch.tensor(step_loss).cuda()
         torch.distributed.all_reduce(step_loss, op=torch.distributed.ReduceOp.AVG)
+        torch.distributed.all_reduce(step_ce_loss, op=torch.distributed.ReduceOp.AVG)
         return {"train/loss": step_loss.detach().item(), "train/lr(1e-3)": lr * 1e3, "train/ce_loss": step_ce_loss, "train/grad_norm": grad_norm.detach().item()}
 
     def validation_step(self, batch: TensorDict):

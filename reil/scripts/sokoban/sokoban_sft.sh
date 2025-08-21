@@ -7,13 +7,13 @@ shift 2
 N_GPUS=4
 
 # DATA_DIR="./data/sokoban_one_horizon_large_envs/sft"
-DATA_DIR="./data/sokoban_one_horizon_large_envs/mixed/sft"
+DATA_DIR="./data/sokoban_one_horizon_large_envs/super_random/sft"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
 BASE_MODEL="./models/rlft/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218"
 LEARNING_RATE=1e-5
-SFT_TYPE="aft" # "aft", "dft", "standard"
-AFT_POWER=5
-EXPERIMENT_NAME="mixed-sokoban-8b-${SFT_TYPE}-power-${AFT_POWER}-lr-${LEARNING_RATE}-$(date +%m-%d)"
+SFT_TYPE="standard" # "aft", "dft", "standard"
+AFT_POWER=1.0
+EXPERIMENT_NAME="super_random-sokoban-8b-${SFT_TYPE}-lr-${LEARNING_RATE}-$(date +%m-%d)"
 
 
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
