@@ -67,4 +67,5 @@ trainer:
   seed: 1
   policy_eval: True
   sft_type: standard
+  aft_power: 1.0
 

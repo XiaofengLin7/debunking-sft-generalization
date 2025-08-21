@@ -631,7 +631,9 @@ class FSDPSFTTrainer:
                 elif self.config.trainer.sft_type == "aft":
                     probs = torch.softmax(shift_logits, dim=-1)
                     prob_coefficients = probs.gather(1, shift_labels.unsqueeze(-1)).squeeze(-1)
-                    loss = loss * (1 - prob_coefficients.detach())
+                    # Get the power parameter, default to 1 if not specified
+                    aft_power = getattr(self.config.trainer, 'aft_power', 1.0)
+                    loss = loss * torch.pow(1 - prob_coefficients.detach(), aft_power)
                 elif self.config.trainer.sft_type == "standard":
                     pass
                 else:
