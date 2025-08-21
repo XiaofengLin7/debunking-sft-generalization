@@ -11,7 +11,7 @@ from reil.env.sokoban.env import SokobanEnvReil
 from datasets import Dataset
 import numpy as np
 qwen_response_template = """\
-</think> <answer> {action} </answer> <|im_end|>
+</think> <answer> {action} </answer>
 """
 
 

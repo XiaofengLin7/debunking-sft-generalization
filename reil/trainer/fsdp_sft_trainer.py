@@ -595,6 +595,8 @@ class FSDPSFTTrainer:
     def _compute_loss_and_backward(self, batch, do_backward=True):
         """Compute loss with optional sequence parallelism and remove padding features"""
         use_sp = self.use_remove_padding and self.config.ulysses_sequence_parallel_size > 1
+        if use_sp:
+            assert self.config.trainer.sft_type == "standard", "Sequence parallel is only supported for standard SFT"
 
         # Move inputs to GPU and prepare loss mask
         input_ids = batch["input_ids"].cuda()
@@ -620,7 +622,24 @@ class FSDPSFTTrainer:
                 # Enable model parallelism
                 shift_labels = shift_labels.to(shift_logits.device)
                 loss = loss_fct(shift_logits, shift_labels)
+                ce_loss = loss.clone()
+                if self.config.trainer.sft_type == "dft":
+                    probs = torch.softmax(shift_logits, dim=-1)
+                    prob_coefficients = probs.gather(1, shift_labels.unsqueeze(-1)).squeeze(-1)
+                    loss = loss * prob_coefficients.detach()
+                    
+                elif self.config.trainer.sft_type == "aft":
+                    probs = torch.softmax(shift_logits, dim=-1)
+                    prob_coefficients = probs.gather(1, shift_labels.unsqueeze(-1)).squeeze(-1)
+                    # Get the power parameter, default to 1 if not specified
+                    aft_power = getattr(self.config.trainer, 'aft_power', 1.0)
+                    loss = loss * torch.pow(1 - prob_coefficients.detach(), aft_power)
+                elif self.config.trainer.sft_type == "standard":
+                    pass
+                else:
+                    raise ValueError(f"Unknown SFT type: {self.config.trainer.sft_type}")
                 loss = loss * loss_mask.to(loss.device)
+                ce_loss = ce_loss * loss_mask.to(ce_loss.device)
             else:
                 # IMPORTANT: We have a big assumption here, so we can shard the SAME sequence across SP ranks
                 # i.e., each GPU has <1 sequence, and each SP group has 1 sequence
@@ -674,10 +693,11 @@ class FSDPSFTTrainer:
                 dp_size = 1
 
             loss = torch.sum(loss) / (valid_token_this_rank + 1e-8) * dp_size
+            ce_loss = torch.sum(ce_loss) / (valid_token_this_rank + 1e-8) * dp_size
 
             if do_backward:
                 loss.backward()
-            return loss
+            return loss, ce_loss
 
     def training_step(self, batch: TensorDict):
         self.fsdp_model.train()
@@ -691,9 +711,13 @@ class FSDPSFTTrainer:
         micro_batches = batch.split(self.config.data.micro_batch_size_per_gpu)
         n_micro_batches = len(micro_batches)
         step_loss = 0
+        step_ce_loss = 0
         for micro_batch in micro_batches:
-            loss = self._compute_loss_and_backward(batch=micro_batch) / n_micro_batches
+            loss, ce_loss = self._compute_loss_and_backward(batch=micro_batch)
+            loss = loss / n_micro_batches
+            ce_loss = ce_loss / n_micro_batches
             step_loss += loss.item()
+            step_ce_loss += ce_loss.item()
 
         grad_norm = self.fsdp_model.clip_grad_norm_(max_norm=self.config.optim.clip_grad)
 
@@ -717,14 +741,15 @@ class FSDPSFTTrainer:
 
         step_loss = torch.tensor(step_loss).cuda()
         torch.distributed.all_reduce(step_loss, op=torch.distributed.ReduceOp.AVG)
-        return {"train/loss": step_loss.detach().item(), "train/lr(1e-3)": lr * 1e3}
+        return {"train/loss": step_loss.detach().item(), "train/lr(1e-3)": lr * 1e3, "train/ce_loss": step_ce_loss, "train/grad_norm": grad_norm.detach().item()}
 
     def validation_step(self, batch: TensorDict):
         self.fsdp_model.eval()
         with torch.no_grad():
-            loss = self._compute_loss_and_backward(batch, do_backward=False)
+            loss, ce_loss = self._compute_loss_and_backward(batch, do_backward=False)
             torch.distributed.all_reduce(loss, op=torch.distributed.ReduceOp.AVG)
-        return loss
+            torch.distributed.all_reduce(ce_loss, op=torch.distributed.ReduceOp.AVG)
+        return loss, ce_loss
 
     def save_checkpoint(self, step):
         # save checkpoint
@@ -806,10 +831,12 @@ class FSDPSFTTrainer:
                 if global_step >= self.total_training_steps:
                     # Perform final validation
                     val_losses = []
+                    val_ce_losses = []
                     for val_data in self.val_dataloader:
                         val_data = TensorDict(val_data, batch_size=self.config.data.micro_batch_size_per_gpu).cuda(device=local_rank)
-                        val_loss = self.validation_step(val_data)
+                        val_loss, val_ce_loss = self.validation_step(val_data)
                         val_losses.append(val_loss)
+                        val_ce_losses.append(val_ce_loss)
                     
                     if self.val_score_dataset is not None:
                         metric_dict = self._validate()
@@ -823,7 +850,8 @@ class FSDPSFTTrainer:
 
                     if rank == 0:
                         avg_val_loss = torch.mean(torch.stack(val_losses))
-                        metric = {"val/loss": avg_val_loss.detach().item()}
+                        avg_val_ce_loss = torch.mean(torch.stack(val_ce_losses))
+                        metric = {"val/loss": avg_val_loss.detach().item(), "val/ce_loss": avg_val_ce_loss.detach().item()}
                         tracking.log(data=metric, step=global_step)
                         if self.val_score_dataset is not None:
                             tracking.log(data=metric_dict, step=global_step)
@@ -838,13 +866,15 @@ class FSDPSFTTrainer:
 
             # validation
             val_losses = []
+            val_ce_losses = []
             score = None
 
             for data in self.val_dataloader:
                 data = TensorDict(data, batch_size=self.config.data.micro_batch_size_per_gpu).cuda(device=local_rank)
                 # data = TensorDict(data, batch_size=len(self.val_dataset)//world_size).cuda(device=local_rank)
-                val_loss = self.validation_step(data)
-                val_losses.append(val_loss)                        
+                val_loss, val_ce_loss = self.validation_step(data)
+                val_losses.append(val_loss)
+                val_ce_losses.append(val_ce_loss)
 
             # After loop
             if self.val_score_dataset is not None:
@@ -852,7 +882,8 @@ class FSDPSFTTrainer:
             
             if rank == 0:
                 val_loss = torch.mean(torch.stack(val_losses))
-                metric = {"val/loss": val_loss.detach().item()}
+                avg_val_ce_loss = torch.mean(torch.stack(val_ce_losses))
+                metric = {"val/loss": val_loss.detach().item(), "val/ce_loss": avg_val_ce_loss.detach().item()}
                 tracking.log(data=metric, step=global_step)
                 if self.val_score_dataset is not None:
                     tracking.log(data=metric_dict, step=global_step)
