@@ -48,7 +48,7 @@ from verl.utils.debug import log_gpu_memory_usage
 from verl.utils.distributed import initialize_global_process_group
 from verl.utils.fs import copy_to_local
 from verl.utils.fsdp_utils import get_fsdp_wrap_policy, get_init_weight_context_manager, init_fn
-from verl.utils.torch_functional import get_cosine_schedule_with_warmup
+from verl.utils.torch_functional import get_cosine_schedule_with_warmup, get_constant_schedule_with_warmup
 from verl.utils.tracking import Tracking
 from verl.utils.ulysses import (
     gather_outpus_and_unpad,
@@ -421,6 +421,9 @@ class FSDPSFTTrainer:
             self.lr_scheduler = get_cosine_schedule_with_warmup(optimizer=self.optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=self.total_steps)
         # elif self.config.optim.lr_scheduler == "wsd":
         #     self.lr_scheduler = get_wsd_schedule_with_warmup(optimizer=self.optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=self.total_steps)
+        elif self.config.optim.lr_scheduler == "constant":
+            num_warmup_steps = 0
+            self.lr_scheduler = get_constant_schedule_with_warmup(optimizer=self.optimizer, num_warmup_steps=num_warmup_steps)
         else:
             raise ValueError(f"Unknown lr scheduler: {self.config.optim.lr_scheduler}")
 
@@ -626,7 +629,7 @@ class FSDPSFTTrainer:
                 if self.config.trainer.sft_type == "dft":
                     probs = torch.softmax(shift_logits, dim=-1)
                     prob_coefficients = probs.gather(1, shift_labels.unsqueeze(-1)).squeeze(-1)
-                    loss = loss * prob_coefficients.detach()
+                    loss = loss * ( 1e-4 + prob_coefficients.detach())
                     
                 elif self.config.trainer.sft_type == "aft":
                     probs = torch.softmax(shift_logits, dim=-1)
@@ -740,9 +743,10 @@ class FSDPSFTTrainer:
         log_gpu_memory_usage("After offload weights", logger=logger)
 
         step_loss = torch.tensor(step_loss).cuda()
+        step_ce_loss = torch.tensor(step_ce_loss).cuda()
         torch.distributed.all_reduce(step_loss, op=torch.distributed.ReduceOp.AVG)
         torch.distributed.all_reduce(step_ce_loss, op=torch.distributed.ReduceOp.AVG)
-        return {"train/loss": step_loss.detach().item(), "train/lr(1e-3)": lr * 1e3, "train/ce_loss": step_ce_loss, "train/grad_norm": grad_norm.detach().item()}
+        return {"train/loss": step_loss.detach().item(), "train/lr(1e-3)": lr * 1e3, "train/ce_loss": step_ce_loss.detach().item(), "train/grad_norm": grad_norm.detach().item()}
 
     def validation_step(self, batch: TensorDict):
         self.fsdp_model.eval()

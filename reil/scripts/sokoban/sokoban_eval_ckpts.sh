@@ -3,22 +3,21 @@
 set -x
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 # Model and checkpoint settings
-# BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"  # Base model path
+BASE_MODEL=/usr3/graduate/xfl/lab/REIL/models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323  # Base model path
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds543/REIL/sokoban-1.5b-0.0075beta-0.001kl-2025-05-01  # Directory containing checkpoints to evaluate
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds543/contrastive/sokoban-1.5b-contrastive-qwen-2.5-base-full-sft-05-26
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/sft/sokoban-1.5b-full-sft-lr-1e-5-06-17
 # BASE_MODEL=/usr3/graduate/xfl/lab/REIL/models/rlft/models--Qwen--Qwen3-1.7B/snapshots/70d244cc86ccca08cf5af4e1e306ecf908b1ad5e
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/REIL/sokoban-qwen3-1.7b-0.000beta-0.000kl-08-10-grpo
-BASE_MODEL=/usr3/graduate/xfl/lab/REIL/models/rlft/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218
+# BASE_MODEL=/usr3/graduate/xfl/lab/REIL/models/rlft/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/sft/ultradiverse_sokoban-8b-full-sft-lr-1e-5-08-17
-CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds543/sft/mixed-sokoban-8b-aft-power-5-lr-1e-5-08-21
+CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds543/sft/super_random-sokoban-1.5b-standard-lr-5e-6-08-25
 CHECKPOINT_NAME=$(basename $CHECKPOINT_DIR)  # Extract the last segment of the path
 PROJECT_NAME="REIL"      # Project name for logging
 EXPERIMENT_NAME="eval_${CHECKPOINT_NAME}"    # Experiment name for logging
 
 # Evaluation settings
-N_GPUS=4                      # Number of GPUs per node
-
+N_GPUS=4
 # Print configuration
 echo "Running evaluation with the following configuration:"
 # echo "Model path: $BASE_MODEL"
