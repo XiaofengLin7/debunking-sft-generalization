@@ -92,6 +92,7 @@ def main():
                 print(batch[prompt_key][0][0])
                 inputs = [batch[prompt_key][j][0]["content"] for j in range(len(batch[prompt_key]))]
                 answers = batch[answer_key]
+                data_source = batch['data_source']
 
                 # Generate the answer
                 outputs = llm.generate(inputs, sampling_params=sampling_params, use_tqdm=True)
@@ -117,6 +118,7 @@ def main():
                             "answer": a,
                             "question_id": i + j,
                             "generation_id": k,
+                            "data_source": data_source,
                         }
                         qa_pair["response"] = r[k]
                         if "sokoban" in dataset_name.lower():
