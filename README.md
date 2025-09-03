@@ -1,19 +1,6 @@
 # REIL
 We study what makes LLM generalize.
 
-[Google Doc](https://docs.google.com/document/d/1vZrBTFJIvfnOIr9hGS_SWdRS2Z1xw6kCow7Ps1BWaZc/edit?tab=t.0#heading=h.bsh8cnuvxol2)
-
-
-## Experiments roadmap
-- Comprehensive experiments on SFT vs RL on reasoning-required tasks.
-- Study why SFT can outperform RL on Sokoban task: measure $p_r$, $p_g$, $\pi_g$ and $\pi_r$. 
-
-## To dos
-- GRPO for 5 domains(Sokoban, sudoku, shortest_path, knights_knaves, countdown)
-- SFT for 5 domains
-- Score function for SFT(see branch: feature/score_for_sft)
-- KL divergence metric for SFT
-
 ## Prerequisites
 CUDA 12.2 & cuDNN 9.1.0 works, but [official docs](https://verl.readthedocs.io/en/latest/start/install.html) recommends CUDA >= 12.4 & cuDNN >= 9.8.0.
 
