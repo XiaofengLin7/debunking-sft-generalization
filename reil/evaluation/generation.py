@@ -125,7 +125,10 @@ def main():
                                 if qa_pair["score"] == 1:
                                     output_idx += 1
                                     f.write(json.dumps(qa_pair) + '\n')
-                                break
+                                    break
+                                else:
+                                    continue
+                                
                             if args.extract_thought_n_answer:
                                 if qa_pair["score"] == 0:
                                     qa_pair["thought"] = None
