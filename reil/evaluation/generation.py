@@ -5,7 +5,8 @@ from datasets import load_dataset
 from tqdm import tqdm
 import json
 from reil.utils.reward_score.sokoban import compute_score_with_action_sequence
-
+from reil.utils.reward_score.gp_l import score_gp_l_wo_sol
+from transformers import AutoTokenizer
 def extract_thought_n_answer(response):
     if "Assistant:" in response:
         processed_str = response.split("Assistant:", 1)[1]
@@ -35,11 +36,12 @@ def main():
     parser.add_argument("--max_tokens", type=int, default=1024)
     parser.add_argument("--num_gpus", type=int, default=1)
     parser.add_argument("--split", type=str, default="train")
+    parser.add_argument("--chat_template", action="store_true", default=False)
     parser.add_argument("--extract_thought_n_answer", action="store_true", default=False)
     parser.add_argument("--rejection_sampling", action="store_true", default=False)
 
     args = parser.parse_args()
-
+    MAX_SCORE = 5 if "gp-l-only" in args.datasets.lower() else 1
     print(args)
     if not os.path.exists(args.model_path):
         print(f"Model {args.model_path} not found. Skip.")
@@ -55,6 +57,7 @@ def main():
         top_k=args.top_k,
         max_tokens=args.max_tokens,
     )
+    tokenizer = AutoTokenizer.from_pretrained(args.model_path)
 
     datasets = args.datasets.split(",")
     for dataset_name in datasets:
@@ -62,9 +65,9 @@ def main():
         if "sokoban" in dataset_name.lower():
             answer_key = "reward_model"
             prompt_key = "prompt"
-        else:
-            answer_key = "answer"
-            prompt_key = "prompt"
+        elif "gp-l-only-10k" in dataset_name.lower():
+            answer_key = "extra_info"
+            prompt_key = "question"
         import datetime
         now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         output_file = (
@@ -89,10 +92,13 @@ def main():
         with open(os.path.join(output_dir, output_file), 'w') as f:
             for i in tqdm(range(0, len(dataset), args.batch_size)):
                 batch = dataset[i:i + args.batch_size]
-                print(batch[prompt_key][0][0])
-                inputs = [batch[prompt_key][j][0]["content"] for j in range(len(batch[prompt_key]))]
+                print(batch[prompt_key][0])
+                if args.chat_template:
+                    inputs = [tokenizer.apply_chat_template(batch[prompt_key][j], add_generation_prompt=True, tokenize=False) for j in range(len(batch[prompt_key]))]
+                else:
+                    inputs = [batch[prompt_key][j][0]["content"] for j in range(len(batch[prompt_key]))]
                 answers = batch[answer_key]
-                data_source = batch['data_source']
+                data_sources = batch['data_source']
 
                 # Generate the answer
                 outputs = llm.generate(inputs, sampling_params=sampling_params, use_tqdm=True)
@@ -111,34 +117,39 @@ def main():
                 # Process the results, store each generation result as a separate qa pair
                 # if extract_thought_n_answer is True, store the thought and final answer in the qa pair
                 output_idx = 0
-                for j, (inp, q, a, r) in enumerate(zip(inputs, batch[prompt_key], answers, results)):
+                for j, (inp, q, a, r, ds) in enumerate(zip(inputs, batch[prompt_key], answers, results, data_sources)):
                     for k in range(args.num_generation):
                         qa_pair = {
                             "prompt": inp,
                             "answer": a,
                             "question_id": i + j,
                             "generation_id": k,
-                            "data_source": data_source,
+                            "data_source": ds,
                         }
                         qa_pair["response"] = r[k]
+                        # label the response with score
                         if "sokoban" in dataset_name.lower():
                             qa_pair["score"] = compute_score_with_action_sequence(qa_pair["prompt"]+qa_pair["response"], a['ground_truth'], data_source='sokoban', format_score=0.1, score=1.0)
-                            if args.rejection_sampling:
-                                if qa_pair["score"] == 1:
-                                    output_idx += 1
-                                    f.write(json.dumps(qa_pair) + '\n')
-                                    break
-                                else:
-                                    continue
+                        elif "gp-l-only" in dataset_name.lower():
+                            # qa_pair["score"] = compute_score(qa_pair["prompt"]+qa_pair["response"], a, format_score=0.1, score=1.0)
+                            qa_pair["score"] = score_gp_l_wo_sol(solution_str=qa_pair["response"], meta_info=a)
+                        if args.rejection_sampling:
+                            if qa_pair["score"] == MAX_SCORE:
+                                output_idx += 1
+                                f.write(json.dumps(qa_pair) + '\n')
+                                break
+                            else:
+                                continue
                                 
-                            if args.extract_thought_n_answer:
-                                if qa_pair["score"] == 0:
-                                    qa_pair["thought"] = None
-                                    qa_pair["final_answer"] = None
-                                    qa_pair["label"] = 0
-                                else:
-                                    qa_pair["thought"], qa_pair["final_answer"] = extract_thought_n_answer(qa_pair["prompt"] + qa_pair["response"])
-                                    qa_pair["label"] = 1 if qa_pair["score"] == 1 else 0
+                        if args.extract_thought_n_answer:
+                            # score is 0 if not in format
+                            if qa_pair["score"] == 0:
+                                qa_pair["thought"] = None
+                                qa_pair["final_answer"] = None
+                                qa_pair["label"] = 0
+                            else:
+                                qa_pair["thought"], qa_pair["final_answer"] = extract_thought_n_answer(qa_pair["prompt"] + qa_pair["response"])
+                                qa_pair["label"] = 1 if qa_pair["score"] == 1 else 0
                         output_idx += 1
                         f.write(json.dumps(qa_pair) + '\n')
                 f.flush()        

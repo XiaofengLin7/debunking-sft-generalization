@@ -1,6 +1,5 @@
-BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
+BASE_MODEL="./models/rlft/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218"
 DATASETS="Xiaofeng77/sokoban_one_horizon_large_envs"
-# DATASETS="Xiaofeng77/small_sokoban"
 OUTPUT_DIR="./results"
 NUM_GENERATION=3
 N_GPUS=1
