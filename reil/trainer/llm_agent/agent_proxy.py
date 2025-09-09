@@ -83,6 +83,9 @@ class VllmWrapperWg: # Thi is a developing class for eval and test
 				enable_prefix_caching=True,
 			)
 
+	def get_module(self):
+		return self.llm.collective_rpc(echo_model_runner)[0]
+
 	def generate_sequences(self, lm_inputs: DataProto):
 		"""
 		Convert the input ids to text, and then generate the sequences. Finally create a dataproto. 
@@ -116,7 +119,6 @@ class VllmWrapperWg: # Thi is a developing class for eval and test
 		input_ids_padded = torch.nn.utils.rnn.pad_sequence(input_ids, batch_first=True, padding_value=pad_token_id, padding_side="right")
 
 		attention_mask = torch.where(input_ids_padded != pad_token_id, 1, 0)
-		
 		batch_size = len(input_texts)
 		batch = TensorDict(
 			{
@@ -143,7 +145,10 @@ class VllmWrapperWg: # Thi is a developing class for eval and test
 		lm_outputs.meta_info = lm_inputs.meta_info
 
 		return lm_outputs
-	
+
+def echo_model_runner(self):
+    return self.model_runner.model
+
 class HFWrapperWg:
 	def __init__(self, config, tokenizer, module: Union[nn.Module, None] = None):
 		if module is None:

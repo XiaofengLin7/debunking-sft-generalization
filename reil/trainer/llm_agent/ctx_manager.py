@@ -326,6 +326,8 @@ class NaiveContextManager(ContextManager):
         """
         self.config = config
         self.tokenizer = tokenizer
+        if not hasattr(self.tokenizer, "pad_token") or self.tokenizer.pad_token is None:
+            self.tokenizer.add_special_tokens({'pad_token': '[PAD]'})
         self.processor = processor
         self.special_token_list = ["<think>", "</think>", "<answer>", "</answer>", "<|im_start|>", "<|im_end|>"]
 
