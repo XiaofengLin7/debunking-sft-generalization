@@ -33,7 +33,6 @@ from vllm.distributed.parallel_state import (
     destroy_model_parallel,
     destroy_distributed_environment,
 )
-import ray
 
 @ray.remote(num_gpus=1)
 def _kl_worker_remote(eval_ckpt: str,
@@ -405,51 +404,6 @@ class CheckpointEvaluator:
 
         return log_probs
 
-    @torch.no_grad()
-    def compute_kl(self, eval_model, data: DataProto) -> torch.Tensor:
-        """Compute per-token KL surrogate KL(p||q) ≈ log pθ(y|x) − log qref(y|x).
-
-        Args:
-            eval_model: evaluated HF causal LM on which pθ is based.
-            data: DataProto containing 'input_ids', 'attention_mask', 'position_ids', 'responses'.
-
-        Returns:
-            torch.Tensor on CPU of shape (batch_size, response_len) with per-token KL surrogate values.
-        """
-        device = torch.device('cuda')
-        response_length = data.batch['responses'].size(1)
-        response_mask = data.batch['attention_mask'][:, -response_length:]
-        # Compute eval model log-probs on CUDA, then free
-        try:
-            eval_model = eval_model.to(device, dtype=torch.bfloat16)
-            eval_log_probs = self.compute_log_probs(eval_model, data)
-        finally:
-            try:
-                eval_model = eval_model.to('cpu')
-            except Exception:
-                pass
-            torch.cuda.synchronize()
-            torch.cuda.empty_cache()
-
-        # Compute ref model log-probs on CUDA, then free
-        try:
-            self.ref_model = self.ref_model.to(device, dtype=torch.bfloat16)
-            ref_log_probs = self.compute_log_probs(self.ref_model, data)
-        finally:
-            try:
-                self.ref_model = self.ref_model.to('cpu')
-            except Exception:
-                pass
-            torch.cuda.synchronize()
-            torch.cuda.empty_cache()
-        gc.collect()
-        # KL surrogate per token
-        kld = eval_log_probs - ref_log_probs
-
-        kld = masked_mean(kld, response_mask, axis=-1)
-        kld = torch.mean(kld, dim=0).item()
-        return kld
-
     def evaluate_checkpoint(self, checkpoint_path: Optional[str] = None) -> Dict:
         """Evaluate a single checkpoint"""
         
@@ -661,7 +615,7 @@ class CheckpointEvaluator:
             temperature = float(self.config.actor_rollout_ref.rollout.val_kwargs.temperature)
             ref_model_path = self.config.actor_rollout_ref.model.path
 
-            kl_micro_bs = getattr(self.config.evaluator, 'kl_micro_batch_size', 4)
+            kl_micro_bs = getattr(self.config.evaluator, 'kl_micro_batch_size', 256)
             future = _kl_worker_remote.remote(
                 self.current_ckpt_path,
                 ref_model_path,
@@ -741,6 +695,7 @@ class CheckpointEvaluator:
             if self.config.data.get('val_score_files', None):
                 # single turn
                 metrics = self._validate()
+                metrics.update(self.evaluate_checkpoint())
                 # If KL wasn't computed internally (e.g., vLLM), compute it externally now
                 self.cleanup_llm()
                 external_kld = self.compute_external_kl()
