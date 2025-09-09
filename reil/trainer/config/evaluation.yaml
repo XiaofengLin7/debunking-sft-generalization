@@ -12,9 +12,17 @@ env:
   search_depth: 30 # this will change the starting position of the player
 
 data:
+  prompt_key: prompt
   max_prompt_length: 1024
   max_response_length: 1024
 
+reward_model:
+  reward_manager: naive
+
+custom_reward_function:
+  path: null
+  name: compute_score
+  
 agent_proxy:
   max_turn: 30
   enable_think: False # False -> no think RL(alfworld), True -> think RL(sokoban)

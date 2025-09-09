@@ -1,6 +1,8 @@
 import hydra
 import ray
 import time
+import contextlib
+import gc
 import wandb
 from typing import List, Dict, Optional
 from tqdm import tqdm
@@ -26,6 +28,96 @@ from verl.utils.dataset.rl_dataset import RLHFDataset, collate_fn
 from torchdata.stateful_dataloader import StatefulDataLoader
 from reil.trainer.main_ppo import get_custom_reward_fn
 import numpy as np
+from verl.utils.torch_functional import logprobs_from_logits, masked_mean
+from vllm.distributed.parallel_state import (
+    destroy_model_parallel,
+    destroy_distributed_environment,
+)
+
+@ray.remote(num_gpus=1)
+def _kl_worker_remote(eval_ckpt: str,
+                      ref_model_path: str,
+                      trust_remote_code: bool,
+                      temperature: float,
+                      input_ids_cpu,
+                      attention_mask_cpu,
+                      responses_cpu,
+                      position_ids_cpu,
+                      micro_bs: int | None = None):
+    import torch
+    from transformers import AutoModelForCausalLM
+
+    def _logprobs_from_logits(logits: torch.Tensor, tokens: torch.Tensor) -> torch.Tensor:
+        logprobs = torch.log_softmax(logits, dim=-1)
+        return torch.gather(logprobs, dim=-1, index=tokens.unsqueeze(-1)).squeeze(-1)
+
+    @torch.no_grad()
+    def _compute_lp(model, input_ids, attention_mask, position_ids, responses, temperature):
+        device = next(model.parameters()).device
+        input_ids = input_ids.to(device)
+        attention_mask = attention_mask.to(device)
+        responses = responses.to(device)
+        if position_ids is None:
+            position_ids = attention_mask.cumsum(dim=-1)
+        else:
+            position_ids = position_ids.to(device)
+        response_length = responses.size(1)
+        outputs = []
+        batch_size = input_ids.size(0)
+        use_mb = micro_bs is not None and isinstance(micro_bs, int) and micro_bs > 0 and micro_bs < batch_size
+        if use_mb:
+            for start in tqdm(range(0, batch_size, micro_bs), desc="Computing log-probs"):
+                end = min(start + micro_bs, batch_size)
+                ids = input_ids[start:end]
+                am = attention_mask[start:end]
+                pos = position_ids[start:end]
+                rsp = responses[start:end]
+                with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
+                    logits = model(input_ids=ids,
+                                   attention_mask=am,
+                                   position_ids=pos,
+                                   use_cache=False).logits
+                    logits = logits.div_(temperature)
+                    logits = logits[:, -response_length - 1:-1, :]
+                    lp = _logprobs_from_logits(logits, rsp)
+                outputs.append(lp.detach().to('cpu'))
+                del ids, am, pos, rsp, logits, lp
+                torch.cuda.empty_cache()
+            return torch.cat(outputs, dim=0)
+        else:
+            with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
+                logits = model(input_ids=input_ids,
+                               attention_mask=attention_mask,
+                               position_ids=position_ids,
+                               use_cache=False).logits
+                logits = logits.div_(temperature)
+                logits = logits[:, -response_length - 1:-1, :]
+                log_probs = _logprobs_from_logits(logits, responses)
+            return log_probs.detach().to('cpu')
+
+    device = torch.device('cuda')
+    eval_model = AutoModelForCausalLM.from_pretrained(
+        eval_ckpt,
+        trust_remote_code=trust_remote_code,
+        attn_implementation='flash_attention_2'
+    ).to(device)
+    ref_model = AutoModelForCausalLM.from_pretrained(
+        ref_model_path,
+        trust_remote_code=trust_remote_code,
+        attn_implementation='flash_attention_2'
+    ).to(device)
+    eval_model.eval()
+    ref_model.eval()
+
+    eval_lp = _compute_lp(eval_model, input_ids_cpu, attention_mask_cpu, position_ids_cpu, responses_cpu, temperature)
+    ref_lp = _compute_lp(ref_model, input_ids_cpu, attention_mask_cpu, position_ids_cpu, responses_cpu, temperature)
+
+    response_length = responses_cpu.size(1)
+    response_mask = attention_mask_cpu[:, -response_length:]
+    kld = eval_lp - ref_lp
+    kld = (kld * response_mask).sum(dim=-1) / response_mask.sum(dim=-1).clamp_min(1e-9)
+    kld = torch.mean(kld, dim=0).item()
+    return float(kld)
 
 class Role(Enum):
     """
@@ -59,7 +151,7 @@ class CheckpointEvaluator:
                                         filter_prompts=True,
                                         return_raw_chat=config.data.get('return_raw_chat', False),
                                         truncation=config.data.get('truncation', 'error'),
-                                        filter_overlong_prompts=config.data.filter_overlong_prompts)
+                                        filter_overlong_prompts=config.data.get('filter_overlong_prompts', False))
             self.val_score_dataloader = StatefulDataLoader(
                 dataset=self.val_score_dataset,
                 batch_size=len(self.val_score_dataset),
@@ -107,17 +199,27 @@ class CheckpointEvaluator:
                 mapping={Role.ActorRollout: global_pool_id}
             )
             
-            # Initialize Ray
-            if not ray.is_initialized():
-                ray.init(runtime_env={
-                'env_vars': {
-                    'TOKENIZERS_PARALLELISM': 'true',
-                    'NCCL_DEBUG': 'WARN',
-                    'VLLM_LOGGING_LEVEL': 'WARN',
-                    'VLLM_ATTENTION_BACKEND': 'XFORMERS',
-                    
-                }
-            })
+        # Initialize Ray
+        if not ray.is_initialized():
+            ray.init(runtime_env={
+            'env_vars': {
+                'TOKENIZERS_PARALLELISM': 'false',
+                'NCCL_DEBUG': 'WARN',
+                'VLLM_LOGGING_LEVEL': 'WARN',
+            }
+        })
+        # Initialize reference model from base model path (HF model)
+        trust_remote_code = self.config.actor_rollout_ref.model.get('trust_remote_code', False)
+        self.ref_model = AutoModelForCausalLM.from_pretrained(
+            self.config.actor_rollout_ref.model.path,
+            trust_remote_code=trust_remote_code,
+            attn_implementation='flash_attention_2'
+        ).cpu()
+        self.ref_model.eval()
+        # Track settings for external KL computation
+        self.trust_remote_code = trust_remote_code
+        self.current_ckpt_path: Optional[str] = None
+        self.last_val_batch: Optional[DataProto] = None
             
     def _init_checkpoint_dirs(self):
         """Initialize checkpoint directories for evaluation"""
@@ -168,13 +270,19 @@ class CheckpointEvaluator:
             if isinstance(self.actor_rollout_wg, VllmWrapperWg):
                 if not self.is_lora and hasattr(self.actor_rollout_wg, 'llm'):
                     # Delete the LLM instance
+                    destroy_model_parallel()
+                    destroy_distributed_environment()
+                    self.actor_rollout_wg.llm.llm_engine.engine_core.shutdown()
                     del self.actor_rollout_wg.llm
+                    gc.collect()
+                    # ray.shutdown()
             elif isinstance(self.actor_rollout_wg, HFWrapperWg):
                 if hasattr(self.actor_rollout_wg, 'llm') and hasattr(self.actor_rollout_wg.llm, 'module'):
                     # Move model to CPU and delete
                     del self.actor_rollout_wg.llm.module
 
             torch.cuda.empty_cache()
+            
 
     def init_workers(self):
         """Initialize resource pools and worker groups"""
@@ -206,11 +314,15 @@ class CheckpointEvaluator:
     def load_checkpoint(self, checkpoint_path: str):
         """Load checkpoint into initialized workers"""
         if checkpoint_path:
+            # Ensure previous engines/models are cleaned up to free GPU memory
             self.cleanup_llm()
+            gc.collect()
+            torch.cuda.empty_cache()
             print(f"Loading checkpoint from {checkpoint_path}")
             self.actor_rollout_wg.load_checkpoint(checkpoint_path)
+            # Record current checkpoint path for external KL
+            self.current_ckpt_path = checkpoint_path
 
-            # print(self.actor_rollout_wg.module)
     
     def generate_sequences(self, lm_inputs: DataProto):
         """
@@ -228,6 +340,69 @@ class CheckpointEvaluator:
             raise ValueError(f"Unsupported actor worker type: {type(self.actor_rollout_wg)}")
 
         return lm_outputs
+
+    @torch.no_grad()
+    def compute_log_probs(self, model, data: DataProto) -> torch.Tensor:
+        """Compute per-token log-probs for given responses using the specified model (no generation). HF model only for now.
+
+        Args:
+            model: a causal LM instance with forward(input_ids, attention_mask, position_ids) -> logits
+            data: DataProto containing 'input_ids', 'attention_mask', 'position_ids', 'responses'
+
+        Returns:
+            torch.Tensor on CPU of shape (batch_size, response_len)
+        """
+        # Teacher-forced log-probs under the specified model (CUDA) with micro-batching
+        device = torch.device('cuda')
+        model = model.to(device, dtype=torch.bfloat16)
+        input_ids = data.batch['input_ids'].to(device)
+        attention_mask = data.batch['attention_mask'].to(device)
+        if 'position_ids' in data.batch:
+            position_ids_full = data.batch['position_ids'].to(device)
+        else:
+            position_ids_full = attention_mask.cumsum(dim=-1)
+        responses_full = data.batch['responses'].to(device)
+        response_length = responses_full.size(1)
+
+        # Determine micro-batch size
+        kl_micro_bs = getattr(self.config.evaluator, 'kl_micro_batch_size', 16)
+        batch_size = input_ids.size(0)
+        if not isinstance(kl_micro_bs, int):
+            kl_micro_bs = int(kl_micro_bs) if kl_micro_bs else 0
+        use_micro_batch = kl_micro_bs and kl_micro_bs > 0 and kl_micro_bs < batch_size
+
+        outputs = []
+        if use_micro_batch:
+            for start in range(0, batch_size, kl_micro_bs):
+                end = min(start + kl_micro_bs, batch_size)
+                ids = input_ids[start:end]
+                am = attention_mask[start:end]
+                pos = position_ids_full[start:end]
+                rsp = responses_full[start:end]
+                with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
+                    logits = model(input_ids=ids,
+                                   attention_mask=am,
+                                   position_ids=pos,
+                                   use_cache=False).logits
+                    logits = logits.div_(self.config.actor_rollout_ref.rollout.val_kwargs.temperature)
+                    logits = logits[:, -response_length - 1:-1, :]
+                    chunk_log_probs = logprobs_from_logits(logits, rsp)
+                outputs.append(chunk_log_probs.detach().to('cpu'))
+                del ids, am, pos, rsp, logits, chunk_log_probs
+                torch.cuda.empty_cache()
+            log_probs = torch.cat(outputs, dim=0)
+        else:
+            with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
+                logits = model(input_ids=input_ids,
+                               attention_mask=attention_mask,
+                               position_ids=position_ids_full,
+                               use_cache=False).logits
+                logits = logits.div_(self.config.actor_rollout_ref.rollout.val_kwargs.temperature)
+                logits = logits[:, -response_length - 1:-1, :]
+                log_probs = logprobs_from_logits(logits, responses_full)
+            log_probs = log_probs.detach().to('cpu')
+
+        return log_probs
 
     def evaluate_checkpoint(self, checkpoint_path: Optional[str] = None) -> Dict:
         """Evaluate a single checkpoint"""
@@ -338,7 +513,7 @@ class CheckpointEvaluator:
         sample_inputs = []
         sample_outputs = []
         sample_scores = []
-
+        # the val_score_dataloader has only one batch in default.
         for test_data in self.val_score_dataloader:
             test_batch = DataProto.from_single_dict(test_data)
 
@@ -375,7 +550,6 @@ class CheckpointEvaluator:
             print('validation generation end')
             print(test_output_gen_batch.batch['responses'].shape)
             # Store generated outputs
-            # TODO: add feasible solution for vllm wrapper
             if 'response_texts' in test_output_gen_batch.non_tensor_batch.keys():
                 output_texts = test_output_gen_batch.non_tensor_batch['response_texts']
             else:
@@ -385,6 +559,8 @@ class CheckpointEvaluator:
 
             test_batch = test_batch.union(test_output_gen_batch)
 
+            # Save for external KL (especially for vLLM path)
+            self.last_val_batch = test_batch
             # evaluate using reward_function
             reward_tensor = self.val_reward_fn(test_batch)
 
@@ -418,6 +594,45 @@ class CheckpointEvaluator:
         for data_source, accs in data_source_acc.items():
             metric_dict[f'val/test_acc/{data_source}'] = np.mean(accs)
         return metric_dict
+
+    def compute_external_kl(self) -> Optional[float]:
+        """Compute KL using an HF model loaded from the current checkpoint path.
+
+        Offloads computation to a Ray remote worker (1 GPU) so the worker
+        process owns and tears down its CUDA context independently.
+        """
+        if self.current_ckpt_path is None or self.last_val_batch is None:
+            return None
+        try:
+            batch = self.last_val_batch
+            input_ids = batch.batch['input_ids'].cpu()
+            attention_mask = batch.batch['attention_mask'].cpu()
+            responses = batch.batch['responses'].cpu()
+            position_ids = batch.batch.get('position_ids', None)
+            if position_ids is not None:
+                position_ids = position_ids.cpu()
+
+            temperature = float(self.config.actor_rollout_ref.rollout.val_kwargs.temperature)
+            ref_model_path = self.config.actor_rollout_ref.model.path
+
+            kl_micro_bs = getattr(self.config.evaluator, 'kl_micro_batch_size', 256)
+            future = _kl_worker_remote.remote(
+                self.current_ckpt_path,
+                ref_model_path,
+                bool(self.trust_remote_code),
+                temperature,
+                input_ids,
+                attention_mask,
+                responses,
+                position_ids,
+                int(kl_micro_bs) if isinstance(kl_micro_bs, int) or (isinstance(kl_micro_bs, str) and kl_micro_bs.isdigit()) else 4,
+            )
+            kld = ray.get(future)
+            return float(kld)
+        except Exception as e:
+            print(f"External KL computation failed (ray): {e}")
+            return None
+    
     def evaluate_checkpoints(self, checkpoint_dir: str):
         """Evaluate multiple checkpoints in a directory"""
         checkpoint_dir = Path(checkpoint_dir)
@@ -457,7 +672,7 @@ class CheckpointEvaluator:
             print(f"  {d}")
 
         print(f"Found {len(checkpoint_dirs)} checkpoints to evaluate")        
-        
+        self.cleanup_llm()
         # Evaluate each checkpoint
         for ckpt_dir in checkpoint_dirs:
             step = int(ckpt_dir.name.split('_')[-1] if found_pattern == "global_step_*" else ckpt_dir.name.split('-')[-1])
@@ -480,9 +695,16 @@ class CheckpointEvaluator:
             if self.config.data.get('val_score_files', None):
                 # single turn
                 metrics = self._validate()
+                metrics.update(self.evaluate_checkpoint())
+                # If KL wasn't computed internally (e.g., vLLM), compute it externally now
+                self.cleanup_llm()
+                external_kld = self.compute_external_kl()
+                if external_kld is not None:
+                    metrics['val/kl'] = external_kld
             else:
                 # multi turn
                 metrics = self.evaluate_checkpoint()
+                self.cleanup_llm()
             
             # Log metrics using Tracking
             self.logger.log(data=metrics, step=self.step)

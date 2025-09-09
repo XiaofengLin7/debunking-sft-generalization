@@ -5,16 +5,15 @@ set -x
 # Shift the arguments so $@ refers to the rest
 shift 2
 N_GPUS=4
-
 # DATA_DIR="./data/sokoban_one_horizon_large_envs/sft"
-DATA_DIR="./data/sokoban_one_horizon_large_envs/cot-sft"
+DATA_DIR="./data/sokoban_one_horizon_large_envs/qwen2.5-1.5b-base-16-shot"
 BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218"
 # BASE_MODEL="./models/rlft/models--meta-llama--Llama-3.1-8B/snapshots/d04e592bb4f6aa9cfee91e2e20afa771667e1d4b"
 LEARNING_RATE=1e-5
 SFT_TYPE="standard" # "aft", "dft", "standard"
 AFT_POWER=1.0
-EXPERIMENT_NAME="cot-sokoban-1.5b-${SFT_TYPE}-lr-${LEARNING_RATE}-$(date +%m-%d)"
+EXPERIMENT_NAME="rjs-sokoban-1.5b-${SFT_TYPE}-lr-${LEARNING_RATE}-$(date +%m-%d)"
 
 
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
@@ -47,11 +46,11 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
     trainer.policy_eval=False \
     trainer.project_name=REIL \
     trainer.experiment_name=$EXPERIMENT_NAME \
-    trainer.default_local_dir=checkpoints/ds543/sft/$EXPERIMENT_NAME \
+    trainer.default_local_dir=checkpoints/ds310/sft/$EXPERIMENT_NAME \
     trainer.logger="['console', 'wandb']" \
     trainer.total_epochs=5 \
     trainer.val_before_train=False \
-    trainer.default_hdfs_dir=null $@ | tee checkpoints/ds543/sft/${EXPERIMENT_NAME}_train.log
+    trainer.default_hdfs_dir=null $@ | tee checkpoints/ds310/sft/${EXPERIMENT_NAME}_train.log
 
     # Or you can do this:
     # model.target_modules=[q_proj,v_proj] \

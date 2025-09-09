@@ -65,13 +65,13 @@ def convert_jsonl_to_sft_data(data_file: str):
     return instances
 
 def main():
-    train_instances = convert_jsonl_to_sft_data("./results/sokoban_one_horizon_large_envs-train-temp_1.0-top_p_1.0-top_k_-1-20250903_175938.jsonl")
+    train_instances = convert_jsonl_to_sft_data("./results/sokoban_one_horizon_large_envs-train-temp_1.0-top_p_1.0-top_k_-1-20250908_111502.jsonl")
     # test_instances = convert_parquet_to_sft_data("./data/sokoban_one_horizon_large_envs/test.parquet")
     train_dataset = Dataset.from_list(train_instances)
     # test_dataset = Dataset.from_list(test_instances)
-    train_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/cot-sft/train.parquet")
+    train_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/qwen2.5-1.5b-base-16-shot/train.parquet")
     # test_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/sft/test.parquet")
-    train_dataset.push_to_hub("Xiaofeng77/Qwen3-8b-cot-sokoban", split="train")
+    # train_dataset.push_to_hub("Xiaofeng77/Qwen3-8b-cot-sokoban", split="train")
     # train_dataset.push_to_hub("Xiaofeng77/reil_sokoban_one_horizon_large_envs_sft", split="train")
     # test_dataset.push_to_hub("Xiaofeng77/reil_sokoban_one_horizon_large_envs_sft", split="test")
     
