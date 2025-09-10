@@ -33,7 +33,7 @@ from vllm.distributed.parallel_state import (
     destroy_model_parallel,
     destroy_distributed_environment,
 )
-
+#TODO: code needed to be optimized
 @ray.remote(num_gpus=1)
 def _kl_worker_remote(eval_ckpt: str,
                       ref_model_path: str,
@@ -96,21 +96,26 @@ def _kl_worker_remote(eval_ckpt: str,
             return log_probs.detach().to('cpu')
 
     device = torch.device('cuda')
+    # Load models sequentially to reduce peak memory
     eval_model = AutoModelForCausalLM.from_pretrained(
         eval_ckpt,
         trust_remote_code=trust_remote_code,
         attn_implementation='flash_attention_2'
     ).to(device)
+    eval_model.eval()
+    eval_lp = _compute_lp(eval_model, input_ids_cpu, attention_mask_cpu, position_ids_cpu, responses_cpu, temperature)
+    del eval_model
+    torch.cuda.empty_cache()
+
     ref_model = AutoModelForCausalLM.from_pretrained(
         ref_model_path,
         trust_remote_code=trust_remote_code,
         attn_implementation='flash_attention_2'
     ).to(device)
-    eval_model.eval()
     ref_model.eval()
-
-    eval_lp = _compute_lp(eval_model, input_ids_cpu, attention_mask_cpu, position_ids_cpu, responses_cpu, temperature)
     ref_lp = _compute_lp(ref_model, input_ids_cpu, attention_mask_cpu, position_ids_cpu, responses_cpu, temperature)
+    del ref_model
+    torch.cuda.empty_cache()
 
     response_length = responses_cpu.size(1)
     response_mask = attention_mask_cpu[:, -response_length:]
@@ -695,7 +700,7 @@ class CheckpointEvaluator:
             if self.config.data.get('val_score_files', None):
                 # single turn
                 metrics = self._validate()
-                metrics.update(self.evaluate_checkpoint())
+                # metrics.update(self.evaluate_checkpoint())
                 # If KL wasn't computed internally (e.g., vLLM), compute it externally now
                 self.cleanup_llm()
                 external_kld = self.compute_external_kl()
