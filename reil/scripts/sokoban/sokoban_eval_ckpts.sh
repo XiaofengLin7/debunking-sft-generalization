@@ -3,25 +3,28 @@
 set -x
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 # Model and checkpoint settings
-BASE_MODEL=/usr3/graduate/xfl/lab/REIL/models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323  # Base model path
+# BASE_MODEL=/usr3/graduate/xfl/lab/REIL/models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323  # Base model path
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds543/REIL/sokoban-1.5b-0.0075beta-0.001kl-2025-05-01  # Directory containing checkpoints to evaluate
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds543/contrastive/sokoban-1.5b-contrastive-qwen-2.5-base-full-sft-05-26
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/sft/sokoban-1.5b-full-sft-lr-1e-5-06-17
 # BASE_MODEL=/usr3/graduate/xfl/lab/REIL/models/rlft/models--Qwen--Qwen3-1.7B/snapshots/70d244cc86ccca08cf5af4e1e306ecf908b1ad5e
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/REIL/sokoban-qwen3-1.7b-0.000beta-0.000kl-08-10-grpo
-# BASE_MODEL=/usr3/graduate/xfl/lab/REIL/models/rlft/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218
+BASE_MODEL=/usr3/graduate/xfl/lab/REIL/models/rlft/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/sft/ultradiverse_sokoban-8b-full-sft-lr-1e-5-08-17
 # BASE_MODEL=/usr3/graduate/xfl/lab/REIL/models/rlft/models--meta-llama--Llama-3.1-8B/snapshots/d04e592bb4f6aa9cfee91e2e20afa771667e1d4b
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/sft/rjs-sokoban-1.5b-standard-lr-1e-5-09-08
-CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/sft/sokoban-1.5b-standard-lr-1e-5-09-06
+# CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/sft/sokoban-1.5b-standard-lr-1e-5-09-06
+# CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds543/sft/cot-sokoban-1.5b-standard-lr-1e-5-09-04
+CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds543/sft/cot-sokoban-8b-standard-lr-1e-5-09-03
 CHECKPOINT_NAME=$(basename $CHECKPOINT_DIR)  # Extract the last segment of the path
 PROJECT_NAME="REIL"      # Project name for logging
 EXPERIMENT_NAME="eval_${CHECKPOINT_NAME}"    # Experiment name for logging
 TEST_DATA=/usr3/graduate/xfl/lab/REIL/data/sokoban_one_horizon_large_envs/train.parquet
 # Evaluation settings
-N_GPUS=2
-CUDA_VISIBLE_DEVICES=2,3
+N_GPUS=4
+# CUDA_VISIBLE_DEVICES=0,1
 TOKENIZERS_PARALLELISM=false
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 # Print configuration
 echo "Running evaluation with the following configuration:"
 # echo "Model path: $BASE_MODEL"
@@ -39,6 +42,7 @@ python -m reil.evaluation.eval_ckpts \
     evaluator.logger="['console']" \
     evaluator.resume_step=0 \
     evaluator.is_lora=False \
+    +evaluator.kl_micro_batch_size=4 \
     +data.val_score_files=$TEST_DATA \
     data.max_response_length=4096 \
     data.max_prompt_length=1024 \

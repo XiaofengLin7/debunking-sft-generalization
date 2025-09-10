@@ -21,6 +21,13 @@ def extract_thought_n_answer(response):
     final_answer = "<answer>" + final_answer + "</answer>"
     return thought, final_answer
 
+def post_process_input(input):
+    parts = input.split("<|im_end|>")
+    input = parts[0] + "Limit the output to less than 2048 tokens. <|im_end|>"
+    if len(parts) > 1:
+        input += parts[1]
+    # print(input)
+    return input
 
 def main():
     parser = argparse.ArgumentParser()
@@ -92,11 +99,11 @@ def main():
         with open(os.path.join(output_dir, output_file), 'w') as f:
             for i in tqdm(range(0, len(dataset), args.batch_size)):
                 batch = dataset[i:i + args.batch_size]
-                print(batch[prompt_key][0])
                 if args.chat_template:
                     inputs = [tokenizer.apply_chat_template(batch[prompt_key][j], add_generation_prompt=True, tokenize=False) for j in range(len(batch[prompt_key]))]
                 else:
                     inputs = [batch[prompt_key][j][0]["content"] for j in range(len(batch[prompt_key]))]
+                # post_process_inputs = [post_process_input(inp) for inp in inputs]
                 answers = batch[answer_key]
                 data_sources = batch['data_source']
 
