@@ -21,7 +21,7 @@ PROJECT_NAME="REIL"      # Project name for logging
 EXPERIMENT_NAME="eval_${CHECKPOINT_NAME}"    # Experiment name for logging
 TEST_DATA=/usr3/graduate/xfl/lab/REIL/data/sokoban_one_horizon_large_envs/train.parquet
 # Evaluation settings
-N_GPUS=4
+N_GPUS=1
 # CUDA_VISIBLE_DEVICES=0,1
 TOKENIZERS_PARALLELISM=false
 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -39,7 +39,7 @@ python -m reil.evaluation.eval_ckpts \
     evaluator.checkpoint_dir=$CHECKPOINT_DIR \
     evaluator.project_name=$PROJECT_NAME \
     evaluator.experiment_name=$EXPERIMENT_NAME \
-    evaluator.logger="['console']" \
+    evaluator.logger="['console', 'wandb']" \
     evaluator.resume_step=0 \
     evaluator.is_lora=False \
     +evaluator.kl_micro_batch_size=4 \
