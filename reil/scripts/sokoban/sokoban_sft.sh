@@ -48,7 +48,7 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
     trainer.project_name=REIL \
     trainer.experiment_name=$EXPERIMENT_NAME \
     trainer.default_local_dir=checkpoints/ds310/sft/$EXPERIMENT_NAME \
-    trainer.logger="['console']" \
+    trainer.logger="['console', 'wandb']" \
     trainer.total_epochs=5 \
     trainer.val_before_train=False \
     trainer.kl_regularization.enabled=True \
