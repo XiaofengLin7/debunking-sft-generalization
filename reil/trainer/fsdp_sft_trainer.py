@@ -506,25 +506,34 @@ class FSDPSFTTrainer:
         """
         assert self.fsdp_ref_model is not None, "Reference model is not initialized"
 
-        input_ids = batch["input_ids"].to(torch.cuda.current_device(), non_blocking=True)
-        attention_mask = batch["attention_mask"].to(torch.cuda.current_device(), non_blocking=True)
-        position_ids = batch["position_ids"].to(torch.cuda.current_device(), non_blocking=True)
+        device = torch.cuda.current_device()
+        input_ids = batch["input_ids"].to(device, non_blocking=True)
+        attention_mask = batch["attention_mask"].to(device, non_blocking=True)
+        position_ids = batch["position_ids"].to(device, non_blocking=True)
+
+        batch_size = input_ids.size(0)
+        micro_bs = int(getattr(self.config.data, "micro_batch_size_per_gpu", batch_size))
+        chunks_cpu: list[torch.Tensor] = []
 
         self.fsdp_ref_model.eval()
-        with torch.inference_mode(), torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-            output = self.fsdp_ref_model(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                position_ids=position_ids,
-                use_cache=False,
-            )
-            ref_logits = output.logits  # [B, S, V]
+        for start in range(0, batch_size, micro_bs):
+            end = min(start + micro_bs, batch_size)
+            ids = input_ids[start:end]
+            am = attention_mask[start:end]
+            pos = position_ids[start:end]
+            with torch.inference_mode(), torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                logits = self.fsdp_ref_model(
+                    input_ids=ids,
+                    attention_mask=am,
+                    position_ids=pos,
+                    use_cache=False,
+                ).logits  # [mb, S, V]
+            shift_logits = logits[..., :-1, :].contiguous()  # [mb, S-1, V]
+            logp_chunk = torch.log_softmax(shift_logits.float(), dim=-1).to(torch.bfloat16)
+            chunks_cpu.append(logp_chunk.cpu().pin_memory())
+            del ids, am, pos, logits, shift_logits, logp_chunk
 
-        ref_shift_logits = ref_logits[..., :-1, :].contiguous()  # [B, S-1, V]
-        ref_logp = torch.log_softmax(ref_shift_logits.float(), dim=-1).to(torch.bfloat16)
-        ref_logp_cpu = ref_logp.cpu().pin_memory()
-        del ref_logits, ref_shift_logits, ref_logp
-        torch.cuda.empty_cache()
+        ref_logp_cpu = torch.cat(chunks_cpu, dim=0)
         return ref_logp_cpu
 
     def init_agent_proxy(self):

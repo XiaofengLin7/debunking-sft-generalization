@@ -27,7 +27,7 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
     data.prompt_key=prompt \
     data.response_key=response \
     data.max_length=5000 \
-    data.train_batch_size=256 \
+    data.train_batch_size=128 \
     data.chat_template=False \
     data.max_response_length=4096 \
     optim.lr=$LEARNING_RATE \
