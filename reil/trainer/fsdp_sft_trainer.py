@@ -141,6 +141,8 @@ class FSDPSFTTrainer:
         if self.device_mesh.get_rank() == 0:
             print(self.config)
         self.eval_model: PreTrainedModel | None = None
+        self.ref_model: PreTrainedModel | None = None
+        self.fsdp_ref_model: FSDP | None = None
         # Build or refresh eval model with participation from all ranks to avoid FSDP deadlocks
         if self.config.data.type != 'reasoning_gym' and self.config.trainer.policy_eval:
             self._sync_eval_model_from_fsdp_all_ranks()
@@ -152,6 +154,13 @@ class FSDPSFTTrainer:
             print("No reward function is initialized")
         # Cache a standalone eval model to avoid rebuilding
         
+        # Optionally build frozen reference model for KL regularization (non-SP only)
+        trainer_cfg = getattr(self.config, 'trainer', None)
+        kl_cfg = getattr(trainer_cfg, 'kl_regularization', None) if trainer_cfg is not None else None
+        if kl_cfg is not None and getattr(kl_cfg, 'enabled', False):
+            if self.config.ulysses_sequence_parallel_size > 1 and self.use_remove_padding:
+                raise NotImplementedError("KL regularization with sequence parallel/remove-padding path is not supported yet")
+            self._build_ref_model()
 
     def _normalize_config_bsz(self):
         dp_size = self.device_mesh.size(0) if not self.ulysses_device_mesh else self.ulysses_device_mesh.size(0)
@@ -427,6 +436,97 @@ class FSDPSFTTrainer:
         else:
             raise ValueError(f"Unknown lr scheduler: {self.config.optim.lr_scheduler}")
 
+    def _build_ref_model(self) -> None:
+        """Build a frozen, FSDP-sharded reference model loaded from model.partial_pretrain.
+
+        The reference model is eval-only, has no LoRA/adapters, and is not used for backward.
+        It mirrors the student's config and attention implementation for exactness.
+        """
+        assert self.ref_model is None and self.fsdp_ref_model is None, "Reference model already initialized"
+
+        trust_remote_code = self.config.model.trust_remote_code
+        config = self.model.config
+
+        log_gpu_memory_usage("Before ref model allocation", logger=logger)
+
+        # Build reference model weights
+        init_context = get_init_weight_context_manager(use_meta_tensor=not config.tie_word_embeddings, mesh=self.device_mesh)
+        with init_context():
+            ref_model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
+                self.local_model_path,
+                config=config,
+                torch_dtype=torch.float32,
+                attn_implementation="flash_attention_2",
+                trust_remote_code=trust_remote_code,
+            )
+
+        # Do NOT apply LoRA or gradient checkpointing to ref model
+        ref_model.eval()
+        for p in ref_model.parameters():
+            p.requires_grad_(False)
+
+        mixed_precision = MixedPrecision(param_dtype=torch.bfloat16, reduce_dtype=torch.float32, buffer_dtype=torch.float32)
+        auto_wrap_policy = get_fsdp_wrap_policy(
+            ref_model,
+            config=self.config.model.fsdp_config.wrap_policy,
+            is_lora=False,
+        )
+
+        if not self.config.model.fsdp_config.cpu_offload:
+            cpu_offload = None
+        else:
+            cpu_offload = CPUOffload(offload_params=self.config.model.fsdp_config.offload_params)
+
+        fsdp_ref_model = FSDP(
+            module=ref_model,
+            auto_wrap_policy=auto_wrap_policy,
+            param_init_fn=init_fn,
+            sharding_strategy=ShardingStrategy.FULL_SHARD,
+            mixed_precision=mixed_precision,
+            device_mesh=self.device_mesh,
+            sync_module_states=True,
+            device_id=torch.cuda.current_device(),
+            cpu_offload=cpu_offload,
+            use_orig_params=False,
+        )
+
+        fsdp_ref_model.eval()
+        for p in fsdp_ref_model.parameters():
+            p.requires_grad_(False)
+
+        log_gpu_memory_usage("After ref FSDP wrapping", logger=logger)
+
+        self.ref_model = ref_model
+        self.fsdp_ref_model = fsdp_ref_model
+
+    def _compute_ref_logp(self, batch: TensorDict) -> torch.Tensor:
+        """Compute reference log-probabilities for shifted tokens and return a pinned CPU tensor.
+
+        Returns a tensor shaped [batch, seq_len-1, vocab_size], dtype bfloat16, on CPU (pinned).
+        """
+        assert self.fsdp_ref_model is not None, "Reference model is not initialized"
+
+        input_ids = batch["input_ids"].to(torch.cuda.current_device(), non_blocking=True)
+        attention_mask = batch["attention_mask"].to(torch.cuda.current_device(), non_blocking=True)
+        position_ids = batch["position_ids"].to(torch.cuda.current_device(), non_blocking=True)
+
+        self.fsdp_ref_model.eval()
+        with torch.inference_mode(), torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+            output = self.fsdp_ref_model(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                position_ids=position_ids,
+                use_cache=False,
+            )
+            ref_logits = output.logits  # [B, S, V]
+
+        ref_shift_logits = ref_logits[..., :-1, :].contiguous()  # [B, S-1, V]
+        ref_logp = torch.log_softmax(ref_shift_logits.float(), dim=-1).to(torch.bfloat16)
+        ref_logp_cpu = ref_logp.cpu().pin_memory()
+        del ref_logits, ref_shift_logits, ref_logp
+        torch.cuda.empty_cache()
+        return ref_logp_cpu
+
     def init_agent_proxy(self):
         # assert self.config.trainer.policy_eval==False, "Policy eval must be disabled for Reasoning Gym"
         tokenizer = self.tokenizer
@@ -595,7 +695,7 @@ class FSDPSFTTrainer:
         )
         self.rollout = HFRollout(self.model, rollout_config)
 
-    def _compute_loss_and_backward(self, batch, do_backward=True):
+    def _compute_loss_and_backward(self, batch, do_backward=True, ref_logp_mb: torch.Tensor | None = None):
         """Compute loss with optional sequence parallelism and remove padding features"""
         use_sp = self.use_remove_padding and self.config.ulysses_sequence_parallel_size > 1
         if use_sp:
@@ -605,7 +705,10 @@ class FSDPSFTTrainer:
         input_ids = batch["input_ids"].cuda()
         attention_mask = batch["attention_mask"].cuda()
         position_ids = batch["position_ids"].cuda()
-        loss_mask = batch.pop("loss_mask")[:, :-1].reshape(-1).cuda()
+        # Keep both 2D and flattened masks for CE and KL
+        loss_mask_2d = batch.get("loss_mask")[:, :-1].cuda()
+        loss_mask = loss_mask_2d.reshape(-1)
+        batch.pop("loss_mask", None)
         loss_fct = nn.CrossEntropyLoss(reduction="none")
 
         # Context manager for sequence parallel if needed
@@ -617,7 +720,10 @@ class FSDPSFTTrainer:
                 output = self.fsdp_model(input_ids=input_ids, attention_mask=attention_mask, position_ids=position_ids, use_cache=False)
                 logits = output.logits
 
+                # Shifted logits for next-token prediction
                 shift_logits = logits[..., :-1, :].contiguous()
+                # Preserve 3D shifted logits for KL; keep a separate variable for clarity
+                shift_logits_3d = shift_logits
                 shift_labels = labels.contiguous()
                 # Flatten the tokens
                 shift_logits = shift_logits.view(-1, self.model.config.vocab_size)
@@ -626,6 +732,26 @@ class FSDPSFTTrainer:
                 shift_labels = shift_labels.to(shift_logits.device)
                 loss = loss_fct(shift_logits, shift_labels)
                 ce_loss = loss.clone()
+                # Optional: Forward KL regularization with frozen reference
+                kl_loss = None
+                if ref_logp_mb is not None:
+                    # model log-probs and probs from shifted logits
+                    log_p_s = torch.log_softmax(shift_logits_3d.float(), dim=-1)
+                    p_s = torch.exp(log_p_s)
+                    # match dtype and device for ref
+                    ref_logp_mb = ref_logp_mb.to(device=log_p_s.device, dtype=log_p_s.dtype, non_blocking=True)
+                    # per-token KL over vocab
+                    kl_per_token = torch.sum(p_s * (log_p_s - ref_logp_mb), dim=-1)  # [B, S-1]
+                    kl_per_token = kl_per_token.reshape(-1)
+                    # apply mask and reduce like CE
+                    kl_per_token = kl_per_token * loss_mask.to(kl_per_token.device)
+                    valid_token_this_rank = torch.sum(loss_mask)
+                    if self.config.data.balance_dp_token:
+                        torch.distributed.all_reduce(valid_token_this_rank)
+                        dp_size = torch.distributed.get_world_size()
+                    else:
+                        dp_size = 1
+                    kl_loss = torch.sum(kl_per_token) / (valid_token_this_rank + 1e-8) * dp_size
                 if self.config.trainer.sft_type == "dft":
                     probs = torch.softmax(shift_logits, dim=-1)
                     prob_coefficients = probs.gather(1, shift_labels.unsqueeze(-1)).squeeze(-1)
@@ -697,10 +823,18 @@ class FSDPSFTTrainer:
 
             loss = torch.sum(loss) / (valid_token_this_rank + 1e-8) * dp_size
             ce_loss = torch.sum(ce_loss) / (valid_token_this_rank + 1e-8) * dp_size
+            # Add KL term if provided
+            if ref_logp_mb is not None and kl_loss is not None:
+                kl_coef = getattr(getattr(self.config.trainer, 'kl_regularization', None), 'kl_coef', 0.05)
+                loss = loss + float(kl_coef) * kl_loss
 
             if do_backward:
                 loss.backward()
-            return loss, ce_loss
+            # Return kl_loss (or 0.0) for logging convenience
+            if ref_logp_mb is not None and kl_loss is not None:
+                return loss, ce_loss, kl_loss
+            else:
+                return loss, ce_loss, torch.tensor(0.0, device=loss.device)
 
     def training_step(self, batch: TensorDict):
         self.fsdp_model.train()
@@ -715,12 +849,28 @@ class FSDPSFTTrainer:
         n_micro_batches = len(micro_batches)
         step_loss = 0
         step_ce_loss = 0
+        step_kl_loss = 0
+        # Prepare reference log-probs once per step if KL is enabled
+        kl_cfg = getattr(getattr(self.config, 'trainer', None), 'kl_regularization', None)
+        kl_enabled = kl_cfg is not None and getattr(kl_cfg, 'enabled', False)
+        ref_logp_cpu = None
+        if kl_enabled:
+            ref_logp_cpu = self._compute_ref_logp(batch)
+        offset = 0
         for micro_batch in micro_batches:
-            loss, ce_loss = self._compute_loss_and_backward(batch=micro_batch)
+            mb_size = micro_batch.get("input_ids").shape[0]
+            if kl_enabled:
+                ref_logp_mb = ref_logp_cpu[offset:offset + mb_size].to(torch.cuda.current_device(), non_blocking=True)
+            else:
+                ref_logp_mb = None
+            loss, ce_loss, kl_loss = self._compute_loss_and_backward(batch=micro_batch, ref_logp_mb=ref_logp_mb)
             loss = loss / n_micro_batches
             ce_loss = ce_loss / n_micro_batches
+            kl_loss = kl_loss / n_micro_batches
             step_loss += loss.item()
             step_ce_loss += ce_loss.item()
+            step_kl_loss += kl_loss.item()
+            offset += mb_size
 
         grad_norm = self.fsdp_model.clip_grad_norm_(max_norm=self.config.optim.clip_grad)
 
@@ -744,17 +894,32 @@ class FSDPSFTTrainer:
 
         step_loss = torch.tensor(step_loss).cuda()
         step_ce_loss = torch.tensor(step_ce_loss).cuda()
+        step_kl_loss = torch.tensor(step_kl_loss).cuda()
         torch.distributed.all_reduce(step_loss, op=torch.distributed.ReduceOp.AVG)
         torch.distributed.all_reduce(step_ce_loss, op=torch.distributed.ReduceOp.AVG)
-        return {"train/loss": step_loss.detach().item(), "train/lr(1e-3)": lr * 1e3, "train/ce_loss": step_ce_loss.detach().item(), "train/grad_norm": grad_norm.detach().item()}
+        torch.distributed.all_reduce(step_kl_loss, op=torch.distributed.ReduceOp.AVG)
+        metrics = {"train/loss": step_loss.detach().item(), "train/lr(1e-3)": lr * 1e3, "train/ce_loss": step_ce_loss.detach().item(), "train/grad_norm": grad_norm.detach().item()}
+        if kl_enabled:
+            metrics["train/kl_loss"] = step_kl_loss.detach().item()
+            metrics["train/kl_coef"] = float(getattr(kl_cfg, 'kl_coef', 0.05))
+        return metrics
 
     def validation_step(self, batch: TensorDict):
         self.fsdp_model.eval()
         with torch.no_grad():
-            loss, ce_loss = self._compute_loss_and_backward(batch, do_backward=False)
+            # Compute KL if enabled for consistency with training loss
+            kl_cfg = getattr(getattr(self.config, 'trainer', None), 'kl_regularization', None)
+            kl_enabled = kl_cfg is not None and getattr(kl_cfg, 'enabled', False)
+            if kl_enabled:
+                ref_logp_cpu = self._compute_ref_logp(batch)
+                ref_logp_mb = ref_logp_cpu.to(torch.cuda.current_device(), non_blocking=True)
+            else:
+                ref_logp_mb = None
+            loss, ce_loss, kl_loss = self._compute_loss_and_backward(batch, do_backward=False, ref_logp_mb=ref_logp_mb)
             torch.distributed.all_reduce(loss, op=torch.distributed.ReduceOp.AVG)
             torch.distributed.all_reduce(ce_loss, op=torch.distributed.ReduceOp.AVG)
-        return loss, ce_loss
+            torch.distributed.all_reduce(kl_loss, op=torch.distributed.ReduceOp.AVG)
+        return loss, ce_loss, kl_loss
 
     def save_checkpoint(self, step):
         # save checkpoint
@@ -837,11 +1002,16 @@ class FSDPSFTTrainer:
                     # Perform final validation
                     val_losses = []
                     val_ce_losses = []
+                    kl_enabled = getattr(getattr(self.config, 'trainer', None), 'kl_regularization', None)
+                    kl_enabled = kl_enabled is not None and getattr(kl_enabled, 'enabled', False)
+                    val_kl_losses = []
                     for val_data in self.val_dataloader:
                         val_data = TensorDict(val_data, batch_size=self.config.data.micro_batch_size_per_gpu).cuda(device=local_rank)
-                        val_loss, val_ce_loss = self.validation_step(val_data)
+                        val_loss, val_ce_loss, val_kl_loss = self.validation_step(val_data)
                         val_losses.append(val_loss)
                         val_ce_losses.append(val_ce_loss)
+                        if kl_enabled:
+                            val_kl_losses.append(val_kl_loss)
                     
                     if self.val_score_dataset is not None:
                         metric_dict = self._validate()
@@ -857,6 +1027,9 @@ class FSDPSFTTrainer:
                         avg_val_loss = torch.mean(torch.stack(val_losses))
                         avg_val_ce_loss = torch.mean(torch.stack(val_ce_losses))
                         metric = {"val/loss": avg_val_loss.detach().item(), "val/ce_loss": avg_val_ce_loss.detach().item()}
+                        if kl_enabled and len(val_kl_losses) > 0:
+                            avg_val_kl_loss = torch.mean(torch.stack(val_kl_losses))
+                            metric["val/kl_loss"] = avg_val_kl_loss.detach().item()
                         tracking.log(data=metric, step=global_step)
                         if self.val_score_dataset is not None:
                             tracking.log(data=metric_dict, step=global_step)
@@ -873,13 +1046,18 @@ class FSDPSFTTrainer:
             val_losses = []
             val_ce_losses = []
             score = None
+            kl_enabled = getattr(getattr(self.config, 'trainer', None), 'kl_regularization', None)
+            kl_enabled = kl_enabled is not None and getattr(kl_enabled, 'enabled', False)
+            val_kl_losses = []
 
             for data in self.val_dataloader:
                 data = TensorDict(data, batch_size=self.config.data.micro_batch_size_per_gpu).cuda(device=local_rank)
                 # data = TensorDict(data, batch_size=len(self.val_dataset)//world_size).cuda(device=local_rank)
-                val_loss, val_ce_loss = self.validation_step(data)
+                val_loss, val_ce_loss, val_kl_loss = self.validation_step(data)
                 val_losses.append(val_loss)
                 val_ce_losses.append(val_ce_loss)
+                if kl_enabled:
+                    val_kl_losses.append(val_kl_loss)
 
             # After loop
             if self.val_score_dataset is not None:
@@ -889,6 +1067,9 @@ class FSDPSFTTrainer:
                 val_loss = torch.mean(torch.stack(val_losses))
                 avg_val_ce_loss = torch.mean(torch.stack(val_ce_losses))
                 metric = {"val/loss": val_loss.detach().item(), "val/ce_loss": avg_val_ce_loss.detach().item()}
+                if kl_enabled and len(val_kl_losses) > 0:
+                    avg_val_kl_loss = torch.mean(torch.stack(val_kl_losses))
+                    metric["val/kl_loss"] = avg_val_kl_loss.detach().item()
                 tracking.log(data=metric, step=global_step)
                 if self.val_score_dataset is not None:
                     tracking.log(data=metric_dict, step=global_step)

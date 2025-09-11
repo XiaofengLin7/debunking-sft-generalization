@@ -68,4 +68,7 @@ trainer:
   policy_eval: True
   sft_type: standard
   aft_power: 1.0
+  kl_regularization:
+    enabled: false
+    kl_coef: 0.05
 
