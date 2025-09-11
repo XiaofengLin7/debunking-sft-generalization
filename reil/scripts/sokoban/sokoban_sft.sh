@@ -5,8 +5,8 @@ set -x
 # Shift the arguments so $@ refers to the rest
 shift 2
 N_GPUS=4
-# DATA_DIR="./data/sokoban_one_horizon_large_envs/sft"
-DATA_DIR="./data/sokoban_one_horizon_large_envs/cot-sft"
+DATA_DIR="./data/sokoban_one_horizon_large_envs/sft"
+# DATA_DIR="./data/sokoban_one_horizon_large_envs/cot-sft"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
 BASE_MODEL="./models/rlft/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218"
 # BASE_MODEL="./models/rlft/models--meta-llama--Llama-3.1-8B/snapshots/d04e592bb4f6aa9cfee91e2e20afa771667e1d4b"
@@ -14,7 +14,7 @@ LEARNING_RATE=1e-5
 SFT_TYPE="standard" # "aft", "dft", "standard"
 AFT_POWER=1.0
 KL_COEF=0.05
-EXPERIMENT_NAME="sokoban-1.5b-${SFT_TYPE}-lr-${KL_COEF}-kl-${LEARNING_RATE}-$(date +%m-%d)"
+EXPERIMENT_NAME="sokoban-8b-${SFT_TYPE}-lr-${KL_COEF}-kl-${LEARNING_RATE}-$(date +%m-%d)"
 
 
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"

@@ -19,7 +19,7 @@ CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds543/sft/cot-sokoban-8b-
 CHECKPOINT_NAME=$(basename $CHECKPOINT_DIR)  # Extract the last segment of the path
 PROJECT_NAME="REIL"      # Project name for logging
 EXPERIMENT_NAME="eval_${CHECKPOINT_NAME}"    # Experiment name for logging
-TEST_DATA=/usr3/graduate/xfl/lab/REIL/data/sokoban_one_horizon_large_envs/train.parquet
+# TEST_DATA=/usr3/graduate/xfl/lab/REIL/data/sokoban_one_horizon_large_envs/train.parquet
 # Evaluation settings
 N_GPUS=1
 # CUDA_VISIBLE_DEVICES=0,1
@@ -42,8 +42,6 @@ python -m reil.evaluation.eval_ckpts \
     evaluator.logger="['console', 'wandb']" \
     evaluator.resume_step=0 \
     evaluator.is_lora=False \
-    +evaluator.kl_micro_batch_size=4 \
-    +data.val_score_files=$TEST_DATA \
     data.max_response_length=4096 \
     data.max_prompt_length=1024 \
     es_manager.val.env_groups=1200 \
@@ -57,3 +55,5 @@ python -m reil.evaluation.eval_ckpts \
     custom_reward_function.name=compute_score_with_action_sequence \
     custom_reward_function.path=/usr3/graduate/xfl/lab/REIL/reil/utils/reward_score/sokoban.py  
     
+
+    # +evaluator.kl_micro_batch_size=4 \
