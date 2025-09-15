@@ -7,7 +7,11 @@ qwen_response_template = """\
 </think> <answer> {action} </answer>
 """
 
-def convert_parquet_to_sft_data(data_file: str):
+qwen_response_template_answer_only = """\
+{action} </answer>
+"""
+
+def convert_parquet_to_sft_data(data_file: str, answer_only: bool = False):
     df = pd.read_parquet(data_file)
     assert 'data_source' in df.columns, "data_source is required"
     assert 'prompt' in df.columns, "prompt is required"
@@ -37,7 +41,11 @@ def convert_parquet_to_sft_data(data_file: str):
                 action_str = " ".join([a for a in action])
             else:
                 action_str = action
-        instance['response'] = qwen_response_template.format(action=action_str)
+        if answer_only:
+            instance['response'] = qwen_response_template_answer_only.format(action=action_str)
+        else:
+            instance['response'] = qwen_response_template.format(action=action_str)
+        instance['response'] = qwen_response_template_answer_only.format(action=action_str)
         instances.append(instance)
 
     return instances
@@ -65,11 +73,21 @@ def convert_jsonl_to_sft_data(data_file: str):
     return instances
 
 def main():
-    train_instances = convert_jsonl_to_sft_data("./results/sokoban_one_horizon_large_envs-train-temp_1.0-top_p_1.0-top_k_-1-20250908_111502.jsonl")
+    train_instances = convert_parquet_to_sft_data("./data/sokoban-answer-only/train.parquet")
+    test_instances = convert_parquet_to_sft_data("./data/sokoban-answer-only/test.parquet")
+    # train_instances = convert_jsonl_to_sft_data("./results/sokoban_one_horizon_large_envs-train-temp_1.0-top_p_1.0-top_k_-1-20250908_111502.jsonl")
     # test_instances = convert_parquet_to_sft_data("./data/sokoban_one_horizon_large_envs/test.parquet")
     train_dataset = Dataset.from_list(train_instances)
-    # test_dataset = Dataset.from_list(test_instances)
-    train_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/qwen2.5-1.5b-base-16-shot/train.parquet")
+    test_dataset = Dataset.from_list(test_instances)
+    train_dataset.to_parquet("./data/sokoban-answer-only/sft/train.parquet")
+    test_dataset.to_parquet("./data/sokoban-answer-only/sft/test.parquet")
+
+    print(f"Info of train dataset: {train_dataset.info}")
+    print(f"Info of test dataset: {test_dataset.info}")
+    # print out the first 5 examples of train dataset and test dataset
+    print(f"First 5 examples of train dataset: {train_dataset[:5]}")
+    print(f"First 5 examples of test dataset: {test_dataset[:5]}")
+    # train_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/qwen2.5-1.5b-base-16-shot/train.parquet")
     # test_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/sft/test.parquet")
     # train_dataset.push_to_hub("Xiaofeng77/Qwen3-8b-cot-sokoban", split="train")
     # train_dataset.push_to_hub("Xiaofeng77/reil_sokoban_one_horizon_large_envs_sft", split="train")
