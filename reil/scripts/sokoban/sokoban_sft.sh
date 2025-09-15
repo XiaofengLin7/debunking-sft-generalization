@@ -5,15 +5,15 @@ set -x
 # Shift the arguments so $@ refers to the rest
 shift 2
 N_GPUS=4
-# DATA_DIR="./data/sokoban_one_horizon_large_envs/sft"
-DATA_DIR="./data/sokoban_one_horizon_large_envs/cot-sft"
-# BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
-BASE_MODEL="./models/rlft/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218"
+DATA_DIR="./data/sokoban_one_horizon_large_envs/sft"
+# DATA_DIR="./data/sokoban_one_horizon_large_envs/cot-sft"
+BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
+# BASE_MODEL="./models/rlft/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218"
 # BASE_MODEL="./models/rlft/models--meta-llama--Llama-3.1-8B/snapshots/d04e592bb4f6aa9cfee91e2e20afa771667e1d4b"
 LEARNING_RATE=1e-5
 SFT_TYPE="standard" # "aft", "dft", "standard"
 AFT_POWER=1.0
-KL_COEF=0.05
+KL_COEF=1
 EXPERIMENT_NAME="sokoban-1.5b-${SFT_TYPE}-lr-${KL_COEF}-kl-${LEARNING_RATE}-$(date +%m-%d)"
 
 
@@ -27,11 +27,11 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
     data.prompt_key=prompt \
     data.response_key=response \
     data.max_length=5000 \
-    data.train_batch_size=128 \
+    data.train_batch_size=32 \
     data.chat_template=False \
     data.max_response_length=4096 \
     optim.lr=$LEARNING_RATE \
-    data.micro_batch_size_per_gpu=1 \
+    data.micro_batch_size_per_gpu=2 \
     model.partial_pretrain=$BASE_MODEL \
     model.fsdp_config.cpu_offload=False \
     ulysses_sequence_parallel_size=1 \
@@ -48,7 +48,7 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
     trainer.project_name=REIL \
     trainer.experiment_name=$EXPERIMENT_NAME \
     trainer.default_local_dir=checkpoints/ds310/sft/$EXPERIMENT_NAME \
-    trainer.logger="['console']" \
+    trainer.logger="['console', 'wandb']" \
     trainer.total_epochs=5 \
     trainer.val_before_train=False \
     trainer.kl_regularization.enabled=True \
