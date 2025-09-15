@@ -4,8 +4,8 @@ set -x
 
 # Shift the arguments so $@ refers to the rest
 shift 2
-N_GPUS=4
-DATA_DIR="./data/sokoban_one_horizon_large_envs/sft"
+N_GPUS=2
+DATA_DIR="./data/sokoban-answer-only/sft"
 # DATA_DIR="./data/sokoban_one_horizon_large_envs/cot-sft"
 BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218"
@@ -13,10 +13,10 @@ BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a26334
 LEARNING_RATE=1e-5
 SFT_TYPE="standard" # "aft", "dft", "standard"
 AFT_POWER=1.0
-KL_COEF=1
+KL_COEF=0 
 EXPERIMENT_NAME="sokoban-1.5b-${SFT_TYPE}-lr-${KL_COEF}-kl-${LEARNING_RATE}-$(date +%m-%d)"
 
-
+CUDA_VISIBLE_DEVICES=2,3
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 # export ALFWORLD_DATA="/projectnb/replearn/xfl/Retriever/src/envs/alf_world/data_storage"
 
@@ -51,7 +51,7 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
     trainer.logger="['console', 'wandb']" \
     trainer.total_epochs=5 \
     trainer.val_before_train=False \
-    trainer.kl_regularization.enabled=True \
+    trainer.kl_regularization.enabled=False \
     trainer.kl_regularization.kl_coef=${KL_COEF} \
     trainer.default_hdfs_dir=null $@ | tee checkpoints/ds310/sft/${EXPERIMENT_NAME}_train.log
 

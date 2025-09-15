@@ -35,7 +35,8 @@ Decide the next {len_horizon} actions:\
 
 templates = {
     'qwen-instruct': '<|im_start|>user\n{prompt}\nAlways output: <think> [Your thoughts] </think> <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>\n<|im_start|>assistant\n<think>',
-    'base': 'A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks briefly about the reasoning process in the mind and then provides the user with the answer.\nUser: {prompt}\nShow your work in <think> </think> tags. And return the final answer in <answer> </answer> tags, for example <think> [Thoughts] </think> <answer> 1 </answer>\nAssistant: \n<think>'
+    'base': 'A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks briefly about the reasoning process in the mind and then provides the user with the answer.\nUser: {prompt}\nShow your work in <think> </think> tags. And return the final answer in <answer> </answer> tags, for example <think> [Thoughts] </think> <answer> 1 </answer>\nAssistant: \n<think>',
+    'qwen-instruct-answer-only': '<|im_start|>user\n{prompt}\nAlways output: <answer> [your answer] </answer> with no extra text. Strictly follow this format. <|im_end|>\n<|im_start|>assistant\n<answer>',
 }
 
 def main():
@@ -49,11 +50,10 @@ def main():
     parser.add_argument("--max_steps", type=int, default=10, help="Maximum steps per episode (default: 10)")
     parser.add_argument("--search_depth", type=int, default=30, help="Maximum search depth for BFS (default: 30)")
     parser.add_argument("--len_horizon", type=int, default=1, help="Length of horizon (default: 1)")
-    parser.add_argument("--prefix", type=str, default='qwen-instruct', choices=['qwen-instruct', 'base'], 
+    parser.add_argument("--prefix", type=str, default='qwen-instruct', choices=['qwen-instruct', 'base', 'qwen-instruct-answer-only'], 
                        help="Template prefix to use (default: qwen-instruct)")
     parser.add_argument("--train_size", type=int, default=1000, help="Number of train instances to generate (default: 1000)")
     parser.add_argument("--test_size", type=int, default=50, help="Number of test instances to generate (default: 50)")
-    parser.add_argument("--num_test_envs", type=int, default=20, help="Number of test environments(default: 20)")
     parser.add_argument("--output", type=str, default='./data/sokoban', help="Output directory (default: ./data/sokoban)")
     args = parser.parse_args()
 
@@ -115,12 +115,6 @@ def main():
     
             obs, reward, done, info = env.step(action_sequence[0])
     
-    # Create test instances for each test environment
-    test_env_instances = []
-    for seed_test_env in range(seed+args.train_size+args.test_size, seed+args.train_size+args.test_size+args.num_test_envs):
-        obs = env.reset(seed=seed_test_env)
-        instruction = templates[prefix].format(prompt=INSTRUCTION_TEMPLATE.format(observation=obs, len_horizon=len_horizon))
-        test_env_instances.append(instruction)
 
     def _create_instance(idx, instance):
         prompt_formatted = instance['instruction']
@@ -134,20 +128,8 @@ def main():
             "extra_info": {"split": "train", "index": idx}
         }
     
-    def _create_test_env_instance(idx, instance):
-        prompt_formatted = instance
-
-        return {
-            "data_source": "sokoban",
-            "prompt": [{"role": "user", "content": prompt_formatted}],
-            "ability": "bfs",
-            "reward_model": {"style": "rule", "ground_truth": [-1]},
-            "extra_info": {"split": "test", "index": idx}
-        }
-
     train_dataset = Dataset.from_list([_create_instance(i, train_instances[i]) for i in range(len(train_instances))])
     test_dataset = Dataset.from_list([_create_instance(i, test_instances[i]) for i in range(len(test_instances))])
-    test_env_dataset = Dataset.from_list([_create_test_env_instance(args.seed + i, test_env_instances[i-args.train_size-args.test_size]) for i in range(args.train_size+args.test_size, args.train_size+args.test_size+args.num_test_envs)])
     
     def make_map_fn(split):
         def process_fn(example, idx):
@@ -170,12 +152,15 @@ def main():
     train_dataset.to_parquet(os.path.join(args.output, 'train.parquet'))
     test_dataset = test_dataset.map(function=make_map_fn('test'), with_indices=True)
     test_dataset.to_parquet(os.path.join(args.output, 'test.parquet'))
-    test_env_dataset = test_env_dataset.map(function=make_map_fn('test_env'), with_indices=True)
-    test_env_dataset.to_parquet(os.path.join(args.output, 'test_env.parquet'))
+
+    print(f"Info of train dataset: {train_dataset.info}")
+    print(f"Info of test dataset: {test_dataset.info}")
+    # print out the first 5 examples of train dataset and test dataset
+    print(f"First 5 examples of train dataset: {train_dataset[:5]}")
+    print(f"First 5 examples of test dataset: {test_dataset[:5]}")
     # push to hub
-    train_dataset.push_to_hub("Xiaofeng77/reil_sokoban_long_horizon", split="train")
-    test_dataset.push_to_hub("Xiaofeng77/reil_sokoban_long_horizon", split="test")
-    test_env_dataset.push_to_hub("Xiaofeng77/reil_sokoban_long_horizon", split="test_env")
+    # train_dataset.push_to_hub("Xiaofeng77/reil_sokoban_long_horizon", split="train")
+    # test_dataset.push_to_hub("Xiaofeng77/reil_sokoban_long_horizon", split="test")
 
 if __name__ == "__main__":
     main()
