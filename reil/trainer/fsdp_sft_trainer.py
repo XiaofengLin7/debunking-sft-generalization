@@ -409,11 +409,24 @@ class FSDPSFTTrainer:
 
         log_gpu_memory_usage("After FSDP wrapping", logger=logger)
 
+        anchor_cfg = getattr(getattr(self.config, 'trainer', None), 'anchor_regularization', None)
+        self.anchor_enabled = bool(anchor_cfg is not None and getattr(anchor_cfg, 'enabled', False))
+        if self.anchor_enabled:
+            self.anchor_coeff = float(getattr(anchor_cfg, 'l2_anchor_coeff', 0.0))
+            self.anchor_snapshots: list[torch.Tensor] = []
+            with torch.no_grad():
+                for p in self.fsdp_model.parameters():
+                    if not p.requires_grad:
+                        continue
+                    self.anchor_snapshots.append(p.detach().clone())  # same device/dtype
+
+        # Avoid double L2: if anchor is enabled, disable AdamW weight decay
+        _weight_decay = 0.0 if getattr(self, 'anchor_enabled', False) else self.config.optim.weight_decay
         self.optimizer = optim.AdamW(
             self.fsdp_model.parameters(),
             lr=self.config.optim.lr,
             betas=self.config.optim.betas,
-            weight_decay=self.config.optim.weight_decay,
+            weight_decay=_weight_decay,
         )
 
         log_gpu_memory_usage("After initialize optimizer", logger=logger)
@@ -778,6 +791,23 @@ class FSDPSFTTrainer:
                     raise ValueError(f"Unknown SFT type: {self.config.trainer.sft_type}")
                 loss = loss * loss_mask.to(loss.device)
                 ce_loss = ce_loss * loss_mask.to(ce_loss.device)
+
+                # Anchor L2 regularization
+                if getattr(self, 'anchor_enabled', False):
+                    # only compute on main microbatch path to avoid double-scaling across SP
+                    reg_sum = torch.tensor(0.0, device=loss.device, dtype=torch.float32)
+                    p_idx = 0
+                    for p in self.fsdp_model.parameters():
+                        if not p.requires_grad:
+                            continue
+                        base = self.anchor_snapshots[p_idx]
+                        reg_sum = reg_sum + (p.float() - base.float()).pow(2).sum()
+                        p_idx += 1
+                    # use raw L2 sum without parameter-count normalization
+                    reg = reg_sum
+                    anchor_term = float(self.anchor_coeff) * reg
+                    # accumulate per-step anchor term for logging
+                    self.anchor_step_term = self.anchor_step_term + anchor_term.detach()
             else:
                 # IMPORTANT: We have a big assumption here, so we can shard the SAME sequence across SP ranks
                 # i.e., each GPU has <1 sequence, and each SP group has 1 sequence
@@ -836,7 +866,11 @@ class FSDPSFTTrainer:
             if ref_logp_mb is not None and kl_loss is not None:
                 kl_coef = getattr(getattr(self.config.trainer, 'kl_regularization', None), 'kl_coef', 0.05)
                 loss = loss + float(kl_coef) * kl_loss
-
+            
+            # Add anchor term if enabled
+            if getattr(self, 'anchor_enabled', False):
+                loss = loss + anchor_term
+            
             if do_backward:
                 loss.backward()
             # Return kl_loss (or 0.0) for logging convenience
@@ -859,6 +893,8 @@ class FSDPSFTTrainer:
         step_loss = 0
         step_ce_loss = 0
         step_kl_loss = 0
+        if getattr(self, 'anchor_enabled', False):
+            self.anchor_step_term = torch.tensor(0.0, device=torch.cuda.current_device(), dtype=torch.float32)
         # Prepare reference log-probs once per step if KL is enabled
         kl_cfg = getattr(getattr(self.config, 'trainer', None), 'kl_regularization', None)
         kl_enabled = kl_cfg is not None and getattr(kl_cfg, 'enabled', False)
@@ -911,6 +947,11 @@ class FSDPSFTTrainer:
         if kl_enabled:
             metrics["train/kl_loss"] = step_kl_loss.detach().item()
             metrics["train/kl_coef"] = float(getattr(kl_cfg, 'kl_coef', 0.05))
+        if getattr(self, 'anchor_enabled', False):
+            # average across dp ranks to be consistent with other metrics
+            anchor_term = self.anchor_step_term / n_micro_batches
+            torch.distributed.all_reduce(anchor_term, op=torch.distributed.ReduceOp.AVG)
+            metrics["train/anchor_l2"] = float(anchor_term.detach().item()) / float(self.anchor_coeff)
         return metrics
 
     def validation_step(self, batch: TensorDict):

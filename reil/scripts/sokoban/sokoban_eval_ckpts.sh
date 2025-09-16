@@ -15,7 +15,8 @@ BASE_MODEL=/usr3/graduate/xfl/lab/REIL/models/rlft/models--Qwen--Qwen2.5-1.5B/sn
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/sft/rjs-sokoban-1.5b-standard-lr-1e-5-09-08
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/sft/sokoban-1.5b-standard-lr-1e-5-09-06
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds543/sft/cot-sokoban-1.5b-standard-lr-1e-5-09-04
-CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/sft/sokoban-1.5b-standard-lr-1-kl-1e-5-09-14
+# CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/sft/sokoban-1.5b-standard-lr-1-kl-1e-5-09-14
+CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/sft/cot-sokoban-1.5b-standard-lr-0-kl-1e-5-anchor-0.5-09-15
 CHECKPOINT_NAME=$(basename $CHECKPOINT_DIR)  # Extract the last segment of the path
 PROJECT_NAME="REIL"      # Project name for logging
 EXPERIMENT_NAME="eval_${CHECKPOINT_NAME}"    # Experiment name for logging
@@ -32,7 +33,7 @@ echo "Checkpoint directory: $CHECKPOINT_DIR"
 echo "Project name: $PROJECT_NAME"
 echo "Experiment name: $EXPERIMENT_NAME"
 echo "GPUs per node: $N_GPUS"
-
+CUDA_VISIBLE_DEVICES=2
 
 # Run evaluation
 python -m reil.evaluation.eval_ckpts \
