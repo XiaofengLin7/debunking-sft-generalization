@@ -4,7 +4,7 @@ import os
 from datasets import load_dataset
 from tqdm import tqdm
 import json
-from reil.utils.reward_score.sokoban import compute_score_with_action_sequence
+from reil.utils.reward_score.sokoban import compute_score_with_action_sequence, compute_score_with_action_sequence_and_diverse_prompt
 from reil.utils.reward_score.gp_l import score_gp_l_wo_sol
 from transformers import AutoTokenizer
 def extract_thought_n_answer(response):
@@ -136,7 +136,8 @@ def main():
                         qa_pair["response"] = r[k]
                         # label the response with score
                         if "sokoban" in dataset_name.lower():
-                            qa_pair["score"] = compute_score_with_action_sequence(qa_pair["prompt"]+qa_pair["response"], a['ground_truth'], data_source='sokoban', format_score=0.1, score=1.0)
+                            # qa_pair["score"] = compute_score_with_action_sequence(qa_pair["prompt"]+qa_pair["response"], a['ground_truth'], data_source='sokoban', format_score=0.1, score=1.0)
+                            qa_pair["score"] = compute_score_with_action_sequence_and_diverse_prompt(qa_pair["prompt"]+qa_pair["response"], a['ground_truth'], data_source='sokoban', score=1.0)
                         elif "gp-l-only" in dataset_name.lower():
                             # qa_pair["score"] = compute_score(qa_pair["prompt"]+qa_pair["response"], a, format_score=0.1, score=1.0)
                             qa_pair["score"] = score_gp_l_wo_sol(solution_str=qa_pair["response"], meta_info=a)
