@@ -115,6 +115,7 @@ class SokobanEnvReil(SokobanEnv):
         obs = self.render(mode='complete')
         info = {
             "action_is_effective": not np.array_equal(prev_player_position, self.player_position),
+            "action_is_valid": action != self.INVALID_ACTION,
             "success": self.success()
         }
         return obs, reward, done, info
