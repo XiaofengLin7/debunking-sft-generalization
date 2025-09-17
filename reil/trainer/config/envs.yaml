@@ -68,6 +68,16 @@ custom_envs:
       num_boxes: 1
       max_steps: 30
       search_depth: 30
+  
+  FakeSokobanNumerical:
+    env_type: sokoban_numerical
+    max_actions_per_traj: 30
+    env_config:
+      dim_x: 6
+      dim_y: 6
+      num_boxes: 1
+      max_steps: 30
+      search_depth: 30
 
   SimpleSokobanNumerical:
     env_type: sokoban_numerical

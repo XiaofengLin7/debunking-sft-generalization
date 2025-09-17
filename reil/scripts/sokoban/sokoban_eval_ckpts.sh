@@ -45,9 +45,9 @@ python -m reil.evaluation.eval_ckpts \
     evaluator.is_lora=False \
     data.max_response_length=4096 \
     data.max_prompt_length=1024 \
-    es_manager.val.env_groups=1200 \
+    es_manager.val.env_groups=800 \
     es_manager.val.group_size=1 \
-    es_manager.val.env_configs.tags="['SimpleSokoban', 'LargerSokoban', 'ComplexSokoban', 'SimpleSokobanEmoji', 'FakeSokobanEmoji', 'SimpleSokobanCardinal', 'FakeSokobanCardinal', 'SimpleSokobanEmpty', 'TwoBoxesSokoban', 'SimpleSokobanNumerical', 'SimpleSokobanAlphabetical', 'SimpleSokobanRandom']" \
+    es_manager.val.env_configs.tags="['SimpleSokoban', 'LargerSokoban', 'ComplexSokoban', 'TwoBoxesSokoban', 'SimpleSokobanRandom', 'SimpleSokobanNumerical', 'SimpleSokobanAlphabetical', 'FakeSokobanNumerical']" \
     es_manager.val.env_configs.n_groups="[100,100,100,100,100,100,100,100,100,100,100,100]" \
     actor_rollout_ref.model.path=$BASE_MODEL \
     actor_rollout_ref.rollout.tensor_model_parallel_size=$N_GPUS \
