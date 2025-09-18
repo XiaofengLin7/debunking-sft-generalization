@@ -3,7 +3,7 @@
 set -x
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 # Model and checkpoint settings
-BASE_MODEL=/usr3/graduate/xfl/lab/REIL/models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323  # Base model path
+BASE_MODEL=/usr3/graduate/xfl/lab/REIL/models/rlft/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659  # Base model path
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds543/REIL/sokoban-1.5b-0.0075beta-0.001kl-2025-05-01  # Directory containing checkpoints to evaluate
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds543/contrastive/sokoban-1.5b-contrastive-qwen-2.5-base-full-sft-05-26
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/sft/sokoban-1.5b-full-sft-lr-1e-5-06-17
@@ -16,7 +16,7 @@ BASE_MODEL=/usr3/graduate/xfl/lab/REIL/models/rlft/models--Qwen--Qwen2.5-1.5B/sn
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/sft/sokoban-1.5b-standard-lr-1e-5-09-06
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds543/sft/cot-sokoban-1.5b-standard-lr-1e-5-09-04
 # CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/sft/sokoban-1.5b-standard-lr-1-kl-1e-5-09-14
-CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/sft/cot-sokoban-1.5b-standard-lr-0-kl-1e-5-anchor-0.5-09-15
+CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/sft/llama-3.1-8b-instruct-non-diverse-cot-sokoban-standard-lr-1e-5-anchor-0-09-16
 CHECKPOINT_NAME=$(basename $CHECKPOINT_DIR)  # Extract the last segment of the path
 PROJECT_NAME="REIL"      # Project name for logging
 EXPERIMENT_NAME="eval_${CHECKPOINT_NAME}"    # Experiment name for logging
@@ -48,7 +48,7 @@ python -m reil.evaluation.eval_ckpts \
     es_manager.val.env_groups=800 \
     es_manager.val.group_size=1 \
     es_manager.val.env_configs.tags="['SimpleSokoban', 'LargerSokoban', 'ComplexSokoban', 'TwoBoxesSokoban', 'SimpleSokobanRandom', 'SimpleSokobanNumerical', 'SimpleSokobanAlphabetical', 'FakeSokobanNumerical']" \
-    es_manager.val.env_configs.n_groups="[100,100,100,100,100,100,100,100,100,100,100,100]" \
+    es_manager.val.env_configs.n_groups="[100,100,100,100,100,100,100,100]" \
     actor_rollout_ref.model.path=$BASE_MODEL \
     actor_rollout_ref.rollout.tensor_model_parallel_size=$N_GPUS \
     agent_proxy.max_turn=30 \

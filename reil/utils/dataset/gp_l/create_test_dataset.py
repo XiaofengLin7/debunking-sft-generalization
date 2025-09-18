@@ -206,17 +206,17 @@ def generate_task_with_mapping(task_id: int,
     mapping = FACE_CARD_MAPPINGS[face_card_mapping]
     
     # Generate face card message for prompt
-    if fake_prompt:
-        # For fake prompt, always show J=11, Q=12, K=13 in prompt
-        face_card_msg = "'J' counts as '11', 'Q' counts as '12', and 'K' counts as '13'"
+    # if fake_prompt:
+    #     # For fake prompt, always show J=11, Q=12, K=13 in prompt
+    #     face_card_msg = "'J' counts as '11', 'Q' counts as '12', and 'K' counts as '13'"
+    # else:
+    #     # Generate real face card message based on mapping
+    if len(set(mapping.values())) == 1:
+        value = list(mapping.values())[0]
+        face_card_msg = f"'J', 'Q', and 'K' all count as '{value}'"
     else:
-        # Generate real face card message based on mapping
-        if len(set(mapping.values())) == 1:
-            value = list(mapping.values())[0]
-            face_card_msg = f"'J', 'Q', and 'K' all count as '{value}'"
-        else:
-            parts = [f"'{k}' counts as '{v}'" for k, v in mapping.items()]
-            face_card_msg = f"{', '.join(parts[:-1])}, and {parts[-1]}"
+        parts = [f"'{k}' counts as '{v}'" for k, v in mapping.items()]
+        face_card_msg = f"{', '.join(parts[:-1])}, and {parts[-1]}"
     
     # Generate cards
     cards_str, display_card_nums = generate_cards_with_mapping(
@@ -432,6 +432,32 @@ def generate_test_all_7(num_tasks: int = 500) -> tuple:
     
     return sft_datapoints, rl_datapoints
 
+def generate_test_all_5_fake(num_tasks: int = 500) -> tuple:
+    """Generate test dataset where J,Q,K all count as 5."""
+    sft_datapoints = []
+    rl_datapoints = []
+    
+    for task_id in tqdm(range(num_tasks), desc="Generating gp_l_all_5_fake"):
+        try:
+            sft_instance, rl_instance = generate_task_with_mapping(
+                task_id=task_id,
+                target=24,
+                num_cards=4,
+                face_card_mapping="all_5",
+                data_source="gp_l_all_5_fake",
+                seed=42 + task_id,
+                ood=True,  # Ensure we get face cards
+                largest_card=13,
+                fake_prompt=True
+            )
+            sft_datapoints.append(sft_instance)
+            rl_datapoints.append(rl_instance)
+        except ValueError as e:
+            print(f"Skipping task {task_id}: {e}")
+            continue
+    
+    return sft_datapoints, rl_datapoints
+
 def generate_test_all_5(num_tasks: int = 500) -> tuple:
     """Generate test dataset where J,Q,K all count as 5."""
     sft_datapoints = []
@@ -566,7 +592,8 @@ def main():
         # "fake": generate_test_fake(num_tasks)
         # "id": generate_test_id(num_tasks),
         # "all_7": generate_test_all_7(num_tasks),
-        "all_5": generate_test_all_5(num_tasks),
+        # "all_5": generate_test_all_5(num_tasks),
+        "all_5_fake": generate_test_all_5_fake(num_tasks),
     }
     
     features = get_test_dataset_features()

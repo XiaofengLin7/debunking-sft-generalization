@@ -73,23 +73,23 @@ def convert_jsonl_to_sft_data(data_file: str):
     return instances
 
 def main():
-    train_instances = convert_parquet_to_sft_data("./data/sokoban-answer-only/train.parquet")
-    test_instances = convert_parquet_to_sft_data("./data/sokoban-answer-only/test.parquet")
-    # train_instances = convert_jsonl_to_sft_data("./results/sokoban_one_horizon_large_envs-train-temp_1.0-top_p_1.0-top_k_-1-20250908_111502.jsonl")
+    # train_instances = convert_parquet_to_sft_data("./data/sokoban-answer-only/train.parquet")
+    # test_instances = convert_parquet_to_sft_data("./data/sokoban-answer-only/test.parquet")
+    train_instances = convert_jsonl_to_sft_data("./results/RLed_qwen3-8b-sokoban_super_random-train-temp_1.0-top_p_1.0-top_k_-1-20250917_035156.jsonl")
     # test_instances = convert_parquet_to_sft_data("./data/sokoban_one_horizon_large_envs/test.parquet")
     train_dataset = Dataset.from_list(train_instances)
-    test_dataset = Dataset.from_list(test_instances)
-    train_dataset.to_parquet("./data/sokoban-answer-only/sft/train.parquet")
-    test_dataset.to_parquet("./data/sokoban-answer-only/sft/test.parquet")
+    # test_dataset = Dataset.from_list(test_instances)
+    train_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/diverse-cot-sft/train.parquet")
+    # test_dataset.to_parquet("./data/sokoban-answer-only/sft/test.parquet")
 
     print(f"Info of train dataset: {train_dataset.info}")
-    print(f"Info of test dataset: {test_dataset.info}")
+    # print(f"Info of test dataset: {test_dataset.info}")
     # print out the first 5 examples of train dataset and test dataset
     print(f"First 5 examples of train dataset: {train_dataset[:5]}")
-    print(f"First 5 examples of test dataset: {test_dataset[:5]}")
+    # print(f"First 5 examples of test dataset: {test_dataset[:5]}")
     # train_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/qwen2.5-1.5b-base-16-shot/train.parquet")
     # test_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/sft/test.parquet")
-    # train_dataset.push_to_hub("Xiaofeng77/Qwen3-8b-cot-sokoban", split="train")
+    train_dataset.push_to_hub("Xiaofeng77/Qwen3-8b-cot-sokoban_super_random", split="train")
     # train_dataset.push_to_hub("Xiaofeng77/reil_sokoban_one_horizon_large_envs_sft", split="train")
     # test_dataset.push_to_hub("Xiaofeng77/reil_sokoban_one_horizon_large_envs_sft", split="test")
     
