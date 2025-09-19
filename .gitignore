@@ -16,3 +16,4 @@ exp-*
 *.o*
 /results/
 .nfs*
+/mlruns/

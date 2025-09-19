@@ -6,10 +6,11 @@ set -x
 shift 2
 N_GPUS=4
 # DATA_DIR="./data/sokoban-answer-only/sft"
-DATA_DIR="./data/sokoban_one_horizon_large_envs/cot-sft"
-# BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
+DATA_DIR="./data/sokoban_one_horizon_large_envs/sft"
+# DATA_DIR="./data/sokoban_one_horizon_large_envs/cot-sft"
+BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
 # BASE_MODEL="./models/rlft/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
-BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-7B/snapshots/d149729398750b98c0af14eb82c78cfe92750796"
+# BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-7B/snapshots/d149729398750b98c0af14eb82c78cfe92750796"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218"
 # BASE_MODEL="./models/rlft/models--meta-llama--Llama-3.1-8B/snapshots/d04e592bb4f6aa9cfee91e2e20afa771667e1d4b"
 LEARNING_RATE=1e-5

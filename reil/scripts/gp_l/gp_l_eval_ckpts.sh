@@ -1,10 +1,12 @@
 #!/bin/bash
 
 set -x
+export VLLM_USE_V1=1
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 # Model and checkpoint settings
-CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/sft/llama-3.1-8b-instruct-non-diverse-cot-sokoban-standard-lr-1e-5-anchor-0-09-16
+CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds543/sft/llama-3.1-8b-instruct-gp-l-non-diverse-cot-lr-1e-5-09-17
 BASE_MODEL=/usr3/graduate/xfl/lab/REIL/models/rlft/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659
+# BASE_MODEL="/usr3/graduate/xfl/lab/REIL/models/rlft/models--Qwen--Qwen2.5-7B/snapshots/d149729398750b98c0af14eb82c78cfe92750796"
 CHECKPOINT_NAME=$(basename $CHECKPOINT_DIR)  # Extract the last segment of the path
 PROJECT_NAME="REIL"      # Project name for logging
 EXPERIMENT_NAME="eval_${CHECKPOINT_NAME}"    # Experiment name for logging
@@ -36,8 +38,8 @@ python -m reil.evaluation.eval_ckpts \
     data.prompt_key=question \
     +data.chat_template=True \
     data.max_prompt_length=1024 \
-    +data.filter_overlong_prompts=True \
-    data.max_response_length=4096 \
+    +data.filter_overlong_prompts=False \
+    data.max_response_length=8192 \
     evaluator.checkpoint_dir=$CHECKPOINT_DIR \
     evaluator.project_name=$PROJECT_NAME \
     evaluator.experiment_name=$EXPERIMENT_NAME \
