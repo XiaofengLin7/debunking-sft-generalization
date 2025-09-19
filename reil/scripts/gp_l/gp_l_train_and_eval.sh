@@ -6,11 +6,11 @@ set -x
 # Training (SFT)
 # ---------------------------
 N_GPUS=4
-DATA_DIR="./data/gp-l-only/10k-non-mixed/cot-sft"
-# BASE_MODEL="/usr3/graduate/xfl/lab/REIL/models/rlft/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
-BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-7B/snapshots/d149729398750b98c0af14eb82c78cfe92750796"
+DATA_DIR="./data/gp-l-only/10k-non-mixed/sft"
+BASE_MODEL="/usr3/graduate/xfl/lab/REIL/models/rlft/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+# BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-7B/snapshots/d149729398750b98c0af14eb82c78cfe92750796"
 LEARNING_RATE=1e-5
-EXPERIMENT_NAME="qwen-2.5-7b-non-diverse-gp-l-non-diverse-cot-lr-${LEARNING_RATE}-$(date +%m-%d)"
+EXPERIMENT_NAME="llama-3.1-8b-non-diverse-answer-only-gp-l-lr-${LEARNING_RATE}-$(date +%m-%d)"
 
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 
@@ -34,12 +34,12 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
     trainer.policy_eval=False \
     trainer.project_name=REIL \
     trainer.experiment_name=$EXPERIMENT_NAME \
-    trainer.default_local_dir=checkpoints/ds543/sft/$EXPERIMENT_NAME \
+    trainer.default_local_dir=checkpoints/ds310/sft/$EXPERIMENT_NAME \
     trainer.logger="['console', 'wandb']" \
     trainer.total_epochs=5 \
     trainer.default_hdfs_dir=null \
     trainer.val_before_train=False \
-    reward_model.reward_manager=gp_l "$@" | tee checkpoints/ds543/sft/${EXPERIMENT_NAME}_train.log
+    reward_model.reward_manager=gp_l "$@" | tee checkpoints/ds310/sft/${EXPERIMENT_NAME}_train.log
 
 # ---------------------------
 # Evaluation
@@ -50,7 +50,7 @@ export TOKENIZERS_PARALLELISM=false
 
 # Derive checkpoint directory from the EXPERIMENT_NAME above
 CHECKPOINT_DIR=$(realpath checkspoints 2>/dev/null || true)
-CHECKPOINT_DIR=$(realpath "checkpoints/ds543/sft/${EXPERIMENT_NAME}")
+CHECKPOINT_DIR=$(realpath "checkpoints/ds310/sft/${EXPERIMENT_NAME}")
 BASE_MODEL=$(realpath $BASE_MODEL)
 CHECKPOINT_NAME=$(basename "$CHECKPOINT_DIR")
 PROJECT_NAME="REIL"
@@ -94,6 +94,7 @@ python -m reil.evaluation.eval_ckpts \
     es_manager.val.env_configs.n_groups="[256, 256, 256]" \
     actor_rollout_ref.model.path="$BASE_MODEL" \
     actor_rollout_ref.rollout.tensor_model_parallel_size=$N_GPUS \
+    actor_rollout_ref.rollout.gpu_memory_utilization=0.9 \
     agent_proxy.max_turn=1 \
     agent_proxy.parse_response=False \
     agent_proxy.chat_template=True \

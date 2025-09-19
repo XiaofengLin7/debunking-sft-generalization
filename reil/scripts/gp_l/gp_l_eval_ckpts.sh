@@ -4,8 +4,8 @@ set -x
 export VLLM_USE_V1=1
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 # Model and checkpoint settings
-CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds543/sft/llama-3.1-8b-instruct-gp-l-non-diverse-cot-lr-1e-5-09-17
-BASE_MODEL=/usr3/graduate/xfl/lab/REIL/models/rlft/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659
+CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds543/sft/qwen-2.5-7b-non-diverse-gp-l-non-diverse-cot-lr-1e-5-09-18
+BASE_MODEL=/usr3/graduate/xfl/lab/REIL/models/rlft/models--Qwen--Qwen2.5-7B/snapshots/d149729398750b98c0af14eb82c78cfe92750796
 # BASE_MODEL="/usr3/graduate/xfl/lab/REIL/models/rlft/models--Qwen--Qwen2.5-7B/snapshots/d149729398750b98c0af14eb82c78cfe92750796"
 CHECKPOINT_NAME=$(basename $CHECKPOINT_DIR)  # Extract the last segment of the path
 PROJECT_NAME="REIL"      # Project name for logging
@@ -52,6 +52,7 @@ python -m reil.evaluation.eval_ckpts \
     es_manager.val.env_configs.n_groups="[256, 256, 256]" \
     actor_rollout_ref.model.path=$BASE_MODEL \
     actor_rollout_ref.rollout.tensor_model_parallel_size=$N_GPUS \
+    actor_rollout_ref.rollout.gpu_memory_utilization=0.9 \
     agent_proxy.max_turn=1 \
     agent_proxy.parse_response=False \
     agent_proxy.chat_template=True \

@@ -420,13 +420,11 @@ class FSDPSFTTrainer:
                         continue
                     self.anchor_snapshots.append(p.detach().clone())  # same device/dtype
 
-        # Avoid double L2: if anchor is enabled, disable AdamW weight decay
-        _weight_decay = 0.0 if getattr(self, 'anchor_enabled', False) else self.config.optim.weight_decay
         self.optimizer = optim.AdamW(
             self.fsdp_model.parameters(),
             lr=self.config.optim.lr,
             betas=self.config.optim.betas,
-            weight_decay=_weight_decay,
+            weight_decay=self.config.optim.weight_decay,
         )
 
         log_gpu_memory_usage("After initialize optimizer", logger=logger)
@@ -806,8 +804,8 @@ class FSDPSFTTrainer:
                     # use raw L2 sum without parameter-count normalization
                     reg = reg_sum
                     anchor_term = float(self.anchor_coeff) * reg
-                    # accumulate per-step anchor term for logging
-                    self.anchor_step_term = self.anchor_step_term + anchor_term.detach()
+                    # also accumulate raw (unscaled) L2 sum for logging
+                    self.anchor_step_l2 = self.anchor_step_l2 + reg.detach()
             else:
                 # IMPORTANT: We have a big assumption here, so we can shard the SAME sequence across SP ranks
                 # i.e., each GPU has <1 sequence, and each SP group has 1 sequence
@@ -894,7 +892,7 @@ class FSDPSFTTrainer:
         step_ce_loss = 0
         step_kl_loss = 0
         if getattr(self, 'anchor_enabled', False):
-            self.anchor_step_term = torch.tensor(0.0, device=torch.cuda.current_device(), dtype=torch.float32)
+            self.anchor_step_l2 = torch.tensor(0.0, device=torch.cuda.current_device(), dtype=torch.float32)
         # Prepare reference log-probs once per step if KL is enabled
         kl_cfg = getattr(getattr(self.config, 'trainer', None), 'kl_regularization', None)
         kl_enabled = kl_cfg is not None and getattr(kl_cfg, 'enabled', False)
@@ -948,10 +946,10 @@ class FSDPSFTTrainer:
             metrics["train/kl_loss"] = step_kl_loss.detach().item()
             metrics["train/kl_coef"] = float(getattr(kl_cfg, 'kl_coef', 0.05))
         if getattr(self, 'anchor_enabled', False):
-            # average across dp ranks to be consistent with other metrics
-            anchor_term = self.anchor_step_term / n_micro_batches
-            torch.distributed.all_reduce(anchor_term, op=torch.distributed.ReduceOp.AVG)
-            metrics["train/anchor_l2"] = float(anchor_term.detach().item()) / float(self.anchor_coeff)
+            # Global raw L2 (sum of squared diffs across trainable params and ranks)
+            anchor_l2 = self.anchor_step_l2 / n_micro_batches
+            torch.distributed.all_reduce(anchor_l2, op=torch.distributed.ReduceOp.SUM)
+            metrics["train/l2_from_base"] = float(anchor_l2.detach().item())
         return metrics
 
     def validation_step(self, batch: TensorDict):
