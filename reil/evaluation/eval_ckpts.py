@@ -33,6 +33,8 @@ from vllm.distributed.parallel_state import (
     destroy_model_parallel,
     destroy_distributed_environment,
 )
+from verl.utils.tokenizer import hf_tokenizer
+from verl.utils.fs import copy_to_local
 #TODO: code needed to be optimized
 @ray.remote(num_gpus=1)
 def _kl_worker_remote(eval_ckpt: str,
@@ -135,7 +137,7 @@ class Role(Enum):
 class CheckpointEvaluator:
     def __init__(self, config):
         self.config = config
-        self.tokenizer = AutoTokenizer.from_pretrained(config.actor_rollout_ref.model.path)
+        self.tokenizer = hf_tokenizer(config.actor_rollout_ref.model.path, trust_remote_code=True)
         # Initialize environment and context managers
         self.es_manager = EnvStateManager(config, mode="val")
         self.ctx_manager = NaiveContextManager(config, self.tokenizer, processor=None, mode="val")
@@ -213,16 +215,6 @@ class CheckpointEvaluator:
                 'VLLM_LOGGING_LEVEL': 'WARN',
             }
         })
-        # Initialize reference model from base model path (HF model)
-        trust_remote_code = self.config.actor_rollout_ref.model.get('trust_remote_code', False)
-        self.ref_model = AutoModelForCausalLM.from_pretrained(
-            self.config.actor_rollout_ref.model.path,
-            trust_remote_code=trust_remote_code,
-            attn_implementation='flash_attention_2'
-        ).cpu()
-        self.ref_model.eval()
-        # Track settings for external KL computation
-        self.trust_remote_code = trust_remote_code
         self.current_ckpt_path: Optional[str] = None
         self.last_val_batch: Optional[DataProto] = None
             
@@ -494,8 +486,9 @@ class CheckpointEvaluator:
                 states.append(state_info['state'])
                 responses.append(state_info['llm_raw_response'] if 'llm_raw_response' in state_info else "")
             else:
-                
-                self.logger.log({"generations": state_n_response}, step=self.step)
+                # pass for other loggers for now.
+                pass
+                # self.logger.log({"generations": state_n_response}, step=self.step)
                 
         samples = list(zip(states, responses))
         print(samples)
@@ -703,9 +696,9 @@ class CheckpointEvaluator:
                 # metrics.update(self.evaluate_checkpoint())
                 # If KL wasn't computed internally (e.g., vLLM), compute it externally now
                 self.cleanup_llm()
-                external_kld = self.compute_external_kl()
-                if external_kld is not None:
-                    metrics['val/kl'] = external_kld
+                # external_kld = self.compute_external_kl()
+                # if external_kld is not None:
+                #     metrics['val/kl'] = external_kld
             else:
                 # multi turn
                 metrics = self.evaluate_checkpoint()

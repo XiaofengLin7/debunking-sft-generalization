@@ -943,7 +943,7 @@ class FSDPSFTTrainer:
         torch.distributed.all_reduce(step_loss, op=torch.distributed.ReduceOp.AVG)
         torch.distributed.all_reduce(step_ce_loss, op=torch.distributed.ReduceOp.AVG)
         torch.distributed.all_reduce(step_kl_loss, op=torch.distributed.ReduceOp.AVG)
-        metrics = {"train/loss": step_loss.detach().item(), "train/lr(1e-3)": lr * 1e3, "train/ce_loss": step_ce_loss.detach().item(), "train/grad_norm": grad_norm.detach().item()}
+        metrics = {"train/loss": step_loss.detach().item(), "train/lr": lr, "train/ce_loss": step_ce_loss.detach().item(), "train/grad_norm": grad_norm.detach().item()}
         if kl_enabled:
             metrics["train/kl_loss"] = step_kl_loss.detach().item()
             metrics["train/kl_coef"] = float(getattr(kl_cfg, 'kl_coef', 0.05))
