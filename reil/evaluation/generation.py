@@ -72,7 +72,7 @@ def main():
         if "sokoban" in dataset_name.lower():
             answer_key = "reward_model"
             prompt_key = "prompt"
-        elif "gp-l-only-10k" in dataset_name.lower():
+        elif "gp-l-only" in dataset_name.lower():
             answer_key = "extra_info"
             prompt_key = "question"
         import datetime
