@@ -26,12 +26,12 @@ def convert_jsonl_to_sft_data(data_file: str):
         instance['extra_info']['display_cards'] = row['answer']['display_cards']
         instance['extra_info']['solution'] = row['answer']['solution']
         instance['extra_info']['target'] = row['answer']['target']
-        instance['extra_info']['treat_face_cards_as_10'] = row['answer']['treat_face_cards_as_10']
+        instance['extra_info']['face_card_mapping'] = row['answer']['face_card_mapping']
         instances.append(instance)
     return instances
 
 if __name__ == "__main__":
-    instances = convert_jsonl_to_sft_data("./results/RLed_qwen3-8b-gp-l-only-10k-train-temp_1.0-top_p_1.0-top_k_-1-20250904_225434.jsonl")
+    instances = convert_jsonl_to_sft_data("./results/RLed_qwen3-8b-diverse-train-temp_1.0-top_p_1.0-top_k_-1-20250919_052544.jsonl")
     train_dataset = Dataset.from_list(instances)
-    train_dataset.to_parquet("./data/gp-l-only/10k-non-mixed/cot-sft/train.parquet")
-    train_dataset.push_to_hub("Xiaofeng77/Qwen3-8b-cot-gp-l-only-10k", split="train")
+    train_dataset.to_parquet("./data/gp-l-only/10k-mixed/cot-sft/train.parquet")
+    train_dataset.push_to_hub("Xiaofeng77/Qwen3-8b-cot-gp-l-only-10k-mixed", split="train")
