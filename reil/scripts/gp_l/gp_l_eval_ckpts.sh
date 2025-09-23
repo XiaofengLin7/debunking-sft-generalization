@@ -46,6 +46,7 @@ python -m reil.evaluation.eval_ckpts \
     evaluator.logger="['console', 'wandb']" \
     evaluator.resume_step=0 \
     evaluator.is_lora=False \
+    +evaluator.eval_base=True \
     es_manager.val.env_groups=768 \
     es_manager.val.group_size=1 \
     es_manager.val.env_configs.tags="['GP-L', 'GP-L-FACE-CARDS-AS-REGULAR', 'GP-L-FACE-CARDS-AS-10']" \
