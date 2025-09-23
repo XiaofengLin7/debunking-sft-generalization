@@ -631,7 +631,7 @@ class CheckpointEvaluator:
             print(f"External KL computation failed (ray): {e}")
             return None
     
-    def evaluate_checkpoints(self, checkpoint_dir: str):
+    def eval(self, checkpoint_dir: str):
         """Evaluate multiple checkpoints in a directory"""
         checkpoint_dir = Path(checkpoint_dir)
         
@@ -669,7 +669,25 @@ class CheckpointEvaluator:
         for d in checkpoint_dirs:
             print(f"  {d}")
 
-        print(f"Found {len(checkpoint_dirs)} checkpoints to evaluate")        
+        print(f"Found {len(checkpoint_dirs)} checkpoints to evaluate")  
+        if self.config.evaluator.get('eval_base', False):
+            self.step = 0
+            if self.config.data.get('val_score_files', None):
+                # single turn
+                metrics = self._validate()
+                # metrics.update(self.evaluate_checkpoint())
+                # If KL wasn't computed internally (e.g., vLLM), compute it externally now
+                # external_kld = self.compute_external_kl()
+                # if external_kld is not None:
+                #     metrics['val/kl'] = external_kld
+            else:
+                # multi turn
+                metrics = self.evaluate_checkpoint()
+            self.logger.log(data=metrics, step=self.step)
+            
+            print(f"Checkpoint {step} metrics:")
+            pprint(metrics)
+        
         self.cleanup_llm()
         # Evaluate each checkpoint
         for ckpt_dir in checkpoint_dirs:
@@ -695,14 +713,13 @@ class CheckpointEvaluator:
                 metrics = self._validate()
                 # metrics.update(self.evaluate_checkpoint())
                 # If KL wasn't computed internally (e.g., vLLM), compute it externally now
-                self.cleanup_llm()
                 # external_kld = self.compute_external_kl()
                 # if external_kld is not None:
                 #     metrics['val/kl'] = external_kld
             else:
                 # multi turn
                 metrics = self.evaluate_checkpoint()
-                self.cleanup_llm()
+            self.cleanup_llm()
             
             # Log metrics using Tracking
             self.logger.log(data=metrics, step=self.step)
@@ -721,7 +738,8 @@ class CheckpointEvaluator:
 def main(config):
     evaluator = CheckpointEvaluator(config)
     evaluator.init_workers()
-    evaluator.evaluate_checkpoints(config.evaluator.checkpoint_dir)
+    
+    evaluator.eval(config.evaluator.checkpoint_dir)
     evaluator.close()
 
 if __name__ == "__main__":
