@@ -695,7 +695,7 @@ class CheckpointEvaluator:
                 metrics = self.evaluate_checkpoint()
             self.logger.log(data=metrics, step=self.step)
             
-            print(f"Checkpoint {step} metrics:")
+            # print(f"Checkpoint {st} metrics:")
             pprint(metrics)
         
         self.cleanup_llm()
