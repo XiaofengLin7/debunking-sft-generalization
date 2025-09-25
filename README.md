@@ -37,7 +37,8 @@ git push
 ```
 
 ## Datasets
-look data.zip under the main directory
+Check dataset.zip under the main directory
+dataset has RL and SFT subdirectory. RL data has diverse and non-diverse version, SFT data has diverse-answer-only, diverse-cot, non-diverse-answer-only, non-diverse-cot.
 
 ## Train your model
 Currently we support RL and SFT on sokoban and gp tasks. 
