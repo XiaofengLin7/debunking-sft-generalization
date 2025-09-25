@@ -9,7 +9,7 @@ DATA_DIR="./data/sokoban_one_horizon_large_envs"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B-Instruct/snapshots/989aa7980e4cf806f80c7fef2b1adb7bc71aa306"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-3B/snapshots/3aab1f1954e9cc14eb9509a215f9e5ca08227a9b"
 # BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
-BASE_MODEL="/usr3/graduate/xfl/lab/REIL/checkpoints/ds543/REIL/sokoban-1.5b-0.0075beta-0.001kl-2025-05-01/huggingface"
+BASE_MODEL="YOUR_BASE_MODEL"
 N_GPUS=4
 EXPERIMENT_NAME="pretrained_il_sokoban_dpo_1.5b"
 accelerate launch --config_file reil/trainer/config/fsdp.yaml --num_processes $N_GPUS -m reil.trainer.reil_dpo_trainer \

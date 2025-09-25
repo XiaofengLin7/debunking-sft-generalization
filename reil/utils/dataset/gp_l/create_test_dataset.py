@@ -578,7 +578,7 @@ def get_test_dataset_features():
 
 def main():
     """Generate all test datasets."""
-    dataset_id = "Xiaofeng77/gp-l-only-20k-mixed"  
+    dataset_id = "YOUR_HF_REPO"  
     num_tasks = 500
     
     print("Generating test datasets for gp-l domain...")

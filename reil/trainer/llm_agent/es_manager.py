@@ -178,7 +178,7 @@ class EnvStateManager:
                 entry['status'].terminated = True
                 turn_done = True
             self.rollout_cache[env_id]['history'] = history
-            if not turn_done: # NOTE done environments are not sent for further llm generation (for efficiency)
+            if not turn_done:
                 env_outputs.append(self.rollout_cache[env_id])
 
         return env_outputs
@@ -268,7 +268,7 @@ class EnvStateManager:
 
 @hydra.main(config_path="../config", config_name="evaluation.yaml")
 def main(cfg):
-    os.environ['ALFWORLD_DATA'] = "/projectnb/replearn/xfl/Retriever/src/envs/alf_world/data_storage"
+    os.environ['ALFWORLD_DATA'] = "YOUR_ALFWORLD_DATA"
     es_manager = EnvStateManager(cfg, mode="val")
     print("Initializing environments...")
     es_manager.reset(seed=42)

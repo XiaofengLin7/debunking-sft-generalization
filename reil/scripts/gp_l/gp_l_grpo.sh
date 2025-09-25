@@ -3,28 +3,22 @@ set -x
 
 
 DATA_DIR="./data/gp-l-only/10k-non-mixed/rl"
-# BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-3B-Instruct/snapshots/aa8e72537993ba99e69dfaafa59ed015b17504d1"
-BASE_MODEL="/usr3/graduate/xfl/lab/REIL/models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
-# BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-0.5B-Instruct/snapshots/7ae557604adf67be50417f59c2c2f167def9a775"
-# BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B-Instruct/snapshots/989aa7980e4cf806f80c7fef2b1adb7bc71aa306"
-# BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-3B/snapshots/3aab1f1954e9cc14eb9509a215f9e5ca08227a9b"
-# BASE_MODEL="./models/rlft/models--deepseek-ai--DeepSeek-R1-0528-Qwen3-8B/snapshots/6e8885a6ff5c1dc5201574c8fd700323f23c25fa"
-# BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-Math-1.5B/snapshots/4a83ca6e4526a4f2da3aa259ec36c259f66b2ab2"
-# BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
+# BASE_MODEL=YOUR_BASE_MODEL
+BASE_MODEL=YOUR_BASE_MODEL
 
 # BASE_MODEL="/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/sft/gp-l-1.5b-full-sft-lr-1e-5-08-01/global_step_95"
 # BASE_MODEL="/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/sft/gp-l-1.5b-full-sft-lr-1e-5-08-01/global_step_570"
 # BASE_MODEL="/usr3/graduate/xfl/lab/REIL/checkpoints/sft/sokoban-1.5b-sft-qwen-2.5-base-full-sft-05-15/global_step_180"
 
-test_5cards_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_5cards.parquet
-test_fake_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_fake.parquet
-test_large_card_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_large.parquet
-test_face_card_as_regular_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_face_card_as_regular.parquet
-test_all_12_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_all_12.parquet
-test_id_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_id.parquet
-test_all_5_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_all_5.parquet
-test_all_7_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_all_7.parquet
-test_all_5_fake_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_all_5_fake.parquet
+test_5cards_data_path=YOUR_DATA
+test_fake_data_path=YOUR_DATA
+test_large_card_data_path=YOUR_DATA
+test_face_card_as_regular_data_path=YOUR_DATA
+test_all_12_data_path=YOUR_DATA
+test_id_data_path=YOUR_DATA
+test_all_5_data_path=YOUR_DATA
+test_all_7_data_path=YOUR_DATA
+test_all_5_fake_data_path=YOUR_DATA
 TEST_DATA="['${test_5cards_data_path}', '${test_fake_data_path}', '${test_large_card_data_path}', '${test_face_card_as_regular_data_path}', '${test_all_12_data_path}', '${test_id_data_path}', '${test_all_5_data_path}', '${test_all_7_data_path}', '${test_all_5_fake_data_path}']"
 
 BETA=0

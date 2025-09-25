@@ -89,9 +89,9 @@ def main():
     # print(f"First 5 examples of test dataset: {test_dataset[:5]}")
     # train_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/qwen2.5-1.5b-base-16-shot/train.parquet")
     # test_dataset.to_parquet("./data/sokoban_one_horizon_large_envs/sft/test.parquet")
-    train_dataset.push_to_hub("Xiaofeng77/Qwen3-8b-cot-sokoban_super_random", split="train")
-    # train_dataset.push_to_hub("Xiaofeng77/reil_sokoban_one_horizon_large_envs_sft", split="train")
-    # test_dataset.push_to_hub("Xiaofeng77/reil_sokoban_one_horizon_large_envs_sft", split="test")
+    train_dataset.push_to_hub("YOUR_HF_REPO", split="train")
+    # train_dataset.push_to_hub("YOUR_HF_REPO", split="train")
+    # test_dataset.push_to_hub("YOUR_HF_REPO", split="test")
     
 if __name__ == "__main__":
     main()

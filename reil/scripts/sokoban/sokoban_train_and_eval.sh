@@ -7,8 +7,8 @@ set -x
 # ---------------------------
 N_GPUS=4
 DATA_DIR="./data/small_sokoban/sft"
-# BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-7B/snapshots/d149729398750b98c0af14eb82c78cfe92750796"
-BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323"
+# BASE_MODEL=YOUR_BASE_MODEL
+BASE_MODEL=YOUR_BASE_MODEL
 LEARNING_RATE=1e-5
 SFT_TYPE="standard" # "aft", "dft", "standard"
 AFT_POWER=1.0
@@ -99,6 +99,6 @@ python -m reil.evaluation.eval_ckpts \
     agent_proxy.max_turn=30 \
     reward_model.reward_manager=complete \
     custom_reward_function.name=compute_score_with_action_sequence \
-    custom_reward_function.path=/usr3/graduate/xfl/lab/REIL/reil/utils/reward_score/sokoban.py
+    custom_reward_function.path=YOUR_REPO/reil/utils/reward_score/sokoban.py
 
 

@@ -5,7 +5,7 @@ import yaml
 from reil.env.alfworld.env import ALFWorldTW, load_config_file
 from reil.env.alfworld.config import ALFWorldConfig
 
-os.environ['ALFWORLD_DATA'] = "/projectnb/replearn/xfl/Retriever/src/envs/alf_world/data_storage"
+os.environ['ALFWORLD_DATA'] = "YOUR_ALFWORLD_DATA"
 
 PROMPT_TEMPLATE = {
     "llm_system_prompt": (
@@ -48,6 +48,7 @@ def main():
     parser.add_argument("--prefix", type=str, default='qwen-instruct', choices=['qwen-instruct', 'base'], 
                        help="Template prefix to use (default: qwen-instruct)")
     parser.add_argument("--output", type=str, default="./data/alfworld_task_type", help="Path to the output directory")
+    parser.add_argument("--hf_repo", type=str, default="YOUR_HF_REPO", help="Hugging Face repo to push to")
     
     # Task-specific counts for training set
     parser.add_argument("--train_pick_and_place", type=int, default=100, 
@@ -123,7 +124,7 @@ def main():
         "pick_cool_then_place_in_recep": args.test_pick_cool_then_place_in_recep,
         "pick_two_obj_and_place": args.test_pick_two_obj_and_place
     }
-
+    
     train_instances = []
     test_instances = []
     # Track unique game files that have been generated
@@ -226,22 +227,23 @@ def main():
             # Add split information to each example
             example['extra_info']['split'] = split
             if split == 'train':
-                # Apply training-specific transformations
                 example['id'] = f"train_{idx}"
             elif split == 'test':
-                # Apply test-specific transformations
                 example['id'] = f"test_{idx}"
 
             return example
         return process_fn
     
     train_dataset = train_dataset.map(function=make_map_fn('train'), with_indices=True)
+    os.makedirs(args.output, exist_ok=True)
     train_dataset.to_parquet(os.path.join(args.output, 'train.parquet'))
     test_dataset = test_dataset.map(function=make_map_fn('test'), with_indices=True)
     test_dataset.to_parquet(os.path.join(args.output, 'test.parquet'))
 
-    train_dataset.push_to_hub("Xiaofeng77/reil_alfworld_task_type", split="train")
-    test_dataset.push_to_hub("Xiaofeng77/reil_alfworld_task_type", split="test")
+    # Push to hub
+    if args.hf_repo and args.hf_repo != "YOUR_HF_REPO":
+        train_dataset.push_to_hub(args.hf_repo, split="train")
+        test_dataset.push_to_hub(args.hf_repo, split="test")
 
 if __name__ == "__main__":
     main()

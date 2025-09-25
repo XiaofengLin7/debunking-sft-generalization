@@ -13,10 +13,11 @@ from tqdm import tqdm
 def main(config):
     run_eval(config)
 
+
 def run_eval(config):
     os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
     # os.environ["CUDA_VISIBLE_DEVICES"] = "3"
-    os.environ['ALFWORLD_DATA'] = "/projectnb/replearn/xfl/Retriever/src/envs/alf_world/data_storage"
+    os.environ['ALFWORLD_DATA'] = "YOUR_ALFWORLD_DATA"
     tokenizer = AutoTokenizer.from_pretrained(config.actor_rollout_ref.model.path)
     actor_wg = VllmWrapperWg(config, tokenizer)
     # actor_wg = HFWrapperWg(module=None, config=config, tokenizer=tokenizer)

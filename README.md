@@ -1,5 +1,4 @@
-# REIL
-We study what makes LLM generalize.
+# Debunk the Myth of SFT Generalization
 
 ## Prerequisites
 CUDA 12.2 & cuDNN 9.1.0 works, but [official docs](https://verl.readthedocs.io/en/latest/start/install.html) recommends CUDA >= 12.4 & cuDNN >= 9.8.0.
@@ -35,4 +34,31 @@ cd ../..
 git add .
 git commit -m "update submodule"
 git push
+```
+
+## Datasets
+look data.zip under the main directory
+
+## Train your model
+Currently we support RL and SFT on sokoban and gp tasks. 
+### SFT
+Specify your model and data beforhand.
+For sokoban
+```
+bash reil/scripts/sokoban/sokoban_train_and_eval.sh
+```
+For gp
+```
+bash reil/scripts/gp_l/gp_l_train_and_eval.sh
+```
+
+## RL
+
+Specify your model and data beforhand.
+```
+bash reil/scripts/sokoban/sokoban_grpo.sh
+```
+For gp
+```
+bash reil/scripts/gp_l/gp_l_grpo.sh
 ```

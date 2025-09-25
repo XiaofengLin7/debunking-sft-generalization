@@ -27,7 +27,7 @@ reasoning_gym:
 # Hugging Face upload settings
 huggingface:
   # Repository ID (required when using this config file directly)
-  repo_id: "Xiaofeng77/countdown"
+  repo_id: "YOUR_HF_REPO"
 
   # Whether to make the repository private
   private: false

@@ -7,8 +7,8 @@ set -x
 # ---------------------------
 N_GPUS=4
 DATA_DIR="./data/gp-l-only/10k-non-mixed/cot-sft"
-# BASE_MODEL="/usr3/graduate/xfl/lab/REIL/models/rlft/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
-BASE_MODEL="./models/rlft/models--Qwen--Qwen2.5-7B/snapshots/d149729398750b98c0af14eb82c78cfe92750796"
+# BASE_MODEL=YOUR_BASE_MODEL
+BASE_MODEL=YOUR_BASE_MODEL
 LEARNING_RATE=1e-5
 EXPERIMENT_NAME="qwen-2.5-7b-non-diverse-cot-gp-l-lr-${LEARNING_RATE}-$(date +%m-%d)"
 
@@ -57,15 +57,15 @@ PROJECT_NAME="REIL"
 EVAL_EXPERIMENT_NAME="eval_${CHECKPOINT_NAME}"
 
 # Test data for GP-L evaluation
-test_5cards_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_5cards.parquet
-test_fake_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_fake.parquet
-test_large_card_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_large.parquet
-test_face_card_as_regular_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_face_card_as_regular.parquet
-test_all_12_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_all_12.parquet
-test_id_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_id.parquet
-test_all_5_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_all_5.parquet
-test_all_7_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_all_7.parquet
-test_all_5_fake_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_all_5_fake.parquet
+test_5cards_data_path=YOUR_DATA
+test_fake_data_path=YOUR_DATA
+test_large_card_data_path=YOUR_DATA
+test_face_card_as_regular_data_path=YOUR_DATA
+test_all_12_data_path=YOUR_DATA
+test_id_data_path=YOUR_DATA
+test_all_5_data_path=YOUR_DATA
+test_all_7_data_path=YOUR_DATA
+test_all_5_fake_data_path=YOUR_DATA
 TEST_DATA="['${test_5cards_data_path}', '${test_fake_data_path}', '${test_large_card_data_path}', '${test_face_card_as_regular_data_path}', '${test_all_12_data_path}', '${test_id_data_path}', '${test_all_5_data_path}', '${test_all_7_data_path}', '${test_all_5_fake_data_path}']"
 
 

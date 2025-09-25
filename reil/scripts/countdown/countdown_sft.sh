@@ -14,7 +14,6 @@ LEARNING_RATE=1e-5
 EXPERIMENT_NAME="countdown-1.5b-full-sft-lr-${LEARNING_RATE}-$(date +%m-%d)"
 
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
-# export ALFWORLD_DATA="/projectnb/replearn/xfl/Retriever/src/envs/alf_world/data_storage"
 
 torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
      -m reil.trainer.fsdp_sft_trainer \
