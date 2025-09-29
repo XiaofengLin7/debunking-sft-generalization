@@ -37,7 +37,7 @@ pip install -e thirdparty/trl --no-dependecies
 | General Points | SFT | diverse | answer-only | [🤗](https://huggingface.co/datasets/Xiaofeng77/diverse-answer-only-gp-l-only-10k) |
 | General Points | SFT | non-diverse | cot | [🤗](https://huggingface.co/datasets/Xiaofeng77/cot-gp-l-only-10k) |
 | General Points | SFT | diverse | cot | [🤗](https://huggingface.co/datasets/Xiaofeng77/diverse-cot-gp-l-only-10k) |
-### Train your model with SFT
+## Train your model with SFT
 Specify your model and data beforhand.
 For sokoban
 ```
