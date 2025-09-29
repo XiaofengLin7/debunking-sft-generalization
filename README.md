@@ -48,7 +48,7 @@ For general points
 bash debunk_sft/scripts/gp_l/gp_l_train_and_eval.sh
 ```
 
-### Train your model with GRPO
+## Train your model with GRPO
 
 Specify your model and data beforhand. For sokoban
 ```
