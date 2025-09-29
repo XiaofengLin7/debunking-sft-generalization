@@ -1,0 +1,37 @@
+defaults:
+  - evaluation
+  - _self_
+
+actor_rollout_ref:
+  model:
+    path: "YOUR_BASE_MODEL"
+
+
+output_dir: "checkpoints/dpo_model"  # Directory to save model outputs
+
+# Dataset configuration
+dataset:
+  name: "YOUR_HF_REPO"
+  apply_chat_template: False
+
+
+# Training configuration
+dpo:
+  learning_rate: 1e-4
+  batch_size: 1
+  num_epochs: 3
+  gradient_accumulation_steps: 4
+  max_grad_norm: 1.0
+  beta: 0.1  # DPO temperature parameter
+
+  # Optional configurations
+  logging_steps: 1
+  save_steps: 100
+  eval_steps: 100
+
+
+
+evaluator:
+  experiment_name: "sokoban_dpo_1.5b"
+  policy_eval: True
+
