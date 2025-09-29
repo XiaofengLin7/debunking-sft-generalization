@@ -15,7 +15,7 @@
 Note that we don't combine the main with ray_trainer as ray_trainer is used by other main.
 """
 
-from reil.trainer.ppo.reil_trainer import ReilPPOTrainer
+from debunk_sft.trainer.ppo.reil_trainer import ReilPPOTrainer
 import os
 import ray
 import hydra
@@ -156,10 +156,10 @@ class TaskRunner:
             from verl.workers.reward_manager import PrimeRewardManager
             reward_manager_cls = PrimeRewardManager
         elif reward_manager_name == 'complete':
-            from reil.workers.reward_manager import CompleteRewardManager
+            from debunk_sft.workers.reward_manager import CompleteRewardManager
             reward_manager_cls = CompleteRewardManager
         elif reward_manager_name == 'gp_l':
-            from reil.workers.reward_manager import GPLRewardManager
+            from debunk_sft.workers.reward_manager import GPLRewardManager
             reward_manager_cls = GPLRewardManager
         else:
             raise NotImplementedError

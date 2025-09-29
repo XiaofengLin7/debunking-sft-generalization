@@ -6,8 +6,7 @@ set -x
 # Training (SFT)
 # ---------------------------
 N_GPUS=4
-DATA_DIR="./data/small_sokoban/sft"
-# BASE_MODEL=YOUR_BASE_MODEL
+DATA_DIR=YOUR_SOKOBAN_DATA_DIR
 BASE_MODEL=YOUR_BASE_MODEL
 LEARNING_RATE=1e-5
 SFT_TYPE="standard" # "aft", "dft", "standard"
