@@ -57,7 +57,7 @@ ROLLOUT_TP_SIZE=1
 N_GPUS=4
 export VLLM_USE_V1=1
 
-python3 -m reil.trainer.main_ppo \
+python3 -m debunk_sft.trainer.main_ppo \
 data.train_files=$DATA_DIR/train.parquet \
 data.val_files="$TEST_DATA" \
 data.train_batch_size=$BATCH_SIZE \

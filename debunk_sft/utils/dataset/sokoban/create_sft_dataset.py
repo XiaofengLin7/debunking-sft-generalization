@@ -1,6 +1,6 @@
 import pandas as pd
 import copy
-from reil.env.sokoban.env import SokobanEnvReil
+from debunk_sft.env.sokoban.env import SokobanEnvReil
 from datasets import Dataset
 from pprint import pprint
 qwen_response_template = """\

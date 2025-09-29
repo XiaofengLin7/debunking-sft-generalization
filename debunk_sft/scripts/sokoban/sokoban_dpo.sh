@@ -12,7 +12,7 @@ DATA_DIR="./data/sokoban_one_horizon_large_envs"
 BASE_MODEL="YOUR_BASE_MODEL"
 N_GPUS=4
 EXPERIMENT_NAME="pretrained_il_sokoban_dpo_1.5b"
-accelerate launch --config_file reil/trainer/config/fsdp.yaml --num_processes $N_GPUS -m reil.trainer.reil_dpo_trainer \
+accelerate launch --config_file debunk_sft/trainer/config/fsdp.yaml --num_processes $N_GPUS -m debunk_sft.trainer.reil_dpo_trainer \
     actor_rollout_ref.model.path=$BASE_MODEL \
     dataset.name=Xiaofeng77/reil_sokoban_preference \
     output_dir=checkpoints/ds310/dpo_model/$EXPERIMENT_NAME \

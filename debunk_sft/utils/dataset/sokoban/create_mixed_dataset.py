@@ -7,7 +7,7 @@ space with a new action space, and maps the responses accordingly.
 import pandas as pd
 import copy
 import re
-from reil.env.sokoban.env import SokobanEnvReil
+from debunk_sft.env.sokoban.env import SokobanEnvReil
 from datasets import Dataset
 import numpy as np
 qwen_response_template = """\

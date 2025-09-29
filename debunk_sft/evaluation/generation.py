@@ -4,8 +4,8 @@ import os
 from datasets import load_dataset
 from tqdm import tqdm
 import json
-from reil.utils.reward_score.sokoban import compute_score_with_action_sequence, compute_score_with_action_sequence_and_diverse_prompt
-from reil.utils.reward_score.gp_l import score_gp_l_wo_sol
+from debunk_sft.utils.reward_score.sokoban import compute_score_with_action_sequence, compute_score_with_action_sequence_and_diverse_prompt
+from debunk_sft.utils.reward_score.gp_l import score_gp_l_wo_sol
 from transformers import AutoTokenizer
 def extract_thought_n_answer(response):
     if "Assistant:" in response:

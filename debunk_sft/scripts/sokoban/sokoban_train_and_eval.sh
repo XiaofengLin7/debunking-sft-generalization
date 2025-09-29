@@ -6,8 +6,7 @@ set -x
 # Training (SFT)
 # ---------------------------
 N_GPUS=4
-DATA_DIR="./data/small_sokoban/sft"
-# BASE_MODEL=YOUR_BASE_MODEL
+DATA_DIR=YOUR_SOKOBAN_DATA_DIR
 BASE_MODEL=YOUR_BASE_MODEL
 LEARNING_RATE=1e-5
 SFT_TYPE="standard" # "aft", "dft", "standard"
@@ -21,7 +20,7 @@ EXPERIMENT_NAME="qwen-2.5-1.5b-non-diverse-cot-sokoban-${SFT_TYPE}-lr-${LEARNING
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 
 torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
-     -m reil.trainer.fsdp_sft_trainer \
+     -m debunk_sft.trainer.fsdp_sft_trainer \
     data.train_files=$DATA_DIR/train.parquet \
     data.val_files=$DATA_DIR/test.parquet \
     data.prompt_key=prompt \
@@ -80,7 +79,7 @@ echo "Project name: $PROJECT_NAME"
 echo "Experiment name: $EVAL_EXPERIMENT_NAME"
 echo "GPUs per node: $EVAL_N_GPUS"
 
-python -m reil.evaluation.eval_ckpts \
+python -m debunk_sft.evaluation.eval_ckpts \
     evaluator.checkpoint_dir=$CHECKPOINT_DIR \
     evaluator.project_name=$PROJECT_NAME \
     evaluator.experiment_name=$EVAL_EXPERIMENT_NAME \
@@ -99,6 +98,6 @@ python -m reil.evaluation.eval_ckpts \
     agent_proxy.max_turn=30 \
     reward_model.reward_manager=complete \
     custom_reward_function.name=compute_score_with_action_sequence \
-    custom_reward_function.path=YOUR_REPO/reil/utils/reward_score/sokoban.py
+    custom_reward_function.path=./debunk_sft/utils/reward_score/sokoban.py
 
 

@@ -11,8 +11,8 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from verl import DataProto
 from verl.workers.rollout.hf_rollout import HFRollout
 from torch import nn
-from reil.trainer.llm_agent.es_manager import EnvStateManager
-from reil.trainer.llm_agent.ctx_manager import NaiveContextManager
+from debunk_sft.trainer.llm_agent.es_manager import EnvStateManager
+from debunk_sft.trainer.llm_agent.ctx_manager import NaiveContextManager
 import time
 from tqdm import tqdm
 from pprint import pprint

@@ -2,8 +2,8 @@ from thirdparty.alfworld.alfworld.agents.environment.alfred_tw_env import Alfred
 from typing import List, Dict, Union
 import yaml
 import os
-from reil.env.alfworld.config import ALFWorldConfig
-from reil.env.utils.prompts import ALFWORLD_INSTRUCTION_PROMPT, templates
+from debunk_sft.env.alfworld.config import ALFWorldConfig
+from debunk_sft.env.utils.prompts import ALFWORLD_INSTRUCTION_PROMPT, templates
 def load_config_file(path):
     assert os.path.exists(path), "Invalid config file"
     with open(path) as reader:

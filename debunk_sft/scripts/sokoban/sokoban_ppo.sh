@@ -21,7 +21,7 @@ ROLLOUT_TP_SIZE=1
 N_GPUS=4
 export VLLM_ATTENTION_BACKEND=XFORMERS
 
-python3 -m reil.trainer.main_ppo \
+python3 -m debunk_sft.trainer.main_ppo \
 data.train_files=$DATA_DIR/train.parquet \
 data.val_files=$DATA_DIR/test.parquet \
 data.train_batch_size=$BATCH_SIZE \
@@ -60,7 +60,7 @@ trainer.default_local_dir=checkpoints/ds310/REIL/${EXPERIMENT_NAME} \
 trainer.total_epochs=2000 \
 trainer.policy_eval=True \
 reward_model.reward_manager=complete \
-custom_reward_function.path=./reil/utils/reward_score/sokoban.py \
+custom_reward_function.path=./debunk_sft/utils/reward_score/sokoban.py \
 es_manager.val.env_groups=512 \
 es_manager.val.group_size=1 \
 es_manager.val.env_configs.tags="['LargerSokoban','SimpleSokoban']" \

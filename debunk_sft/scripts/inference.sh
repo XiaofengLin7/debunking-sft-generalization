@@ -1,8 +1,5 @@
 #!/bin/bash
 
-eval "$(conda shell.bash hook)"
-conda activate reil || exit 1
-
 set -x
 
 
@@ -22,7 +19,7 @@ N_GPUS=1
 export CUDA_VISIBLE_DEVICES=3
 export VLLM_ATTENTION_BACKEND=XFORMERS
 
-python3 -m reil.trainer.main_ppo \
+python3 -m debunk_sft.trainer.main_ppo \
 data.train_files=$DATA_DIR/train.parquet \
 data.val_files=$DATA_DIR/test.parquet \
 data.val_env_files=$DATA_DIR/test_env.parquet \
@@ -63,5 +60,5 @@ trainer.experiment_name=$EXPERIMENT_NAME \
 trainer.total_epochs=500 \
 trainer.is_rl_validation=True \
 reward_model.reward_manager=complete \
-custom_reward_function.path=./reil/utils/reward_score/sokoban.py \
+custom_reward_function.path=./debunk_sft/utils/reward_score/sokoban.py \
 custom_reward_function.name=compute_score_with_action_sequence 2>&1 | tee verl_demo_1.5b.log

@@ -10,7 +10,7 @@ import random
 import numpy as np
 import hydra
 from pprint import pprint
-from reil.env import REGISTERED_ENVS, REGISTERED_ENV_CONFIGS
+from debunk_sft.env import REGISTERED_ENVS, REGISTERED_ENV_CONFIGS
 import os
 from tqdm import tqdm
 import time

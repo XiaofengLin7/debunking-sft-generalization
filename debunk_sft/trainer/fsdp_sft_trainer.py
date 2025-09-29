@@ -56,14 +56,14 @@ from verl.utils.ulysses import (
     ulysses_pad_and_slice_inputs,
 )
 from verl.workers.sharding_manager.fsdp_ulysses import FSDPUlyssesShardingManager
-from reil.utils.dataset.rg_dataset import prepare_reasoning_gym_sft_dataset
-from reil.trainer.llm_agent.agent_proxy import LLMAgentProxy, HFWrapperWg
+from debunk_sft.utils.dataset.rg_dataset import prepare_reasoning_gym_sft_dataset
+from debunk_sft.trainer.llm_agent.agent_proxy import LLMAgentProxy, HFWrapperWg
 from typing import Dict, Any
 from verl import DataProto
 import numpy as np
 from verl.workers.rollout.hf_rollout import HFRollout
 from reasoning_gym.utils import extract_answer
-from reil.trainer.main_ppo import get_custom_reward_fn
+from debunk_sft.trainer.main_ppo import get_custom_reward_fn
 from verl.utils.dataset.rl_dataset import RLHFDataset, collate_fn
 from torchdata.stateful_dataloader import StatefulDataLoader
 
@@ -242,10 +242,10 @@ class FSDPSFTTrainer:
                 from verl.workers.reward_manager import PrimeRewardManager
                 reward_manager_cls = PrimeRewardManager
             elif reward_manager_name == 'complete':
-                from reil.workers.reward_manager import CompleteRewardManager
+                from debunk_sft.workers.reward_manager import CompleteRewardManager
                 reward_manager_cls = CompleteRewardManager
             elif reward_manager_name == 'gp_l':
-                from reil.workers.reward_manager import GPLRewardManager
+                from debunk_sft.workers.reward_manager import GPLRewardManager
                 reward_manager_cls = GPLRewardManager
             else:
                 raise NotImplementedError

@@ -7,7 +7,7 @@ This mirrors the tokenization behavior of `thirdparty/verl/verl/utils/dataset/sf
 - Tokenize both with `add_special_tokens=False`.
 
 Usage:
-  python -m reil.utils.dataset.compute_sft_token_lengths \
+  python -m debunk_sft.utils.dataset.compute_sft_token_lengths \
     --parquet /path/to/data.parquet \
     --tokenizer meta-llama/Meta-Llama-3-8B-Instruct \
     --prompt-key prompt \

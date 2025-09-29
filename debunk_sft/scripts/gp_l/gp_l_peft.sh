@@ -21,7 +21,7 @@ export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 
 
 torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
-     -m reil.trainer.fsdp_sft_trainer \
+     -m debunk_sft.trainer.fsdp_sft_trainer \
     data.train_files=$DATA_DIR/train-10k.parquet \
     data.val_files=$DATA_DIR/test_id.parquet \
     data.prompt_key=question \

@@ -47,7 +47,7 @@ N_GPUS=4
 BATCH_SIZE=256
 export VLLM_USE_V1=1
 
-python3 -m reil.trainer.main_ppo \
+python3 -m debunk_sft.trainer.main_ppo \
 data.type=reasoning_gym \
 +data.reasoning_gym.train.datasets.mini_sudoku.weight=1.0 \
 +data.reasoning_gym.train.datasets.mini_sudoku.config.min_empty=8 \

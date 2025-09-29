@@ -53,9 +53,9 @@ from verl.trainer.ppo.ray_trainer import compute_response_mask
 import torch
 from verl.utils.torch_functional import masked_mean
 from collections import defaultdict
-from reil.utils.dataset.rg_dataset import prepare_reasoning_gym_dataset
+from debunk_sft.utils.dataset.rg_dataset import prepare_reasoning_gym_dataset
 from reasoning_gym.utils import extract_answer
-from reil.utils.reward_score.reward import reward_registry
+from debunk_sft.utils.reward_score.reward import reward_registry
 WorkerType = Type[Worker]
 
 @contextmanager
@@ -148,7 +148,7 @@ class ReilPPOTrainer(RayPPOTrainer):
 
     def init_agent_proxy(self):
         if self.config.trainer.policy_eval and self.config.data.type != 'reasoning_gym':
-            from reil.trainer.llm_agent.agent_proxy import LLMAgentProxy
+            from debunk_sft.trainer.llm_agent.agent_proxy import LLMAgentProxy
             self.agent_proxy = LLMAgentProxy(self.config, self.actor_rollout_wg, self.tokenizer)
 
     def _create_dataloader(self):

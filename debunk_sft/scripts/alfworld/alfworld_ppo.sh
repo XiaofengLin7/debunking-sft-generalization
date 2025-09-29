@@ -22,7 +22,7 @@ N_GPUS=4
 export ALFWORLD_DATA="YOUR_ALFWORLD_DATA"
 export VLLM_ATTENTION_BACKEND=XFORMERS
 
-python3 -m reil.trainer.main_ppo \
+python3 -m debunk_sft.trainer.main_ppo \
 data.train_files=$DATA_DIR/train.parquet \
 data.val_files=$DATA_DIR/test.parquet \
 data.train_batch_size=256 \
@@ -65,5 +65,5 @@ es_manager.val.env_groups=100 \
 es_manager.val.group_size=1 \
 es_manager.val.env_configs.tags=["ALFWorld"] \
 es_manager.val.env_configs.n_groups=[100] \
-custom_reward_function.path=./reil/utils/reward_score/alfworld.py \
+custom_reward_function.path=./debunk_sft/utils/reward_score/alfworld.py \
 custom_reward_function.name=compute_score 2>&1 | tee alfworld_1.5b.log

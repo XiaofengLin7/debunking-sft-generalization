@@ -1,7 +1,7 @@
 import torch
 
 from verl import DataProto
-from reil.utils.reward_score.gp_l import score_gp_l, score_gp_l_wo_sol
+from debunk_sft.utils.reward_score.gp_l import score_gp_l, score_gp_l_wo_sol
 
 class GPLRewardManager():
     """The reward manager for gp-l.

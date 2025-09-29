@@ -18,8 +18,8 @@ from trl.trainer.dpo_trainer import EvalLoopOutput
 from trl.trainer.dpo_trainer import TrainerCallback
 from trl.trainer.dpo_trainer import DataCollator
 import torch
-from reil.trainer.llm_agent.agent_proxy import LLMAgentProxy
-from reil.trainer.llm_agent.agent_proxy import HFWrapperWg
+from debunk_sft.trainer.llm_agent.agent_proxy import LLMAgentProxy
+from debunk_sft.trainer.llm_agent.agent_proxy import HFWrapperWg
 import time
 
 class ReilDPOTrainer(DPOTrainer):

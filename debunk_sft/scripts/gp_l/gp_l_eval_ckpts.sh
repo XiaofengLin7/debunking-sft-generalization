@@ -33,7 +33,7 @@ echo "GPUs per node: $N_GPUS"
 
 
 # Run evaluation
-python -m reil.evaluation.eval_ckpts \
+python -m debunk_sft.evaluation.eval_ckpts \
     +data.val_score_files="$TEST_DATA" \
     data.prompt_key=question \
     +data.chat_template=True \
