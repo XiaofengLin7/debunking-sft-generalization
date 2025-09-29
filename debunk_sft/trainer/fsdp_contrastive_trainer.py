@@ -56,8 +56,8 @@ from verl.utils.ulysses import (
     ulysses_pad_and_slice_inputs,
 )
 from verl.workers.sharding_manager.fsdp_ulysses import FSDPUlyssesShardingManager
-from reil.trainer.llm_agent.agent_proxy import LLMAgentProxy, HFWrapperWg
-from reil.trainer.fsdp_sft_trainer import FSDPSFTTrainer
+from debunk_sft.trainer.llm_agent.agent_proxy import LLMAgentProxy, HFWrapperWg
+from debunk_sft.trainer.fsdp_sft_trainer import FSDPSFTTrainer
 
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv("VERL_SFT_LOGGING_LEVEL", "WARN"))

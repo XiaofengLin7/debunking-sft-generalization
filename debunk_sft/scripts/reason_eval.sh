@@ -3,7 +3,7 @@ FILE_PATH="./results/small_sokoban-train-temp_1.0-top_p_1.0-top_k_-1.jsonl"
 BATCH_SIZE=512
 NUM_GENERATIONS=7
 
-python -m reil.evaluation.reason_eval \
+python -m debunk_sft.evaluation.reason_eval \
     --verifier_path $VERIFIER_PATH \
     --file_path $FILE_PATH \
     --batch_size $BATCH_SIZE \

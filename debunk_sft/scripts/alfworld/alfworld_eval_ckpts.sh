@@ -25,7 +25,7 @@ echo "GPUs per node: $N_GPUS"
 
 
 # Run evaluation
-python -m reil.evaluation.eval_ckpts \
+python -m debunk_sft.evaluation.eval_ckpts \
     evaluator.checkpoint_dir=$CHECKPOINT_DIR \
     evaluator.project_name=$PROJECT_NAME \
     evaluator.experiment_name=$EXPERIMENT_NAME \

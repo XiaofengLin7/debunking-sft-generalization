@@ -9,7 +9,7 @@ NUM_GENERATION=16
 N_GPUS=1
 BATCH_SIZE=256
 CUDA_VISIBLE_DEVICES=0
-python -m reil.evaluation.generation \
+python -m debunk_sft.evaluation.generation \
     --model_path $BASE_MODEL \
     --datasets $DATASETS \
     --output_dir $OUTPUT_DIR \

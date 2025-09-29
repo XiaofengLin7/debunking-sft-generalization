@@ -1,7 +1,7 @@
 import hydra
-from reil.trainer.llm_agent.agent_proxy import VllmWrapperWg, HFWrapperWg, LLMAgentProxy
-from reil.trainer.llm_agent.es_manager import EnvStateManager
-from reil.trainer.llm_agent.ctx_manager import NaiveContextManager
+from debunk_sft.trainer.llm_agent.agent_proxy import VllmWrapperWg, HFWrapperWg, LLMAgentProxy
+from debunk_sft.trainer.llm_agent.es_manager import EnvStateManager
+from debunk_sft.trainer.llm_agent.ctx_manager import NaiveContextManager
 
 from transformers import AutoTokenizer
 import os

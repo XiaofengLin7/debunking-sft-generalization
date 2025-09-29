@@ -13,7 +13,7 @@ from verl import DataProto
 from verl.utils.dataset.rl_dataset import collate_fn
 from transformers import AutoTokenizer
 import hydra
-from reil.env import REGISTERED_ENV_CONFIGS
+from debunk_sft.env import REGISTERED_ENV_CONFIGS
 from tensordict import TensorDict
 
 from dataclasses import asdict

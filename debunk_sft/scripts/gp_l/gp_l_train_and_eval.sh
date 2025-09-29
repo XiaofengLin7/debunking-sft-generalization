@@ -15,7 +15,7 @@ EXPERIMENT_NAME="qwen-2.5-7b-non-diverse-cot-gp-l-lr-${LEARNING_RATE}-$(date +%m
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 
 torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
-     -m reil.trainer.fsdp_sft_trainer \
+     -m debunk_sft.trainer.fsdp_sft_trainer \
     data.train_files=$DATA_DIR/train.parquet \
     data.val_files=$DATA_DIR/test_id.parquet \
     data.prompt_key=question \
@@ -32,14 +32,14 @@ torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
     use_remove_padding=True \
     model.enable_gradient_checkpointing=True \
     trainer.policy_eval=False \
-    trainer.project_name=REIL \
+    trainer.project_name=debunk_sft \
     trainer.experiment_name=$EXPERIMENT_NAME \
-    trainer.default_local_dir=checkpoints/ds543/sft/$EXPERIMENT_NAME \
+    trainer.default_local_dir=checkpoints/debunk_sft/sft/$EXPERIMENT_NAME \
     trainer.logger="['console', 'wandb']" \
     trainer.total_epochs=5 \
     trainer.default_hdfs_dir=null \
     trainer.val_before_train=False \
-    reward_model.reward_manager=gp_l "$@" | tee checkpoints/ds543/sft/${EXPERIMENT_NAME}_train.log
+    reward_model.reward_manager=gp_l "$@" | tee checkpoints/debunk_sft/sft/${EXPERIMENT_NAME}_train.log
 
 # ---------------------------
 # Evaluation
@@ -75,7 +75,7 @@ echo "Project name: $PROJECT_NAME"
 echo "Experiment name: $EVAL_EXPERIMENT_NAME"
 echo "GPUs per node: $EVAL_N_GPUS"
 
-python -m reil.evaluation.eval_ckpts \
+python -m debunk_sft.evaluation.eval_ckpts \
     +data.val_score_files="$TEST_DATA" \
     data.prompt_key=question \
     +data.chat_template=True \

@@ -26,7 +26,7 @@ export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 # export ALFWORLD_DATA="/projectnb/replearn/xfl/Retriever/src/envs/alf_world/data_storage"
 
 torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
-     -m reil.trainer.fsdp_sft_trainer \
+     -m debunk_sft.trainer.fsdp_sft_trainer \
     data.train_files=$DATA_DIR/train.parquet \
     data.val_files=$DATA_DIR/test.parquet \
     data.prompt_key=prompt \

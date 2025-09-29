@@ -2,8 +2,8 @@ from datasets import Dataset
 import os
 import argparse
 import yaml
-from reil.env.alfworld.env import ALFWorldTW, load_config_file
-from reil.env.alfworld.config import ALFWorldConfig
+from debunk_sft.env.alfworld.env import ALFWorldTW, load_config_file
+from debunk_sft.env.alfworld.config import ALFWorldConfig
 
 os.environ['ALFWORLD_DATA'] = "YOUR_ALFWORLD_DATA"
 

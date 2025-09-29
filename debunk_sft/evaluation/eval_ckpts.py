@@ -14,9 +14,9 @@ from enum import Enum
 from verl import DataProto
 from verl.single_controller.ray import RayResourcePool, RayWorkerGroup, RayClassWithInitArgs
 from verl.single_controller.ray.base import create_colocated_worker_cls
-from reil.trainer.llm_agent.agent_proxy import VllmWrapperWg, HFWrapperWg, LLMAgentProxy
-from reil.trainer.llm_agent.es_manager import EnvStateManager
-from reil.trainer.llm_agent.ctx_manager import NaiveContextManager
+from debunk_sft.trainer.llm_agent.agent_proxy import VllmWrapperWg, HFWrapperWg, LLMAgentProxy
+from debunk_sft.trainer.llm_agent.es_manager import EnvStateManager
+from debunk_sft.trainer.llm_agent.ctx_manager import NaiveContextManager
 from verl.utils.checkpoint.checkpoint_manager import find_latest_ckpt_path
 from verl.trainer.ppo.ray_trainer import ResourcePoolManager
 from verl.utils.tracking import Tracking
@@ -26,7 +26,7 @@ from verl.protocol import pad_dataproto_to_divisor, unpad_dataproto
 import torch
 from verl.utils.dataset.rl_dataset import RLHFDataset, collate_fn
 from torchdata.stateful_dataloader import StatefulDataLoader
-from reil.trainer.main_ppo import get_custom_reward_fn
+from debunk_sft.trainer.main_ppo import get_custom_reward_fn
 import numpy as np
 from verl.utils.torch_functional import logprobs_from_logits, masked_mean
 from vllm.distributed.parallel_state import (
@@ -174,10 +174,10 @@ class CheckpointEvaluator:
                 from verl.workers.reward_manager import PrimeRewardManager
                 reward_manager_cls = PrimeRewardManager
             elif reward_manager_name == 'complete':
-                from reil.workers.reward_manager import CompleteRewardManager
+                from debunk_sft.workers.reward_manager import CompleteRewardManager
                 reward_manager_cls = CompleteRewardManager
             elif reward_manager_name == 'gp_l':
-                from reil.workers.reward_manager import GPLRewardManager
+                from debunk_sft.workers.reward_manager import GPLRewardManager
                 reward_manager_cls = GPLRewardManager
             else:
                 raise NotImplementedError

@@ -47,7 +47,7 @@ BATCH_SIZE=256
 # export VLLM_ATTENTION_BACKEND=XFORMERS
 export VLLM_USE_V1=1
 
-python3 -m reil.trainer.main_ppo \
+python3 -m debunk_sft.trainer.main_ppo \
 data.type=reasoning_gym \
 +data.reasoning_gym.train.datasets.countdown.weight=1.0 \
 +data.reasoning_gym.train.datasets.countdown.config.min_numbers=4 \

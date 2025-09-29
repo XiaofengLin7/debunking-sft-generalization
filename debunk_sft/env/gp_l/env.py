@@ -2,10 +2,10 @@ import gymnasium as gym
 import random
 from itertools import permutations, product, chain, zip_longest
 from fractions import Fraction as F
-from reil.env.utils.prompts import Q_GeneralPoint_EQN_L
-from reil.utils.dataset.gp_l.create_test_dataset import card_num_to_str, card_str_to_num
-from reil.utils.reward_score.gp_l import re_match, robust_str_to_list, calculate_rewards, REWARD_FN 
-from reil.env.gp_l.config import GPLEnvConfig
+from debunk_sft.env.utils.prompts import Q_GeneralPoint_EQN_L
+from debunk_sft.utils.dataset.gp_l.create_test_dataset import card_num_to_str, card_str_to_num
+from debunk_sft.utils.reward_score.gp_l import re_match, robust_str_to_list, calculate_rewards, REWARD_FN 
+from debunk_sft.env.gp_l.config import GPLEnvConfig
 
 class GPLEnv(gym.Env):
     def __init__(self, config):

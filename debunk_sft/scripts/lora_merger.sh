@@ -7,7 +7,7 @@ OUTPUT_PATH="./checkpoints/ds543/sft/alfworld-1.5b-sft-qwen-2.5-1.5b-base-lora-3
 
 CUDA_VISIBLE_DEVICES=3
 
-python3 -m reil.utils.models.merge_lora \
+python3 -m debunk_sft.utils.models.merge_lora \
     --base_model_name $BASE_MODEL \
     --lora_model_path $LORA_MODEL \
     --output_path $OUTPUT_PATH \

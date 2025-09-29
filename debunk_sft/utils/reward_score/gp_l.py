@@ -1,6 +1,6 @@
 import re
 import json
-from reil.utils.dataset.gp_l.create_test_dataset import solve_game
+from debunk_sft.utils.dataset.gp_l.create_test_dataset import solve_game
 from collections import Counter
 from typing import Optional
 

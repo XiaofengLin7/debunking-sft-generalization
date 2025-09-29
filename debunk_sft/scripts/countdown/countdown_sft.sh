@@ -16,7 +16,7 @@ EXPERIMENT_NAME="countdown-1.5b-full-sft-lr-${LEARNING_RATE}-$(date +%m-%d)"
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 
 torchrun --standalone --nnodes=1 --nproc_per_node=$N_GPUS \
-     -m reil.trainer.fsdp_sft_trainer \
+     -m debunk_sft.trainer.fsdp_sft_trainer \
     data.type=reasoning_gym \
     +data.reasoning_gym.train.datasets.countdown.weight=1.0 \
     +data.reasoning_gym.train.datasets.countdown.config.min_numbers=4 \

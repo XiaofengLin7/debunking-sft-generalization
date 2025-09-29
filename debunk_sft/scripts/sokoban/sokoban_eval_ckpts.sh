@@ -26,7 +26,7 @@ echo "GPUs per node: $N_GPUS"
 export VLLM_USE_V1=1
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 # Run evaluation
-python -m reil.evaluation.eval_ckpts \
+python -m debunk_sft.evaluation.eval_ckpts \
     evaluator.checkpoint_dir=$CHECKPOINT_DIR \
     evaluator.project_name=$PROJECT_NAME \
     evaluator.experiment_name=$EXPERIMENT_NAME \
@@ -45,5 +45,5 @@ python -m reil.evaluation.eval_ckpts \
     agent_proxy.max_turn=30 \
     reward_model.reward_manager=complete \
     custom_reward_function.name=compute_score_with_action_sequence \
-    custom_reward_function.path=YOUR_REPO/reil/utils/reward_score/sokoban.py  
+    custom_reward_function.path=./debunk_sft/utils/reward_score/sokoban.py  
     
