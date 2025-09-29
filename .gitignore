@@ -7,7 +7,7 @@ verl_demo.log
 __pycache__/
 /wandb/
 /checkpoints/
-/reil/scripts/scc/
+/debunk_sft/scripts/scc/
 /sokoban-rl-exp*
 /*.log
 /tests/
