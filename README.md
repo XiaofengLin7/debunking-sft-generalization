@@ -1,7 +1,7 @@
 # Debunk the Myth of SFT Generalization
 
 <p align="center">
-  <a href="https://arxiv.org/abs/2509.22576">
+  <a href="https://arxiv.org/abs/2510.00237">
     <img src="https://img.shields.io/badge/arXiv-2510.00237-b31b1b?style=flat-square&logo=arxiv" alt="arXiv Paper"></a>
 </p>
 
