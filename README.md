@@ -1,5 +1,12 @@
 # Debunk the Myth of SFT Generalization
+
+<p align="center">
+  <a href="https://arxiv.org/abs/2509.22576">
+    <img src="https://img.shields.io/badge/arXiv-2510.00237-b31b1b?style=flat-square&logo=arxiv" alt="arXiv Paper"></a>
+</p>
+
 SFT can generalize as well as—or better than—RL when trained with the right data.
+
 ## Installation
 ### Prerequisites
 CUDA 12.2 & cuDNN 9.1.0 works, but [official docs](https://verl.readthedocs.io/en/latest/start/install.html) recommends CUDA >= 12.4 & cuDNN >= 9.8.0.
@@ -57,4 +64,15 @@ bash debunk_sft/scripts/sokoban/sokoban_grpo.sh
 For gp
 ```
 bash debunk_sft/scripts/gp_l/gp_l_grpo.sh
+```
+
+## Citation
+If you have an academic use, please cite
+```
+@article{lin2025debunk,
+  title={Debunk the Myth of SFT Generalization},
+  author={Lin, Xiaofeng and Sang, Hejian and Wang, Zhipeng and Zhang, Xuezhou},
+  journal={arXiv preprint arXiv:2510.00237},
+  year={2025}
+}
 ```
