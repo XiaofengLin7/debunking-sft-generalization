@@ -4,21 +4,31 @@ set -x
 export VLLM_USE_V1=1
 export VLLM_WORKER_MULTIPROC_METHOD="spawn"
 # Model and checkpoint settings
-CHECKPOINT_DIR=YOUR_CHECKPOINT_DIR
-# BASE_MODEL=YOUR_BASE_MODEL
-BASE_MODEL=YOUR_BASE_MODEL
+CHECKPOINT_DIR=/usr3/graduate/xfl/lab/REIL/checkpoints/ds310/sft/qwen-2.5-7b-non-diverse-answer-only-gp-l-lr-1e-5-09-19
+BASE_MODEL=/usr3/graduate/xfl/lab/REIL/models/rlft/models--Qwen--Qwen2.5-7B/snapshots/d149729398750b98c0af14eb82c78cfe92750796
 CHECKPOINT_NAME=$(basename $CHECKPOINT_DIR)  # Extract the last segment of the path
 PROJECT_NAME="REIL"      # Project name for logging
 EXPERIMENT_NAME="eval_${CHECKPOINT_NAME}"    # Experiment name for logging
-test_5cards_data_path=YOUR_DATA
-test_fake_data_path=YOUR_DATA
-test_large_card_data_path=YOUR_DATA
-test_face_card_as_regular_data_path=YOUR_DATA
-test_all_12_data_path=YOUR_DATA
-test_id_data_path=YOUR_DATA
-test_all_5_data_path=YOUR_DATA
-test_all_7_data_path=YOUR_DATA
-test_all_5_fake_data_path=YOUR_DATA
+
+# test data can be drawn from the test split of general points rl dataset
+# test_5cards_data_path=YOUR_DATA
+# test_fake_data_path=YOUR_DATA
+# test_large_card_data_path=YOUR_DATA
+# test_face_card_as_regular_data_path=YOUR_DATA
+# test_all_12_data_path=YOUR_DATA
+# test_id_data_path=YOUR_DATA
+# test_all_5_data_path=YOUR_DATA
+# test_all_7_data_path=YOUR_DATA
+# test_all_5_fake_data_path=YOUR_DATA
+test_5cards_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_5cards.parquet
+test_fake_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_fake.parquet
+test_large_card_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_large.parquet
+test_face_card_as_regular_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_face_card_as_regular.parquet
+test_all_12_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_all_12.parquet
+test_id_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_id.parquet
+test_all_5_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_all_5.parquet
+test_all_7_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_all_7.parquet
+test_all_5_fake_data_path=/usr3/graduate/xfl/lab/REIL/data/gp-l-only/20k-mixed/rl/test_all_5_fake.parquet
 TEST_DATA="['${test_5cards_data_path}', '${test_fake_data_path}', '${test_large_card_data_path}', '${test_face_card_as_regular_data_path}', '${test_all_12_data_path}', '${test_id_data_path}', '${test_all_5_data_path}', '${test_all_7_data_path}', '${test_all_5_fake_data_path}']"
 # Evaluation settings
 N_GPUS=4                      # Number of GPUs per node
