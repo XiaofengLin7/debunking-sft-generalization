@@ -193,11 +193,103 @@ class DiversifierAgent:
 class VerifierAgent:
     """LLM-backed judge that decides CORRECT/INCORRECT based on the solver's answer."""
 
-    def __init__(self, model: str):
+    def __init__(self, model: str, passes: int = 3):
+        if passes < 1:
+            raise ValueError("VerifierAgent requires at least one pass.")
         self.model = model
+        self.passes = passes
         self.client = _ensure_openai_client()
 
     def verify(
+        self,
+        original_problem: str,
+        original_solution: str,
+        diversification: Diversification,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+    ) -> Tuple[str, Verification]:
+        pass_records: List[Dict[str, Any]] = []
+        for pass_idx in range(self.passes):
+            try:
+                content, verification = self._single_pass_verify(
+                    original_problem=original_problem,
+                    original_solution=original_solution,
+                    diversification=diversification,
+                    max_retries=max_retries,
+                )
+            except Exception as exc:
+                error_reason = (
+                    f"Verifier pass {pass_idx + 1} error: {type(exc).__name__}: {exc}"
+                )
+                content = error_reason
+                verification = Verification(
+                    verdict="fail",
+                    reason=error_reason,
+                    consistency_checks={},
+                )
+            pass_records.append(
+                {
+                    "pass_index": pass_idx,
+                    "raw_response": content,
+                    "verification": verification,
+                }
+            )
+
+        correct_votes = sum(
+            1 for record in pass_records if record["verification"].verdict == "pass"
+        )
+        incorrect_votes = len(pass_records) - correct_votes
+        final_verdict = "pass" if correct_votes > incorrect_votes else "fail"
+
+        representative_reason = next(
+            (
+                record["verification"].reason
+                for record in pass_records
+                if record["verification"].verdict == final_verdict
+                and record["verification"].reason
+            ),
+            "",
+        )
+        majority_text = (
+            f"Majority vote across {len(pass_records)} verifier passes: "
+            f"{correct_votes} correct vs {incorrect_votes} incorrect. "
+        )
+        final_reason = (
+            majority_text + f"Representative reasoning: {representative_reason}"
+            if representative_reason
+            else majority_text.rstrip()
+        )
+
+        consistency_checks = {
+            "vote_summary": {
+                "total_passes": len(pass_records),
+                "correct_votes": correct_votes,
+                "incorrect_votes": incorrect_votes,
+                "decision_rule": "strict majority (ties fail)",
+            },
+            "passes": [
+                {
+                    "pass_index": record["pass_index"],
+                    "verdict": record["verification"].verdict,
+                    "reason": record["verification"].reason,
+                    "raw_response": record["raw_response"],
+                }
+                for record in pass_records
+            ],
+        }
+
+        aggregated_raw_response = "\n\n-----\n".join(
+            f"Verifier pass {record['pass_index'] + 1}:\n{record['raw_response']}"
+            for record in pass_records
+        )
+
+        verification = Verification(
+            verdict=final_verdict,
+            reason=final_reason,
+            consistency_checks=consistency_checks,
+        )
+        return aggregated_raw_response, verification
+
+    def _single_pass_verify(
         self,
         original_problem: str,
         original_solution: str,
@@ -364,6 +456,7 @@ def diversify_math_dataset(
     seed: int,
     output_path: str,
     include_failed: bool = False,
+    verifier_passes: int = 3,
 ) -> Tuple[int, int]:
     """
     Run the diversification pipeline and write results as JSONL.
@@ -374,14 +467,10 @@ def diversify_math_dataset(
     random.seed(seed)
 
     diversifier = DiversifierAgent(model=model_diversifier)
-    verifier = VerifierAgent(model=model_verifier)
+    verifier = VerifierAgent(model=model_verifier, passes=verifier_passes)
     solver = SolverAgent(model=model_solver)
 
-    subsets = (
-        MATH_SUBSETS
-        if subset is None or subset.lower() == "all"
-        else [subset]
-    )
+    subsets = MATH_SUBSETS if subset is None or subset.lower() == "all" else [subset]
 
     attempted = 0
     accepted = 0
@@ -485,6 +574,12 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
         help="OpenAI chat model for verification (default: o3-mini)",
     )
     parser.add_argument(
+        "--verifier-passes",
+        type=int,
+        default=3,
+        help="Number of independent verifier passes for majority vote (default: 3)",
+    )
+    parser.add_argument(
         "--model-solver",
         default="o3",
         help="OpenAI chat model for solving rewritten problems (default: o3)",
@@ -529,6 +624,7 @@ def main(argv: Iterable[str] | None = None) -> None:
     attempted, accepted = diversify_math_dataset(
         model_diversifier=args.model_diversifier,
         model_verifier=args.model_verifier,
+        verifier_passes=args.verifier_passes,
         model_solver=args.model_solver,
         subset=args.subset,
         split=args.split,
