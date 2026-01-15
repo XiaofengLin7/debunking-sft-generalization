@@ -1,4 +1,4 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoProcessor
 import argparse
 
 def main():
@@ -9,11 +9,12 @@ def main():
 
     model = AutoModelForCausalLM.from_pretrained(args.model_name, cache_dir=args.save_dir)
     tokenizer = AutoTokenizer.from_pretrained(args.model_name, cache_dir=args.save_dir)
-
+    processor = AutoProcessor.from_pretrained(args.model_name, cache_dir=args.save_dir)
+    
     print(f"You saved the model {args.model_name} in {args.save_dir}")
 
 
-    
+
 
 
 if __name__ == "__main__":

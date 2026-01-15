@@ -17,3 +17,6 @@ exp-*
 /results/
 .nfs*
 /mlruns/
+*.json
+*.jsonl
+/debunk_sft/utils/dataset/math/create_dataset.py
