@@ -138,9 +138,13 @@ class CheckpointEvaluator:
     def __init__(self, config):
         self.config = config
         self.tokenizer = hf_tokenizer(config.actor_rollout_ref.model.path, trust_remote_code=True)
-        # Initialize environment and context managers
-        self.es_manager = EnvStateManager(config, mode="val")
-        self.ctx_manager = NaiveContextManager(config, self.tokenizer, processor=None, mode="val")
+        # Initialize environment and context managers only for multi-turn eval
+        self.es_manager = None
+        self.ctx_manager = None
+        init_envs = self.config.evaluator.get('init_envs', True)
+        if init_envs:
+            self.es_manager = EnvStateManager(config, mode="val")
+            self.ctx_manager = NaiveContextManager(config, self.tokenizer, processor=None, mode="val")
         # Initialize logger
         self.logger = Tracking(
             project_name=config.evaluator.project_name,

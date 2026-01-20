@@ -12,3 +12,6 @@
 [submodule "thirdparty/trl"]
 	path = thirdparty/trl
 	url = https://github.com/huggingface/trl.git
+[submodule "thirdparty/MATH-Perturb"]
+	path = thirdparty/MATH-Perturb
+	url = https://github.com/Kaffaljidhmah2/MATH-Perturb

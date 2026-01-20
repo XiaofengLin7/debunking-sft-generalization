@@ -39,6 +39,7 @@ evaluator:
   is_lora: False
   resume_step: 0
   seed: 42
+  init_envs: True
 
 actor_rollout_ref:
   model:
